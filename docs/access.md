@@ -30,15 +30,29 @@ sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-clien
   links (role, 1, 7 or 30 days), shown once with a copy button; the open invites, with Revoke. A member sees only
   **Leave this church…**. A church always keeps an admin: the last one cannot step down, leave or be removed.
 - **Invite links** are single use and kept only as a hash, in `<church>/invites.json`. Opening one logs in and asks
-  to accept; accepting makes that login a member (an admin invite makes a member an admin). They can also be made
-  where the studio runs, which is how to get back in when a church has lost its admins:
+  to accept; accepting makes that login a member (an admin invite makes a member an admin).
+- **Churches** are added by the site administrator, with `sermon-studio admin` (below), not in the studio.
 
-  ```bash
-  sermon-studio admin invite norkirken-melhus --role admin --data-dir /data --public-url https://sermons.example.org/
-  # on Kubernetes: kubectl exec deploy/sermon-studio -- sermon-studio admin invite …
-  ```
+## The site administrator: `sermon-studio admin`
 
-- With the login on, churches are not added in the studio.
+Run where the studio runs, with the same data dir (`--data-dir`, or `SERMON_STUDIO_DATA_DIR`, which the container
+already has when it is set that way). The commands talk to the running studio over its admin socket,
+`<data-dir>/.admin.sock` (only the studio's own user can use it, never the network), so a change takes effect at once,
+with the same checks as in the studio. `--json` prints JSON for scripts.
+
+```bash
+sermon-studio admin church create norkirken-melhus --name "Norkirken Melhus"   # prints an invite for its first admin
+sermon-studio admin church list
+sermon-studio admin church rename norkirken-melhus "Norkirken"
+sermon-studio admin members norkirken-melhus
+sermon-studio admin invite norkirken-melhus --role admin --expires 7d   # also how to get back in when a church has lost its admins
+sermon-studio admin remove norkirken-melhus <id or email>               # the id is in `admin members`
+# on Kubernetes: kubectl exec deploy/sermon-studio -- sermon-studio admin church list
+```
+
+A church always keeps an admin: removing its last one is refused (invite a new admin first). Only one studio runs on a
+data dir: a second one finds the first's socket and refuses to start. Without the login there are no members or
+invites, and churches are also added in the studio.
 - **Log out** ends the studio's session. The provider's own login is left as it is: on a shared computer, log out
   there too.
 
