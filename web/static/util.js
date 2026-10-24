@@ -182,3 +182,23 @@ export function debounce(fn, ms) {
   later.cancel = () => clearTimeout(timer); // forget a call that is waiting
   return later;
 }
+
+// One player at a time: a player that starts pauses the others. The <audio> and <video> in the page are heard
+// by their play event (caught on its way down, as it does not bubble); a player that is not in the page (the
+// editor's waveform) is added with soloPlayer, which returns how to take it out again.
+const loosePlayers = new Set();
+function pauseOthers(playing) {
+  for (const m of [...document.querySelectorAll('audio, video'), ...loosePlayers]) {
+    if (m !== playing && !m.paused) m.pause();
+  }
+}
+document.addEventListener('play', (e) => pauseOthers(e.target), true);
+export function soloPlayer(media) {
+  const onPlay = () => pauseOthers(media);
+  loosePlayers.add(media);
+  media.addEventListener('play', onPlay);
+  return () => {
+    loosePlayers.delete(media);
+    media.removeEventListener('play', onPlay);
+  };
+}

@@ -1501,3 +1501,22 @@ test('processing: the choices are kept with the sermon, and a sample can be hear
   await page.locator('input[name=roomSound]').fill('0');
   await page.locator('input[name=noiseReduction]').fill('6');
 });
+
+test('one player at a time: one that starts pauses the others, the waveform too', async ({ page }) => {
+  await openEditor(page, '2026/2026-06-14');
+  // Two more players in the page, with the same sound.
+  await page.evaluate(() => {
+    const src = window.__editor.ws.getMediaElement().src;
+    for (const id of ['p-a', 'p-b']) document.querySelector('main').append(Object.assign(document.createElement('audio'), { id, src, loop: true }));
+  });
+  const state = () => page.evaluate(() => [window.__editor.ws.isPlaying(), ...['p-a', 'p-b'].map((id) => !document.getElementById(id).paused)]);
+  await page.evaluate(() => window.__editor.ws.play());
+  await expect.poll(state).toEqual([true, false, false]);
+  await page.evaluate(() => document.getElementById('p-a').play());
+  await expect.poll(state).toEqual([false, true, false]);
+  await page.evaluate(() => document.getElementById('p-b').play());
+  await expect.poll(state).toEqual([false, false, true]);
+  await page.evaluate(() => window.__editor.ws.play());
+  await expect.poll(state).toEqual([true, false, false]);
+  await page.evaluate(() => window.__editor.ws.pause());
+});
