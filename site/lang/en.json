@@ -98,7 +98,7 @@
   "privacy.title": "Privacy: Sermon Studio",
   "privacy.description": "What Sermon Studio stores, where, who processes it, how long it is kept, and how to have it deleted.",
   "privacy.h1": "Privacy",
-  "privacy.lede": "What the hosted studio at app.sermon-studio.app stores, where, who processes it, how long it is kept, and how to have it deleted. If you run Sermon Studio yourself, or use the desktop app, everything stays on your own server or computer, and none of this reaches us.",
+  "privacy.lede": "What the hosted studio at my.sermon-studio.app stores, where, who processes it, how long it is kept, and how to have it deleted. If you run Sermon Studio yourself, or use the desktop app, everything stays on your own server or computer, and none of this reaches us.",
   "privacy.site.h2": "This website",
   "privacy.site.p": "This website sets no cookies and has no tracking, analytics or adverts. It loads nothing from other sites. Your browser remembers the language you choose here, and nothing else. The website is served by Cloudflare, which sees your IP address in order to deliver the pages.",
   "privacy.stored.h2": "What the studio stores",

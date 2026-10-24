@@ -54,14 +54,14 @@ Each can have a label, which shows on the waveform.
 
 ## In detail
 
-- **Recordings** (the one page, `#/<church>`): the upload, a search field, **Newly imported** (arrived in the last 7 days, newest
+- **Recordings** (the one page, the church's address): the upload, a search field, **Newly imported** (arrived in the last 7 days, newest
   first, with when; folded at first), then the years, each folded open on its own (the newest at first; the browser remembers). A row opens the
   recording's details in place. **Labels** are your own tags on a recording ("Easter", "guest speaker": up to 10, 30 characters; added with the + button, Enter or a comma, or picked from the labels already in use;
   removed with the × on the pill, kept as `labels` in `recording.json`, not written into the files). The search matches name, date and labels
   in every year at once (all words must match); a label on a row searches for it. A sermon's details have its player and
   what it plays (*Plays: MP3 · with intro and outro*), and **Download**, which opens its files: each format with its size, or *Make* for one not made yet (from the saved version).
   **Share link** shares the address of one recording (the device's share sheet, or the clipboard),
-  `#/<church>/recording/<path>`, which opens the page with its year and row open and scrolled to, for those who can log in.
+  `…/recordings/<date>-<name>`, which opens the page with its year and row open and scrolled to, for those who can log in.
 - **Editor:** the whole service as a waveform with a minimap overview, like Audacity or
   ocenaudio. The controls are in three groups. **Navigate:** play, jump between silences
   (grey on the waveform), zoom (slider, `+`/`-`, or scroll over the waveform: zooms at the

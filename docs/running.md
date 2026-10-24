@@ -54,10 +54,10 @@ data/norkirken-melhus/
 ```
 
 The folder name is the church's id and, until it is renamed on the Settings page, its name. Add a
-church in the app ("+ Add church…") or just make the folder. The church is the first part of every address
-(`#/<church>` the recordings, `#/<church>/folder/<path>` the editor, `#/<church>/settings` the settings), so a link opens
-that church whatever the browser used last. The ids `folder`, `folders`, `recording`, `recordings`, `settings`, `upload` and
-`shares` are reserved for that. A `church.json` that cannot be read stops
+church in the app ("+ Add church…") or just make the folder. Every address starts with the church
+(`c/<church>/` the recordings, `c/<church>/recordings/<recording>/edit` the editor, `c/<church>/settings` the
+settings), so a link opens that church whatever the browser used last. With church hosts (docs/access.md) the
+church is the host's instead, and the addresses start after it. A `church.json` that cannot be read stops
 the server from starting rather than being overwritten.
 
 **Logo:** *Settings → Church → Upload logo…* (PNG, JPEG, WebP or SVG, up to 1 MB) puts the church's own

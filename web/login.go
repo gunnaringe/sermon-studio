@@ -387,7 +387,7 @@ func cmpOr(a, b string) string {
 // first; then, when the provider has an end_session_endpoint (OpenID Connect
 // RP-Initiated Logout), the browser goes there to end the login at the
 // provider too, which sends it back to auth/logout/callback. Without one, or
-// when the provider cannot be reached, it goes straight to loggedout.html.
+// when the provider cannot be reached, it goes straight to logged-out.
 func (au *auth) handleLogout(w http.ResponseWriter, r *http.Request) {
 	var idToken string
 	if c, err := r.Cookie(sessionCookie); err == nil {
@@ -406,7 +406,7 @@ func (au *auth) handleLogout(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, end, http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, au.url("loggedout.html"), http.StatusSeeOther)
+	http.Redirect(w, r, au.url("logged-out"), http.StatusSeeOther)
 }
 
 // endSession is the provider's address that ends the login there, or "" when
@@ -451,23 +451,23 @@ func (au *auth) handleLogoutCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil || c.Value == "" || r.URL.Query().Get("state") != c.Value {
 		au.log.Printf("login: the logout came back without its state")
 	}
-	http.Redirect(w, r, au.url("loggedout.html"), http.StatusSeeOther)
+	http.Redirect(w, r, au.url("logged-out"), http.StatusSeeOther)
 }
 
 // fail logs why a login did not work and shows the page that says so.
 func (au *auth) fail(w http.ResponseWriter, r *http.Request, err error) {
 	au.log.Printf("login: %v", err)
-	http.Redirect(w, r, au.url("loggedout.html")+"?failed", http.StatusSeeOther)
+	http.Redirect(w, r, au.url("logged-out")+"?failed", http.StatusSeeOther)
 }
 
 // publicPath reports the paths anyone may fetch without a session: the login
-// itself, the health check, and the static files but the studio's page (no
-// studio data is in them).
+// itself, the health check, the invite and logged-out pages, and the static
+// files (no studio data is in them), but not the studio's pages.
 func publicPath(rel string) bool {
 	switch {
 	case strings.HasPrefix(rel, "auth/"), rel == "healthz":
 		return true
-	case rel == "" || rel == "index.html" || strings.HasPrefix(rel, "api/"):
+	case IsPage("/"+rel) || rel == "churches" || strings.HasPrefix(rel, "api/"):
 		return false
 	}
 	return true

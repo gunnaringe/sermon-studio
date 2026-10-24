@@ -198,8 +198,8 @@ func TestLoginFlow(t *testing.T) {
 		}
 	}
 	// The page that says you are logged out is there without one.
-	if w := l.do("GET", "/loggedout.html", ""); w.Code != http.StatusOK {
-		t.Errorf("loggedout.html: %d", w.Code)
+	if w := l.do("GET", "/logged-out", ""); w.Code != http.StatusOK {
+		t.Errorf("logged-out: %d", w.Code)
 	}
 	// So is the health check.
 	if w := l.do("GET", "/healthz", ""); w.Code != http.StatusOK {
@@ -244,7 +244,7 @@ func TestLoginFlow(t *testing.T) {
 
 	// Logging out ends it, there and then.
 	w = l.do("POST", "/auth/logout", "", c)
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "https://studio.example/loggedout.html" || cookieOf(w, sessionCookie).MaxAge >= 0 {
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "https://studio.example/logged-out" || cookieOf(w, sessionCookie).MaxAge >= 0 {
 		t.Errorf("logout: %d %s", w.Code, w.Header().Get("Location"))
 	}
 	if w := l.do("GET", "/api/session", "", c); w.Code != http.StatusUnauthorized {
@@ -292,7 +292,7 @@ func TestLogoutAtProvider(t *testing.T) {
 		t.Fatalf("end session URL: %s, state cookie %+v", to, state)
 	}
 
-	// Back from the provider: to loggedout.html, with the state cookie cleared;
+	// Back from the provider: to logged-out, with the state cookie cleared;
 	// a wrong or missing state goes there too (the session is gone already).
 	for name, req := range map[string]struct {
 		state  string
@@ -307,7 +307,7 @@ func TestLogoutAtProvider(t *testing.T) {
 			cookies = append(cookies, req.cookie)
 		}
 		w := l.do("GET", "/auth/logout/callback?state="+url.QueryEscape(req.state), "", cookies...)
-		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "https://studio.example/loggedout.html" ||
+		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "https://studio.example/logged-out" ||
 			cookieOf(w, logoutCookie) == nil || cookieOf(w, logoutCookie).MaxAge >= 0 || cookieOf(w, sessionCookie) != nil {
 			t.Errorf("%s: %d %s", name, w.Code, w.Header().Get("Location"))
 		}
@@ -316,7 +316,7 @@ func TestLogoutAtProvider(t *testing.T) {
 
 // Without an end_session_endpoint, without a kept ID token (a session from
 // before they were kept), or with the provider down, logging out goes straight
-// to loggedout.html, as before.
+// to logged-out, as before.
 func TestLogoutWithoutProvider(t *testing.T) {
 	check := func(t *testing.T, l *loginApp, h http.Handler, c *http.Cookie) {
 		t.Helper()
@@ -324,7 +324,7 @@ func TestLogoutWithoutProvider(t *testing.T) {
 		r.AddCookie(c)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
-		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "https://studio.example/loggedout.html" || cookieOf(w, logoutCookie) != nil {
+		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "https://studio.example/logged-out" || cookieOf(w, logoutCookie) != nil {
 			t.Errorf("logout: %d %s", w.Code, w.Header().Get("Location"))
 		}
 		l.sessionGone(c)
@@ -381,7 +381,7 @@ func TestLoginRefusesBadTokens(t *testing.T) {
 			l := newLoginApp(t)
 			setup(l.prov)
 			w := l.login("/", "good-code")
-			if cookieOf(w, sessionCookie) != nil || w.Header().Get("Location") != "https://studio.example/loggedout.html?failed" {
+			if cookieOf(w, sessionCookie) != nil || w.Header().Get("Location") != "https://studio.example/logged-out?failed" {
 				t.Errorf("%d %s", w.Code, w.Header().Get("Location"))
 			}
 		})
@@ -415,13 +415,13 @@ func TestLoginRefusesBadTokens(t *testing.T) {
 func TestLoginNextStaysHere(t *testing.T) {
 	l := newLoginApp(t)
 	for next, want := range map[string]string{
-		"/invite.html#kirke-a.x": "/invite.html#kirke-a.x",
-		"https://evil.example/":  "/",
-		"//evil.example/":        "/",
-		"/\\evil.example":        "/",
-		"/\t/evil.example":       "/",
-		"/%09/evil.example":      "/%09/evil.example",
-		"":                       "/",
+		"/invite#kirke-a.x":     "/invite#kirke-a.x",
+		"https://evil.example/": "/",
+		"//evil.example/":       "/",
+		"/\\evil.example":       "/",
+		"/\t/evil.example":      "/",
+		"/%09/evil.example":     "/%09/evil.example",
+		"":                      "/",
 	} {
 		if got := l.login(next, "good-code").Header().Get("Location"); got != want {
 			t.Errorf("next %q: went to %q, want %q", next, got, want)

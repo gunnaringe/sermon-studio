@@ -45,7 +45,7 @@ With `--church-host '{church}.sermon-studio.app'` every church has a host of its
 
 ```bash
 sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-client-id <id> \
-  --oidc-client-secret-file /run/secrets/oidc --public-url https://app.sermon-studio.app/ \
+  --oidc-client-secret-file /run/secrets/oidc --public-url https://my.sermon-studio.app/ \
   --cookie-domain sermon-studio.app --church-host '{church}.sermon-studio.app'
 ```
 
@@ -56,10 +56,10 @@ sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-clien
   comes back to where it was; the way back may only be the login host or a church host, with the same scheme and port.
 - **Log out** on any host ends the session everywhere and comes back through the login host, so the provider still
   has exactly two addresses: `<public-url>/auth/callback` and `<public-url>/auth/logout/callback`.
-- **The login host** serves the login, invite links (`<public-url>/invite.html#…`, which take you to the church's
-  host) and the church picker (`/`, which goes straight to your church when you have one).
-- The church stays in the page's address (`#/norkirken-melhus/…`); a link that names another church goes to that
-  church's host.
+- **The login host** serves the login, invite links (`<public-url>/invite#…`, which take you to the church's
+  host) and the church picker (`/churches`, also `/`, which goes straight to your church when you have one).
+- The church is known from the host, so it is not in the page's address (`norkirken-melhus.sermon-studio.app/settings`);
+  an address with `c/<church>/` in it goes to that church's host.
 - Church ids the site's own hosts may have are reserved: `app`, `share`, `www`, `id`, `api`, `auth`, `login`, `mail`,
   `admin`, `static`, `status`, `docs`, `help`.
 - The public share page keeps its own host (`--share-listen`, `--share-url`, e.g. `share.sermon-studio.app`).

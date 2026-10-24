@@ -23,9 +23,32 @@ export function setWheelZoomNeedsKey(on) {
   else localStorage.removeItem('wheelZoom');
 }
 
-// href is the address of a page of the current church: '#/<church>/<section>/<path>'.
+// ROOT is the studio's root, where index.html is: the page's <base> (set by the server, relative, so the studio
+// also works under a sub-path), made absolute here so it stays right as the router changes the address.
+export const ROOT = new URL('.', document.baseURI).href;
+document.querySelector('base')?.setAttribute('href', ROOT);
+
+// With church hosts each church is at its own address, and the church is known from the host; without them
+// the church is in the address, after c/.
+let hosted = false;
+export function setHosted(on) { hosted = on; }
+
+// churchURL is the address of a church's page: its own host, or c/<church>/.
+export const churchURL = (c) => c.url || ROOT + 'c/' + encodeURIComponent(c.id) + '/';
+
+// href is the address of a page of the current church: <root>[c/<church>/]<section>[/<path>]. The path is
+// one or more parts with / between them (a slug, then edit).
 export function href(section = '', path = '') {
-  return '#/' + tenant + (section ? '/' + section : '') + (path ? '/' + path : '');
+  return ROOT + (hosted ? '' : 'c/' + encodeURIComponent(tenant) + '/') + section +
+    (path ? '/' + path.split('/').map(encodeURIComponent).join('/') : '');
+}
+
+// go shows another page of the studio: a new address in the history (or this one changed, with replace),
+// then the router draws it (popstate is how app.js hears of it).
+export function go(url, replace = false) {
+  if (replace) history.replaceState(null, '', url);
+  else if (url !== location.href) history.pushState(null, '', url);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
 // forTenant adds the church to a URL that is not fetched through api():

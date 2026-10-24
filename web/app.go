@@ -45,7 +45,7 @@ type AppConfig struct {
 	OIDC *OIDCOptions
 	// ChurchHost gives every church a host of its own, "{church}.example.org"
 	// (hosts.go); the login is then on the public URL's host. "" = the
-	// church is in the address (#/<church>/…), on one host.
+	// church is in the address (c/<church>/…), on one host.
 	ChurchHost string
 	// Share turns on shares (codes for the public upload page); nil = off.
 	Share *ShareOptions
@@ -357,7 +357,7 @@ func (a *App) tenantFor(r *http.Request) (*tenant, bool) {
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	sub, _ := fs.Sub(static, "static")
-	mux.Handle("GET /", http.FileServerFS(sub))
+	mux.Handle("GET /", servePages(sub))
 	mux.HandleFunc("GET /api/session", a.handleSession)
 	// healthz is for the health checks (Kubernetes): open, also with the login.
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })

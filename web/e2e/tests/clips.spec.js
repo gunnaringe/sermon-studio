@@ -1,5 +1,6 @@
 // The church's intro and outro clips, in the settings: upload, defaults, archive, delete with the warning.
 import { test, expect } from '@playwright/test';
+import { editPage } from './pages.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -20,7 +21,7 @@ function wav(seconds, amp = 0.3, rate = 8000) {
 }
 
 test('settings: intro and outro clips, the defaults, archive and delete', async ({ page }) => {
-  await page.goto('#/settings');
+  await page.goto('settings');
   const box = page.locator('section#clips');
   await expect(box.getByRole('heading', { name: 'Intro and outro' })).toBeVisible();
   await expect(box).toContainText('No clips yet.');
@@ -95,7 +96,7 @@ test('editor: the intro and outro of a sermon, its own clip, and a deleted one',
   const draft = () => (fs.existsSync(path.join(dir, 'draft.json')) ? JSON.parse(fs.readFileSync(path.join(dir, 'draft.json'), 'utf8')).sermon : {});
   fs.mkdirSync(dir, { recursive: true });
   fs.copyFileSync(path.join(DATA, 'upload.flac'), path.join(dir, '2027-06-06_raw.flac'));
-  await page.goto('#/folder/' + folder);
+  await page.goto(editPage(folder));
   await page.waitForFunction(() => window.__editor && window.__editor.ws.getDuration() > 0, null, { timeout: 60_000 });
   await page.evaluate(() => { if (!window.__editor.sections.length) window.__editor.addSection(3, 25); });
 

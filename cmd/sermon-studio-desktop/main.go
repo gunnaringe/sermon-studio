@@ -127,7 +127,7 @@ func run() error {
 	url := desktop.URL(settings.Port)
 	logger.Printf("sermon-studio-desktop %s at %s (data folder %q, ffmpeg %s)", version, url, settings.DataDir, bin)
 	if first {
-		url += "#/settings" // to give the church its name
+		url += "settings" // to give the church its name
 	}
 	if !*noWindow {
 		if err := desktop.OpenWindow(url); err != nil {

@@ -42,7 +42,7 @@ function arrived(when) {
 const yearOf = (e) => e.name.slice(0, 4);
 
 // recordingsView fills view with the page: top (the upload) first, then the
-// search and the list. It returns { open(path) }, which opens one recording
+// search and the list. It returns { open(slug) }, which opens one recording
 // (what a link to it does). emptyNote is shown when there is none yet.
 export async function recordingsView(view, { top, church, emptyNote, shares = false }) {
   const data = await api('GET', 'api/recordings');
@@ -174,8 +174,10 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
 
   return {
     // open shows one recording: its year open, its row expanded, scrolled to.
-    open(path) {
-      const e = all.find((x) => x.path === path);
+    // A slug no recording has (an old link, from before a rename) opens the only recording of its date.
+    open(slug) {
+      const ofDate = all.filter((x) => x.slug.startsWith(slug.slice(0, 10)));
+      const e = all.find((x) => x.slug === slug) || (ofDate.length === 1 ? ofDate[0] : null);
       note.textContent = e ? '' : t('That recording was not found.');
       if (!e) return;
       if (query) setQuery('');
@@ -184,7 +186,7 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
         remember();
         render();
       }
-      const r = rows.get(path);
+      const r = rows.get(e.path);
       if (!r) return;
       r.flip(true);
       r.tr.scrollIntoView({ block: 'center' });

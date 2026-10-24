@@ -1,6 +1,7 @@
 // The studio on a phone: every page fits the screen (no sideways scrolling),
 // and the editor can be used by touch.
 import { test, expect } from '@playwright/test';
+import { editPage } from './pages.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -26,13 +27,13 @@ test('phone: every page fits the screen', async ({ page }) => {
   await page.locator('.upload input[type=file]').setInputFiles(path.join(DATA, 'upload.flac'));
   await expect(page.getByRole('button', { name: 'Upload' })).toBeVisible();
   await fits(page, 'upload');
-  await page.goto('#/settings');
+  await page.goto('settings');
   await expect(page.getByRole('heading', { name: 'Default tags' })).toBeVisible();
   await fits(page, 'settings');
-  await page.goto('#/shares');
+  await page.goto('shares');
   await expect(page.getByRole('heading', { name: 'Shares' })).toBeVisible();
   await fits(page, 'shares');
-  await page.goto('#/about');
+  await page.goto('about');
   await expect(page.getByRole('heading', { name: 'About Sermon Studio' })).toBeVisible();
   await fits(page, 'about');
 });
@@ -60,7 +61,7 @@ test('phone: the editor by touch', async ({ page }) => {
     const st = JSON.parse(fs.readFileSync(file, 'utf8'));
     fs.writeFileSync(file, JSON.stringify({ ...st, saved: null, savedAt: undefined }));
   }
-  await page.goto('#/folder/2026/2026-10-04');
+  await page.goto(editPage('2026/2026-10-04'));
   await page.waitForFunction(() => window.__editor && window.__editor.ws.getDuration() > 0, null, { timeout: 60_000 });
   // The editor starts with the sermon set to the whole recording (it has no silence at the ends).
   await expect(page.getByText('The sermon is set to the recording without the silence')).toBeVisible({ timeout: 60_000 });

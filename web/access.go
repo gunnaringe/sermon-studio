@@ -10,15 +10,11 @@ import (
 // sees every church and can add churches (the desktop app, a trusted network).
 
 // reservedID reports ids that cannot be churches: "default" is the church
-// of --root, and the first words of the page addresses (#/<church>/folder/...;
-// old ones had no church) would be mistaken for a church, nor the site's own
-// host names (hostReserved). Nor can a church have a name Windows keeps for a
-// device (nul).
+// of --root, and the site's own host names (hostReserved). Nor can a church
+// have a name Windows keeps for a device (nul).
 func reservedID(id string) bool {
-	return id == RootTenant || reservedPages[id] || hostReserved[id] || windowsDevice(id)
+	return id == RootTenant || hostReserved[id] || windowsDevice(id)
 }
-
-var reservedPages = map[string]bool{"folder": true, "folders": true, "recording": true, "recordings": true, "settings": true, "upload": true, "shares": true}
 
 // user is who a request is from.
 type user struct {
