@@ -1,7 +1,7 @@
-// An invite link (invite.html#<token>, made with `sermon-studio admin invite`):
+// An invite link (invite#<token>, made with `sermon-studio admin invite`):
 // after the login, it says which church it is for and makes the user a
 // member when they accept (api/invite).
-import { h, toLogin } from './util.js';
+import { h, toLogin, churchURL } from './util.js';
 import { t, tr, lang, LANGS, setLang } from './i18n.js';
 
 const langSelect = document.getElementById('lang');
@@ -31,7 +31,6 @@ async function call(method, url, body) {
   return data;
 }
 
-const studio = (church) => (church.url || './') + '#/' + encodeURIComponent(church.id); // its own address, with church hosts
 
 function show(...children) {
   view.replaceChildren(h('h1', {}, t('Invitation')), ...children);
@@ -58,7 +57,7 @@ async function start() {
   const name = inv.church.name;
   if (inv.member && inv.role !== 'admin') {
     show(h('p', {}, t('You are already a member of {church}.', { church: name })),
-      h('p', {}, h('a', { class: 'button primary', href: studio(inv.church) }, t('Open the studio'))));
+      h('p', {}, h('a', { class: 'button primary', href: churchURL(inv.church) }, t('Open the studio'))));
     return;
   }
   const accept = h('button', { class: 'primary', type: 'button' }, t('Accept'));
@@ -68,7 +67,7 @@ async function start() {
     try {
       const done = await call('POST', 'api/invite', { token });
       history.replaceState(null, '', location.pathname); // the link is used up
-      location.href = studio(done.church);
+      location.href = churchURL(done.church);
     } catch (err) {
       error.textContent = err.message;
       error.hidden = false;

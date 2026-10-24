@@ -50,7 +50,7 @@ const MAX_LABELS = 10;
 // page is on. Deleting is on the edit page.
 export function sermonDetail(entry, ctx = {}) {
   const panel = h('div', { class: 'detail' }, h('p', { class: 'muted' }, 'Loading…'));
-  const editURL = href('folder', entry.path);
+  const editURL = href('recordings', entry.slug + '/edit');
 
   async function show() {
     const info = await api('GET', 'api/folder?path=' + q(entry.path));
@@ -143,7 +143,7 @@ export function sermonDetail(entry, ctx = {}) {
   // copyLink copies the address of this recording: it opens the recordings page at it, in this church, for those
   // with a login. A tick shows for a moment that it was copied.
   function copyLink() {
-    const url = location.origin + location.pathname + href('recording', entry.path);
+    const url = href('recordings', entry.slug);
     const note = h('span', { class: 'muted', role: 'status' });
     const b = iconButton('button', COPY_ICON, t('Copy link'), { name: 'copy-link', onclick: async () => {
       try {

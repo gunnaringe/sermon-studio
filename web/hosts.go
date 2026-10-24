@@ -13,7 +13,7 @@ import (
 // "{church}.sermon-studio.app"): the church is the host's, never the one a
 // request names, and the user must still be one of its members. The login
 // (callbacks, invite links, the church picker) is on the host of the public
-// URL (app.sermon-studio.app), and the session cookie is set on the parent
+// URL (my.sermon-studio.app), and the session cookie is set on the parent
 // domain, so one login covers every church host.
 
 // churchHosts matches a church's host: one label, a church id, before suffix.
@@ -117,17 +117,17 @@ func (a *App) hostGate(next http.Handler) http.Handler {
 			return
 		}
 		if id, ok := a.hostChurch(r); ok {
-			if !a.hasChurch(id) && (r.URL.Path == "/" || r.URL.Path == "/index.html") {
+			if !a.hasChurch(id) && IsPage(r.URL.Path) {
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusNotFound)
-				fmt.Fprintf(w, "No such church: %s.\nYour churches: %s\n", id, a.auth.url("churches.html"))
+				fmt.Fprintf(w, "No such church: %s.\nYour churches: %s\n", id, a.auth.url("churches"))
 				return
 			}
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
-			http.Redirect(w, r, a.auth.url("churches.html"), http.StatusFound)
+		if IsPage(r.URL.Path) {
+			http.Redirect(w, r, a.auth.url("churches"), http.StatusFound)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -148,7 +148,7 @@ func (a *App) hasChurch(id string) bool {
 
 // hostReserved are names a church cannot have when it has a host of its own:
 // they are, or may become, the site's own hosts.
-var hostReserved = map[string]bool{"app": true, "share": true, "www": true, "id": true, "api": true, "auth": true, "login": true,
+var hostReserved = map[string]bool{"app": true, "my": true, "share": true, "www": true, "id": true, "api": true, "auth": true, "login": true,
 	"mail": true, "admin": true, "static": true, "status": true, "docs": true, "help": true}
 
 // infoOf is a church as the studio lists it: with church hosts, with its address.

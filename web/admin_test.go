@@ -26,7 +26,7 @@ func TestAdminAPI(t *testing.T) {
 		Invite AdminInvite
 	}](t, w)
 	if w.Code != http.StatusCreated || made.Church.ID != "kirke-c" || made.Invite.Role != RoleAdmin ||
-		!strings.HasPrefix(made.Invite.Link, "https://studio.example/invite.html#kirke-c.") {
+		!strings.HasPrefix(made.Invite.Link, "https://studio.example/invite#kirke-c.") {
 		t.Fatalf("create: %d %s", w.Code, w.Body.String())
 	}
 	if d := time.Until(made.Invite.Expires); d < 6*24*time.Hour || d > 7*24*time.Hour {

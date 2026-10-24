@@ -64,14 +64,14 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   go-oidc (+ nonce), then a session of its own (cookie `studio_session`, 30 days; `<data-dir>/sessions.json` keeps the cookie's hash and
   the ID token, for logging out;
   `users.json` = issuer + sub, with name/email for display only, never for access). `require` wraps the whole handler: no session
-  = a page goes to `auth/login?next=`, `api/…` answers 401 (`util.js` `toLogin`); only `auth/*` and static files other than
-  `index.html` are public. Logout (`POST auth/logout`) ends the session, then, if the provider has an `end_session_endpoint`, sends
+  = a page goes to `auth/login?next=`, `api/…` answers 401 (`util.js` `toLogin`); only `auth/*`, `invite`, `logged-out` and the
+  static files are public, not the app's pages (`IsPage`) or `churches`. Logout (`POST auth/logout`) ends the session, then, if the provider has an `end_session_endpoint`, sends
   the browser there (RP-initiated logout, with `id_token_hint` and a `state` in the cookie `studio_logout`), which comes back to
-  `auth/logout/callback`; then, or without one, `loggedout.html`. The provider is found on the first login, so the studio starts
+  `auth/logout/callback`; then, or without one, `logged-out`. The provider is found on the first login, so the studio starts
   while it is down. Pocket ID, the recommended provider: docs/login-pocket-id.md, its styling assets in `docs/pocket-id/`
   (`scripts/make-pocket-id-assets.sh`).
 - `web/members.go`: with the login, a church is for its members (`<church>/members.json`: issuer, sub, role admin/member). They
-  join by an invite link `invite.html#<church>.<secret>` (`addInvite`: from Settings → Members, `POST api/invites`, or
+  join by an invite link `invite#<church>.<secret>` (`addInvite`: from Settings → Members, `POST api/invites`, or
   `sermon-studio admin invite`; `<church>/invites.json` keeps hashes, single use, an expiry; revoke by `id`, the
   hash's start). `api/invite` (GET what it is for, POST accept) needs a session but no church; without one, `invite.js` offers Log in and, with `--oidc-signup-url` (the 401 carries it as `signup`), Create an account in a new tab (Pocket ID's app sign-in has no Sign Up). Admin-only requests are listed in
   `adminOnly` and stopped by `requireAdmin` before any handler (settings, logo, clips, ended-days, members, invites); a member
@@ -81,13 +81,17 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `<data-dir>/.admin.sock` (`web.AdminSocket`, 0600; one that answers = another studio on the data dir, refused). `addChurch`
   and `renameChurch` are shared with the studio's API; `statusError`/`writeStatusError` carry an error's HTTP status.
 - `web/hosts.go`: church hosts (`--church-host '{church}.example.org'`, #82): `tenantFor` takes the church from the host (a
-  request naming another, or on the login host, gets none); `hostGate` sends the login host's `/` to `churches.html` (the picker)
+  request naming another, or on the login host, gets none); `hostGate` sends the login host's pages to `churches` (the picker)
   and answers an unknown church's host; `sameSiteURL`/`safeNext` let the login go back only to the login host or a church
   host; the session and logout cookies are on `--cookie-domain` (`checkHosts` at start). `TenantInfo.url` is a church's
   address; `app.js` and `invite.js` follow it. `hostReserved`: ids a church cannot have.
 - `web/access.go`: who sees which church: with the login, its members; without, everyone (and only then are churches added in
-  the studio, `canAdd`). `default` and the page words are reserved ids. Every church request goes through `App.tenantFor`,
+  the studio, `canAdd`). `default` is a reserved id. Every church request goes through `App.tenantFor`,
   which only picks churches the user sees.
+- `web/pages.go`: the page addresses (`IsPage`, served as `index.html` with a relative `<base>`, so the studio works under a
+  sub-path; `churches`, `invite`, `logged-out` are their own files) and `slugOf`, a recording's name in its address
+  (`2026-10-19-morning-service`; `GET api/recording?slug=` finds it, also the old slug of the only recording of a date; a
+  name with the slug of another recording is refused, `slugTaken`).
 - `web/server.go`: Config, routes, `resolve` (every path parameter: inside the
   root, no `..`, no hidden names, no symlinks out).
 - `web/meta.go`: a church's default tags (title/artist/album templates with
@@ -148,18 +152,20 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - `web/inboxwatch.go`: `ingest` moves settled inbox files straight to their date
   folder (convert + prepare happen there).
 - `web/share.go`: shares (codes for the public share page: upload shares, and download shares, `sharedownload.go`), `<church>/shares.json`, the studio's
-  `api/shares` (only with `--share-listen`; its own overlay from the share icon in the header, `#/<church>/shares`, `shares.js`; the icon's number is `api/shares/active`). Pause/resume (the same code works again), remove a paused or ended one (`removeShares`; an open share is never removed; remove-ended leaves the paused). `web/sharesite.go`: the public listener
+  `api/shares` (only with `--share-listen`; its own overlay from the share icon in the header, `shares`, `shares.js`; the icon's number is `api/shares/active`). Pause/resume (the same code works again), remove a paused or ended one (`removeShares`; an open share is never removed; remove-ended leaves the paused). `web/sharesite.go`: the public listener
   (`App.ShareHandler`: `share.html` + `api/share/*`, nothing else), chunked upload to
   `Innboks/.share-<id>.partial`. `web/ratelimit.go`: its limits per address and in all.
 - `web/sharedownload.go`: a download share gives one recording's finished files (`kind: "download"`, made with Share for download… in
   `sermons.js`). It finds its recording by `id` in `recording.json` (given when the share is made; the path is a hint that follows a
   rename, a recording in the trash is not found). `POST api/share/downloads` counts one and hands out a ticket (`GET api/share/downloads/{id}`,
   no code, Range, `ticketFor`); the same file from the same address while its ticket lasts counts nothing.
-- `web/static/`: plain JS, no build. `app.js` = the hash router (`#/<church>/…`, old addresses without a church are moved; the
-  church comes from the address), the Settings overlay (`openSettings`, over whichever page is shown) and About (`openAbout`,
-  from the footer, `#/<church>/about`, signed with `fonts/signature.woff2`: the author's handwriting, only the letters of the
+- `web/static/`: plain JS, no build. `app.js` = the router over the address (History API; `util.js` `href`/`go`, links in
+  the page are followed without a reload): `c/<church>/` then the page, or without `c/<church>/` on a church host (the
+  church is the host's); `''` the recordings, `recordings/<slug>` one opened, `recordings/<slug>/edit` the editor,
+  `settings[/<part>]`, `shares`, `about`. Old `#/` addresses land on the recordings. The Settings overlay (`openSettings`, over
+  whichever page is shown) and About (`openAbout`, from the footer, `about`, signed with `fonts/signature.woff2`: the author's handwriting, only the letters of the
   name, not under the licence, see `NOTICE`; never add letters to it or use it for anything else; the footer sits at the bottom of a short
-  page: `body` is a flex column). `recordings.js` = the one recordings page (years, search, Newly imported, rows, `open(path)` for links); `sermons.js` = a sermon's details inside it (labels, copy link, play, the Download menu,
+  page: `body` is a flex column). `recordings.js` = the one recordings page (years, search, Newly imported, rows, `open(slug)` for links); `sermons.js` = a sermon's details inside it (labels, copy link, play, the Download menu,
   make a format); clicking anywhere on a date row expands it; one with no files only offers the editor there. Its status (`badges`): to do / done from `saved` (or files), plus no files / files out of date (`outdated`: an output's `cut` ≠ `cutOf` the saved version) / not saved (`adjusted`: a draft.json). `icons/` = the logo: `logo.svg` is the one source (header, favicon,
   `manifest.webmanifest`); the PNGs (home screen, favicon fallback) come from it via `scripts/make-icons.sh`;
   the public page serves only the ones listed in `sharePage`. `dialog.js` = confirm/alert/prompt in the app's look
@@ -199,7 +205,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - No long work inside a request: it sits behind Cloudflare (100 MB bodies,
   ~100 s timeout). Start background work on `s.ctx` with `s.background` (Close waits for it, `Busy` reports it).
 - `web/` and `normalizer/` know nothing of the desktop app: no desktop flags, settings or branches. It uses
-  the studio's public API only (`NewApp`, `Handler`, `Busy`, `Close`); what it needs more goes in
+  the studio's public API only (`NewApp`, `Handler`, `Busy`, `Close`, and `IsPage` for which answers are the page); what it needs more goes in
   `cmd/sermon-studio-desktop/`, so it can be removed by deleting that folder (and its docs and build script).
 - Rename and remove with `normalizer.Rename`/`Remove`/`RemoveAll`, not the `os` ones: on Windows they try
   again for a few seconds while a file is in use (a preview playing, a virus scan). A sermon folder's path
@@ -245,4 +251,4 @@ lands in `main`). Show only the screens that changed; for a new screen, add a
 Deploy: merging to `main` → GitHub Actions publishes `ghcr.io/gunnaringe/sermon-studio:main-<ts>-<sha>` (not for a change
 only to `site/`: `image.yml` and `test.yml` skip it, `site.yml` checks the website instead)
 → Flux rolls it out on kate (`clusters/kate/norkirken/`, namespace `norkirken`,
-https://sermons.haxxor.xyz).
+https://norkirken-melhus.sermon-studio.app; the login host is https://my.sermon-studio.app).

@@ -106,7 +106,7 @@ func (s *Server) handleRename(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"path": s.relPath(dst)})
+	writeJSON(w, http.StatusOK, map[string]string{"path": s.relPath(dst), "slug": slugOf(filepath.Base(dst))})
 }
 
 // renameTarget is where the sermon in folder goes, checking that it can.
@@ -126,6 +126,10 @@ func (s *Server) renameTarget(folder, date, name string) (string, int, error) {
 	if err != nil {
 		return "", http.StatusBadRequest, err
 	}
+	var taken error
+	if slugOf(filepath.Base(dst)) != slugOf(filepath.Base(folder)) {
+		taken = s.slugTaken(dst)
+	}
 	switch {
 	case dst == folder:
 		return "", http.StatusBadRequest, errors.New("nothing to change")
@@ -133,6 +137,8 @@ func (s *Server) renameTarget(folder, date, name string) (string, int, error) {
 		return "", http.StatusBadRequest, folderFits(dst)
 	case fileExists(dst):
 		return "", http.StatusConflict, fmt.Errorf("%s already exists", filepath.Base(dst))
+	case taken != nil:
+		return "", http.StatusConflict, taken
 	case s.jobs.active(s.relPath(folder)) != nil:
 		return "", http.StatusConflict, errors.New("this sermon is being processed; try again when it is done")
 	}

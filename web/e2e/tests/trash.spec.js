@@ -1,5 +1,6 @@
 // Deleting a recording moves it to the trash, from where it can be restored or removed for good.
 import { test, expect } from '@playwright/test';
+import { editPage, recordingPage } from './pages.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -9,7 +10,7 @@ const shots = path.join(import.meta.dirname, '..', 'screenshots');
 // openEditor opens a recording's edit page and waits until it is there, and the recording is prepared (until
 // then it cannot be deleted).
 async function openEditor(page, folder, { prepared = true } = {}) {
-  await page.goto('#/folder/' + folder);
+  await page.goto(editPage(folder));
   await expect(page.getByRole('heading', { name: 'Delete' })).toBeVisible();
   if (prepared) await expect(page.locator('#waveform')).toBeVisible({ timeout: 60_000 });
 }
@@ -37,7 +38,7 @@ test('delete a recording on its edit page: confirm, the trash in settings, resto
   await expect(page.locator('tr.row', { hasText: '2027-03-07' })).toHaveCount(0);
   expect(fs.existsSync(dir)).toBe(false);
 
-  await page.goto('#/settings');
+  await page.goto('settings');
   const item = page.locator('.trash-item', { hasText: '2027-03-07' });
   await expect(item).toContainText('30 days left');
   await page.locator('#trash').screenshot({ path: path.join(shots, 'settings-trash.png') });
@@ -54,7 +55,7 @@ test('delete a recording on its edit page: confirm, the trash in settings, resto
   await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Recordings' })).toBeVisible();
   await expect.poll(() => fs.existsSync(dir)).toBe(false);
-  await page.goto('#/settings');
+  await page.goto('settings');
   await page.locator('.trash-item', { hasText: '2027-03-07' }).getByRole('button', { name: 'Delete now' }).click();
   await page.getByRole('dialog', { name: 'Delete 2027-03-07 for good?' }).getByRole('button', { name: 'Delete now' }).click();
   await expect(page.getByText('The trash is empty.')).toBeVisible();
@@ -109,7 +110,7 @@ test('delete the original: the files stay, the sermon can no longer be edited', 
   expect(fs.existsSync(path.join(dir, '2027-03-14.mp3'))).toBe(true);
 
   // In the recordings, it says so, the file made downloads, and the others cannot be made.
-  await page.goto('#/first-church/recording/' + folder);
+  await page.goto(recordingPage(folder, 'first-church'));
   const detail = page.locator('tr.detail-row');
   await expect(detail).toContainText('Original deleted');
   await detail.locator('summary[aria-label=Download]').click();

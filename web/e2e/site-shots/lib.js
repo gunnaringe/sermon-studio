@@ -16,7 +16,7 @@ export function translator(lang) {
 
 // openEditor opens a recording in the editor and waits until its waveform is there.
 export async function openEditor(page, church, folder, timeout = 300_000) {
-  await page.goto(`#/${church}/folder/${folder}`);
+  await page.goto(`c/${church}/recordings/${folder.split('/').pop().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-')}/edit`);
   await waitEditor(page, timeout);
 }
 export async function waitEditor(page, timeout = 300_000) {

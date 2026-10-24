@@ -52,7 +52,7 @@ type serveCmd struct {
 	CookieDomain         string `group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: a parent domain for the session cookie, shared by the studio's hosts (default: this host only)."`
 	OIDCSignupURL        string `name:"oidc-signup-url" group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: where someone without an account at the provider makes one (Pocket ID: <issuer>/signup); an invite link then offers Create an account next to Log in."`
 
-	ChurchHost string `group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: give every church a host of its own, like {church}.example.org; the login, invite links and the church picker are then on --public-url's host (e.g. app.example.org), and --cookie-domain must be example.org."`
+	ChurchHost string `group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: give every church a host of its own, like {church}.example.org; the login, invite links and the church picker are then on --public-url's host (e.g. my.example.org), and --cookie-domain must be example.org."`
 
 	CacheDir     string `default:"${cacheDir}" help:"Where waveform data and previews are kept."`
 	CacheDays    int    `default:"30" help:"Remove cached analyses not used for this many days."`

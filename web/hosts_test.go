@@ -114,7 +114,7 @@ func TestChurchHostAccess(t *testing.T) {
 	admin, _ := CreateInvite(l.data, "kirke-a", RoleAdmin, time.Hour, "admin cli")
 	l.do("POST", "/api/invite", `{"token":"`+admin+`"}`, c)
 	made := decode[map[string]any](t, l.doOn("kirke-a.example.org", "POST", "/api/invites", `{"role":"member","days":1}`, c))
-	if link, _ := made["link"].(string); !strings.HasPrefix(link, "https://app.example.org/invite.html#kirke-a.") {
+	if link, _ := made["link"].(string); !strings.HasPrefix(link, "https://app.example.org/invite#kirke-a.") {
 		t.Errorf("invite link: %v", made)
 	}
 }
@@ -123,7 +123,7 @@ func TestChurchHostPages(t *testing.T) {
 	l := newHostsApp(t)
 	c := l.session()
 	// The login host's start is the church picker; an unknown church says so.
-	if w := l.do("GET", "/", "", c); w.Code != http.StatusFound || w.Header().Get("Location") != "https://app.example.org/churches.html" {
+	if w := l.do("GET", "/", "", c); w.Code != http.StatusFound || w.Header().Get("Location") != "https://app.example.org/churches" {
 		t.Errorf("login host: %d %s", w.Code, w.Header().Get("Location"))
 	}
 	if w := l.doOn("nowhere.example.org", "GET", "/", "", c); w.Code != http.StatusNotFound || !strings.Contains(w.Body.String(), "No such church") {
@@ -146,8 +146,8 @@ func TestChurchHostNext(t *testing.T) {
 	l := newHostsApp(t)
 	for next, want := range map[string]string{
 		"https://kirke-a.example.org/#/kirke-a/settings": "https://kirke-a.example.org/#/kirke-a/settings",
-		"https://app.example.org/invite.html#kirke-a.x":  "https://app.example.org/invite.html#kirke-a.x",
-		"/churches.html": "/churches.html",
+		"https://app.example.org/invite#kirke-a.x":       "https://app.example.org/invite#kirke-a.x",
+		"/churches": "/churches",
 		"https://kirke-a.example.org@evil.example/": "/",
 		"https://app.example.org.evil.example/":     "/",
 		"https://a.b.example.org/":                  "/",
@@ -185,13 +185,13 @@ func TestChurchHostLogout(t *testing.T) {
 		t.Errorf("session after logout: %d", w.Code)
 	}
 	w = l.do("GET", "/auth/logout/callback?state="+url.QueryEscape(to.Query().Get("state")), "", state)
-	if w.Header().Get("Location") != "https://app.example.org/loggedout.html" {
+	if w.Header().Get("Location") != "https://app.example.org/logged-out" {
 		t.Errorf("callback: %s", w.Header().Get("Location"))
 	}
 }
 
 func TestChurchHostReserved(t *testing.T) {
-	for _, id := range []string{"app", "share", "www", "id", "admin"} {
+	for _, id := range []string{"app", "my", "share", "www", "id", "admin"} {
 		if !reservedID(id) {
 			t.Errorf("%s is not reserved", id)
 		}

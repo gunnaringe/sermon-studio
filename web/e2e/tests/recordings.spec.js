@@ -1,5 +1,6 @@
 // The recordings page: years that fold, search, labels, and links to one recording.
 import { test, expect } from '@playwright/test';
+import { recordingPage } from './pages.js';
 import path from 'node:path';
 
 const shots = path.join(import.meta.dirname, '..', 'screenshots');
@@ -105,20 +106,20 @@ test('a label is added with the + button, a comma, by leaving the field, or from
 
 test('a link opens the recordings page at one recording; Copy link copies it', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  await page.goto('#/first-church/recording/2025/2025-12-21');
+  await page.goto(recordingPage('2025/2025-12-21', 'first-church'));
   await expect(year(page, 2025)).toHaveAttribute('aria-expanded', 'true'); // its year opens
   const row = page.locator('.year tr.row', { hasText: '2025-12-21' });
   await expect(row.locator('xpath=following-sibling::tr[1]').getByRole('link', { name: 'Open in the editor' })).toBeVisible();
   await expect(row).toBeInViewport();
-  await expect(page).toHaveURL(/#\/first-church\/recording\/2025\/2025-12-21$/);
+  await expect(page).toHaveURL(/\/c\/first-church\/recordings\/2025-12-21$/);
   await page.screenshot({ path: path.join(shots, 'recordings-link.png') });
 
   await page.getByRole('button', { name: 'Copy link' }).click();
   await page.locator('tr.detail-row .actions').screenshot({ path: path.join(shots, 'recording-actions.png') });
   await expect(page.getByText('Link copied.')).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(new URL('#/first-church/recording/2025/2025-12-21', page.url()).href);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(new URL('/c/first-church/recordings/2025-12-21', page.url()).href);
 
-  await page.goto('#/first-church/recording/2030/nothing');
+  await page.goto(recordingPage('2030/nothing', 'first-church'));
   await expect(page.getByText('That recording was not found.')).toBeVisible();
 });
 

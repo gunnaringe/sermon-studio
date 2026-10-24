@@ -1,9 +1,9 @@
-// The app: a hash router. Every address starts with the church: #/<church> (the
-// recordings), #/<church>/recording/<path> (the recordings, that one opened),
-// #/<church>/folder/<path> (the editor), #/<church>/settings (the settings over the recordings), #/<church>/shares (the
-// shares, the same way), #/<church>/about (what the studio is). They also open as an overlay from their icon in the
-// header, or the link in the footer.
-import { api, q, h, href, INPUT_TYPES, isInputType, formatSize, formatDate, formatDateTime, dateInput, forTenant, currentTenant, setTenant, setRoles, isAdmin, debounce, wheelZoomNeedsKey, setWheelZoomNeedsKey } from './util.js';
+// The app: a router over the page's address (pages.go lists them). With church hosts the church is the host's;
+// without them its address starts with c/<church>/. Then: nothing (the recordings), recordings/<slug> (the
+// recordings, that one opened), recordings/<slug>/edit (the editor), settings[/<part>] (the settings over the
+// recordings), shares (the shares, the same way), about (what the studio is). The last three also open as an
+// overlay from their icon in the header, or the link in the footer.
+import { api, q, h, href, go, ROOT, setHosted, INPUT_TYPES, isInputType, formatSize, formatDate, formatDateTime, dateInput, forTenant, currentTenant, setTenant, setRoles, churchURL, isAdmin, debounce, wheelZoomNeedsKey, setWheelZoomNeedsKey } from './util.js';
 import { editorView } from './editor.js';
 import { alertDialog, promptDialog } from './dialog.js';
 import { sharesView } from './shares.js';
@@ -22,33 +22,40 @@ let shown = '';      // the page in the view, so the settings overlay can open o
 let page = null;     // the recordings page when it is shown: { open(path) }
 let overlay = null;  // the settings, shares or about over the page: { section, dialog }
 
-// Addresses from before the church was in them: the first part names a page.
-const OLD = { folder: 'folder', folders: '', settings: 'settings', shares: 'shares', about: 'about', upload: '' };
+// hosted: the churches have hosts of their own (church hosts), so the church is not in the address.
+const hosted = () => churches.tenants.some((c) => c.url);
+
+// where is the page the address is at: the church, the section and the rest (a slug, a part of the settings).
+// An address of the other kind (c/<church>/ at a church host, or none without church hosts) is put right.
+function where() {
+  const segs = decodeURIComponent(location.pathname).slice(decodeURIComponent(new URL(ROOT).pathname).length).split('/').filter(Boolean);
+  if (hosted()) {
+    const mine = churches.tenants.find((c) => c.url && new URL(c.url).host === location.host);
+    if (segs[0] === 'c') {
+      const other = churches.tenants.find((c) => c.id === segs[1]);
+      return { moved: (other ? other.url : ROOT) + segs.slice(2).join('/') };
+    }
+    return { church: mine?.id || '', segs };
+  }
+  if (segs[0] !== 'c' || !segs[1]) return { moved: ROOT + 'c/' + encodeURIComponent(currentTenant()) + '/' + segs.join('/') };
+  return { church: segs[1], segs: segs.slice(2) };
+}
 
 async function route() {
   if (teardown) teardown();
   teardown = null;
-  const segs = decodeURIComponent(location.hash.slice(1)).split('/').filter(Boolean);
-  if (!segs.length || segs[0] in OLD) {
-    const keepRest = segs.length > 1 && !['folders', 'upload'].includes(segs[0]); // those pages are the recordings page now
-    const old = segs.length ? OLD[segs[0]] + (keepRest ? '/' + segs.slice(1).join('/') : '') : '';
-    return location.replace('#/' + currentTenant() + (old ? '/' + old.replace(/^\//, '') : ''));
+  if (location.hash.startsWith('#/')) history.replaceState(null, '', ROOT); // an address from before the paths
+  const at = where();
+  if (at.moved && (!churches.tenants.length || at.moved === location.href)) at.church = ''; // nowhere to go
+  else if (at.moved) {
+    if (new URL(at.moved).host !== location.host) return location.replace(at.moved);
+    return go(at.moved, true);
   }
-  let [church, section = '', ...rest] = segs;
-  if (section === 'settings' && rest.join('/') === 'shares') { // where the shares were before: the address is put right in place
-    history.replaceState(null, '', '#/' + church + '/shares');
-    [section, rest] = ['shares', []];
-  }
+  const { church, segs: [section = '', ...rest] = [] } = at;
   const path = rest.join('/');
   if (!churches.tenants.some((t) => t.id === church)) {
     shown = '';
-    view.replaceChildren(h('p', { class: 'error' }, t('No such church: {church}.', { church }), ' ', h('a', { href: '#/' }, t('Go to the recordings'))));
-    return;
-  }
-  // With church hosts (each church at its own address), a church is shown at its own address.
-  const own = churches.tenants.find((t) => t.id === church).url;
-  if (own && new URL(own).host !== location.host) {
-    location.replace(own + location.hash);
+    view.replaceChildren(h('p', { class: 'error' }, t('No such church: {church}.', { church: church || location.host })));
     return;
   }
   if (church !== currentTenant()) {
@@ -57,18 +64,19 @@ async function route() {
     countActive();
     config = await api('GET', 'api/config');
   }
+  if (!section && location.pathname !== new URL(href()).pathname) history.replaceState(null, '', href() + location.search); // c/<church> → c/<church>/
   if (overlay && overlay.section !== section) overlay.dialog.close();
   try {
-    if (section === 'folder') {
+    if (section === 'recordings' && rest.length === 2 && rest[1] === 'edit') {
       shown = '';
-      teardown = await editorView(view, path, config);
-    } else if (['', 'recording', 'settings', 'shares', 'about'].includes(section)) {
+      teardown = await editorView(view, rest[0], config);
+    } else if ((section === 'recordings' && rest.length <= 1) || (['', 'settings', 'shares', 'about'].includes(section) && (section === 'settings' ? rest.length <= 1 : !rest.length))) {
       if (shown !== church) {
         shown = '';
         page = await foldersView();
         shown = church;
       }
-      if (section === 'recording') page.open(path);
+      if (section === 'recordings' && rest.length) page.open(rest[0]);
       if (section === 'settings') await openSettings(path);
       if (section === 'shares') await openShares();
       if (section === 'about') await openAbout();
@@ -126,7 +134,7 @@ async function sendFile(file, date, sermon, onProgress) {
       await sleep(1000 * 2 ** failures);
       continue;
     }
-    if (resp.status === 201) return data.path;
+    if (resp.status === 201) return data.slug;
     if (resp.ok) {
       offset = data.offset;
       sent = true;
@@ -175,8 +183,8 @@ function uploadBox() {
       status.className = 'muted';
       status.textContent = t('Uploading {name} ({size})…', { name: file.name, size: formatSize(file.size) });
       try {
-        const path = await sendFile(file, date.value, sermon.value.trim(), (p) => { progress.value = p; });
-        location.hash = href('folder', path);
+        const slug = await sendFile(file, date.value, sermon.value.trim(), (p) => { progress.value = p; });
+        go(href('recordings', slug + '/edit'));
       } catch (e) {
         status.className = 'error';
         status.textContent = `${file.name}: ${e.message}`;
@@ -205,7 +213,7 @@ function uploadBox() {
 }
 
 // openOverlay shows the settings, the shares or about as an overlay on the page, closed with the cross, Esc or a
-// click outside. Opened from an address (#/<church>/settings), closing it goes back to #/<church>.
+// click outside. Opened from an address (settings), closing it goes back to the recordings.
 async function openOverlay(section, title, closeLabel, fill) {
   if (overlay && overlay.section === section && overlay.dialog.open) return;
   if (overlay) overlay.dialog.close();
@@ -220,7 +228,7 @@ async function openOverlay(section, title, closeLabel, fill) {
     dialog.remove();
     if (overlay?.dialog !== dialog) return; // another overlay has taken its place (the close event comes later)
     overlay = null;
-    if (new RegExp('^#/[^/]+/' + section + '(/|$)').test(decodeURIComponent(location.hash))) location.hash = href();
+    if (where().segs?.[0] === section) go(href());
     if (section === 'shares') countActive();
   });
   document.body.append(dialog);
@@ -421,7 +429,7 @@ function appearance() {
     h('select', { name, onchange: (e) => onchange(e.target.value) },
       options.map(([v, text]) => h('option', { value: v, selected: v === value }, text))));
   return h('div', { class: 'panel tags' },
-    choose('language', t('Language'), LANGS, lang, (v) => { setLang(v); location.hash = href('settings'); location.reload(); }),
+    choose('language', t('Language'), LANGS, lang, (v) => { setLang(v); history.replaceState(null, '', href('settings')); location.reload(); }),
     choose('theme', t('Theme'), [['auto', t('Automatic (the device)')], ['light', t('Light')], ['dark', t('Dark')]], getTheme(), setTheme));
 }
 
@@ -454,6 +462,7 @@ function fillPicker() {
 async function loadChurches() {
   churches = await api('GET', 'api/tenants');
   setRoles(churches.tenants);
+  setHosted(hosted());
   if (!churches.tenants.some((t) => t.id === currentTenant())) setTenant(churches.default);
   fillPicker();
   countActive();
@@ -462,9 +471,9 @@ async function loadChurches() {
 // Switching church is going to its address; adding one goes there too.
 select.addEventListener('change', async () => {
   if (select.value !== '+') {
-    const own = churches.tenants.find((t) => t.id === select.value)?.url;
-    if (own && new URL(own).host !== location.host) location.href = own + '#/' + select.value;
-    else location.hash = '#/' + select.value;
+    const url = churchURL(churches.tenants.find((t) => t.id === select.value));
+    if (new URL(url).host !== location.host) location.href = url;
+    else go(url);
     return;
   }
   const name = await promptDialog({ title: t('Add a church'), label: t('Name of the new church'), confirm: t('Add church') });
@@ -472,7 +481,7 @@ select.addEventListener('change', async () => {
     try {
       const t_ = await api('POST', 'api/tenants', { name });
       churches.tenants.push(t_);
-      location.hash = '#/' + t_.id;
+      go(churchURL(t_));
     } catch (err) { alertDialog({ body: err.message }); }
   }
   fillPicker();
@@ -550,7 +559,17 @@ async function start() {
   await loadChurches();
   config = await api('GET', 'api/config');
   window.addEventListener('churches-changed', loadChurches);
-  window.addEventListener('hashchange', route);
+  window.addEventListener('popstate', route);
+  // A link to a page of the studio is followed here, without loading the page again.
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href]');
+    if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target || a.hasAttribute('download')) return;
+    const url = new URL(a.href);
+    const first = url.href.startsWith(ROOT) && url.href.slice(ROOT.length).split(/[/?#]/)[0];
+    if (url.origin !== location.origin || !['', 'c', 'recordings', 'settings', 'shares', 'about'].includes(first)) return;
+    e.preventDefault();
+    go(url.href);
+  });
   route();
 }
 start().catch((err) => view.replaceChildren(h('p', { class: 'error' }, err.message)));

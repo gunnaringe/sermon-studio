@@ -7,7 +7,7 @@
 // SHOW_LOGIN shows the Log in button. Off until the hosted studio runs at LOGIN_URL (issues #82, #84): with it
 // off, the button is hidden and has no address, so no dead link goes out.
 const SHOW_LOGIN = false;
-const LOGIN_URL = 'https://app.sermon-studio.app/';
+const LOGIN_URL = 'https://my.sermon-studio.app/';
 
 const LANGS = { en: 'English', nb: 'Norsk bokmål', nn: 'Norsk nynorsk' };
 

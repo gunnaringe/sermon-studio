@@ -65,7 +65,7 @@ func TestAdminChurches(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(data, "kirke-b", "Taler")); err != nil {
 		t.Errorf("no folder: %v", err)
 	}
-	for _, bad := range [][]string{{"kirke-b", "--name", "Again"}, {"Kirke_C", "--name", "C"}, {"settings", "--name", "S"}, {"kirke-c", "--name", "Kirke B"}} {
+	for _, bad := range [][]string{{"kirke-b", "--name", "Again"}, {"Kirke_C", "--name", "C"}, {"default", "--name", "S"}, {"kirke-c", "--name", "Kirke B"}} {
 		if _, err := admin(t, data, append([]string{"church", "create"}, bad...)...); err == nil {
 			t.Errorf("create %v: no error", bad)
 		}

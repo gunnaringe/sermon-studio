@@ -66,12 +66,12 @@ for (const [lang, L] of Object.entries(LANGS)) {
     expect((await api('PUT', 'api/clips/defaults', { intro: clipID, outro: '', pause: 0.5 })).ok()).toBe(true);
 
     // Upload: the date is taken from the file name, as the X32 names it.
-    await page.goto(`#/${L.church}`);
+    await page.goto(`c/${L.church}/`);
     await page.locator('.upload input[type=file]').setInputFiles(path.join(DATA, 'R_20261018-104506.wav'));
     await expect(page.locator('input[name=date]')).toHaveValue('2026-10-18');
     await shot('upload', page.locator('.upload'));
     await page.locator('.upload button.primary').click();
-    await expect(page).toHaveURL(new RegExp(`#/${L.church}/folder/2026/2026-10-18$`));
+    await expect(page).toHaveURL(new RegExp(`/c/${L.church}/recordings/2026-10-18/edit$`));
     await waitEditor(page);
 
     // The sermon: two sections, what is between them left out, and a cough cut out of the second.
@@ -105,7 +105,7 @@ for (const [lang, L] of Object.entries(LANGS)) {
 
     // The finished sermon on the recordings page, with its Download menu.
     expect((await api('PUT', `api/labels?path=${encodeURIComponent('2026/2026-10-18')}`, { labels: L.speech })).ok()).toBe(true);
-    await page.goto(`#/${L.church}/recording/2026/2026-10-18`);
+    await page.goto(`c/${L.church}/recordings/2026-10-18`);
     const detail = page.locator('tr.detail-row').first();
     await expect(detail.locator('audio').first()).toBeVisible({ timeout: 30_000 });
     await detail.locator('details.download-menu summary').click();
@@ -133,7 +133,7 @@ for (const [lang, L] of Object.entries(LANGS)) {
     await guest.close();
 
     // The recordings page: years, status, labels.
-    await page.goto(`#/${L.church}`);
+    await page.goto(`c/${L.church}/`);
     await expect(page.locator('tr.row').first()).toBeVisible();
     await shot('recordings');
     await context.close();

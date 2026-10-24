@@ -7,7 +7,7 @@ import MinimapPlugin from './vendor/wavesurfer/plugins/minimap.esm.js';
 import HoverPlugin from './vendor/wavesurfer/plugins/hover.esm.js';
 import { alertDialog, confirmDialog, infoDialog } from './dialog.js';
 import { t, tn, tr, lang } from './i18n.js';
-import { api, q, h, href, INPUT_TYPES, converts, isVideo, parseTime, formatTime, formatSize, typing, debounce, forTenant, currentTenant, isAdmin, dateInput, formatDateTime, wheelZoomNeedsKey, kbdText } from './util.js';
+import { api, q, h, href, go, INPUT_TYPES, converts, isVideo, parseTime, formatTime, formatSize, typing, debounce, forTenant, currentTenant, isAdmin, dateInput, formatDateTime, wheelZoomNeedsKey, kbdText } from './util.js';
 
 const MAX_ZOOM = 200; // px per second: 5 ms per pixel, enough to cut between words
 
@@ -45,7 +45,9 @@ const CLIP_KEYS = ['intro', 'outro'];
 // FORMAT_KEYS are chosen per recording.
 const FORMAT_KEYS = ['flac', 'mp3', 'opus'];
 
-export async function editorView(view, path, config) {
+export async function editorView(view, slug, config) {
+  const { path, slug: own } = await api('GET', 'api/recording?slug=' + q(slug));
+  if (own !== slug) go(href('recordings', own + '/edit'), true); // an old address, from before a rename
   const info = await api('GET', 'api/folder?path=' + q(path));
   let alive = true;
   const cleanups = [];
@@ -124,7 +126,7 @@ export async function editorView(view, path, config) {
     const save = h('button', { class: 'primary', onclick: async () => {
       try {
         const res = await api('POST', 'api/rename?path=' + q(path), { date: date.value, name: name.value });
-        location.hash = href('folder', res.path);
+        go(href('recordings', res.slug + '/edit'), true);
       } catch (err) { msg.textContent = err.message; }
     } }, t('Rename'));
     renamePanel.replaceChildren(
@@ -154,7 +156,7 @@ export async function editorView(view, path, config) {
   const clipsSection = h('section', { class: 'step', 'aria-labelledby': 'step-clips', hidden: true },
     h('h2', { id: 'step-clips' }, t('Intro and outro')), clipsBox);
   view.replaceChildren(
-    h('div', { class: 'crumbs' }, h('a', { href: href('recording', path) }, t('← Recordings'))),
+    h('div', { class: 'crumbs' }, h('a', { href: href('recordings', own) }, t('← Recordings'))),
     h('h1', {}, info.date, ' ', renameButton),
     renamePanel,
     h('section', { class: 'step', 'aria-labelledby': 'step-input' }, h('h2', { id: 'step-input' }, t('Input file')), inputPanel),
@@ -248,7 +250,7 @@ export async function editorView(view, path, config) {
     if (!ok) return;
     try {
       await api('POST', 'api/recordings/delete?path=' + q(path));
-      location.hash = href();
+      go(href());
     } catch (e) {
       alertDialog({ body: tr(e.message) });
     }

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gunnaringe/sermon-studio/web"
 )
 
 // aliveScript is added to the page: while a window is open, a connection to /_desktop/alive is held. A held
@@ -114,7 +116,7 @@ func script(js string) http.HandlerFunc {
 // 200 HTML answer); everything else passes through as it is.
 func withScript(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || (r.URL.Path != "/" && r.URL.Path != "/index.html") {
+		if r.Method != http.MethodGet || !web.IsPage(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}

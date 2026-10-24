@@ -185,7 +185,7 @@ func (s *Server) Busy() bool {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	sub, _ := fs.Sub(static, "static")
-	mux.Handle("GET /", http.FileServerFS(sub))
+	mux.Handle("GET /", servePages(sub))
 	api := s.apiMux()
 	for _, method := range []string{"GET", "POST", "PUT"} {
 		mux.Handle(method+" /api/", api)
@@ -218,6 +218,7 @@ func (s *Server) apiMux() *http.ServeMux {
 	mux.HandleFunc("GET /api/folders", s.handleFolders)
 	mux.HandleFunc("GET /api/folder", s.handleFolder)
 	mux.HandleFunc("GET /api/recordings", s.handleRecordings)
+	mux.HandleFunc("GET /api/recording", s.handleRecording)
 	mux.HandleFunc("PUT /api/labels", s.handleLabelsPut)
 	mux.HandleFunc("POST /api/check", s.handleCheck)
 	mux.HandleFunc("PUT /api/sermon", s.handleSermonPut)

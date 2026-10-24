@@ -68,10 +68,10 @@ func TestLoginAddsNoChurches(t *testing.T) {
 	}
 }
 
-// "default" and the first words of the page addresses cannot be churches.
+// "default" and Windows' device names cannot be churches.
 func TestReservedIDs(t *testing.T) {
 	h := newOpenApp(t)
-	for _, name := range []string{"default", "Settings", "recording", "Folders", "nul"} {
+	for _, name := range []string{"default", "nul"} {
 		w := call(h, "POST", "/api/tenants", `{"name":"`+name+`"}`)
 		if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "reserved") {
 			t.Errorf("%q: %d %s", name, w.Code, w.Body.String())
@@ -79,9 +79,9 @@ func TestReservedIDs(t *testing.T) {
 	}
 	// ... also when someone puts the folder there by hand.
 	data := t.TempDir()
-	os.MkdirAll(filepath.Join(data, "settings", "Taler"), 0o755)
+	os.MkdirAll(filepath.Join(data, "nul", "Taler"), 0o755)
 	if a, err := NewApp(AppConfig{Base: Config{CacheDir: t.TempDir(), Logger: log.New(testLog{t}, "", 0)}, DataDir: data}); err == nil {
 		a.Close()
-		t.Error("a church folder named settings started")
+		t.Error("a church folder named nul started")
 	}
 }

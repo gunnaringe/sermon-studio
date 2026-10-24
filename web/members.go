@@ -400,7 +400,7 @@ func (a *App) handleInviteCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"token": token, "link": a.auth.url("invite.html") + "#" + token,
+	writeJSON(w, http.StatusCreated, map[string]any{"token": token, "link": a.auth.url("invite") + "#" + token,
 		"invite": inviteView{ID: iv.id(), Role: iv.Role, CreatedBy: iv.CreatedBy, Created: iv.Created, Expires: iv.Expires}})
 }
 

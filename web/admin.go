@@ -256,7 +256,7 @@ func (a *App) newInvite(t *tenant, role string, valid time.Duration) (AdminInvit
 	if err != nil {
 		return AdminInvite{}, statusError{http.StatusBadRequest, err}
 	}
-	return AdminInvite{Church: t.id, Role: iv.Role, Link: a.auth.url("invite.html") + "#" + token, Expires: iv.Expires}, nil
+	return AdminInvite{Church: t.id, Role: iv.Role, Link: a.auth.url("invite") + "#" + token, Expires: iv.Expires}, nil
 }
 
 // adminMemberRemove takes a member out of a church: POST

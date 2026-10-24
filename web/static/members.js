@@ -1,7 +1,7 @@
 // Members, a section of the settings (with the login, --oidc-issuer): an admin sees who the
 // church's members are, changes their role, removes them, and makes and revokes invite links;
 // a member can leave the church. A church always keeps an admin (the server says so).
-import { api, h, formatDate, formatDateTime } from './util.js';
+import { api, h, formatDate, formatDateTime, ROOT } from './util.js';
 import { alertDialog, confirmDialog } from './dialog.js';
 import { t } from './i18n.js';
 
@@ -76,7 +76,7 @@ export async function membersView(box, church, admin) {
     try {
       const made = await api('POST', 'api/invites', { role: role.value, days: Number(days.value) });
       await draw();
-      await showInvite(made.link || new URL('invite.html#' + made.token, location.href).href, made.invite, church);
+      await showInvite(made.link || new URL('invite#' + made.token, ROOT).href, made.invite, church);
     } catch (err) { status.textContent = err.message; }
   } }, t('Make invite link'));
 

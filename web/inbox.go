@@ -111,6 +111,9 @@ func (s *Server) newRawFolder(date, name string) (string, int, error) {
 		return "", http.StatusBadRequest, err
 	}
 	if !fileExists(folder) {
+		if err := s.slugTaken(folder); err != nil { // a new recording: its address must be its own
+			return "", http.StatusConflict, err
+		}
 		return folder, 0, nil
 	}
 	paths, err := normalizer.NewPaths(folder)

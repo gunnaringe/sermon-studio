@@ -69,7 +69,7 @@ test('the studio in use', async ({ browser }) => {
   const setup = await browser.newContext({ baseURL: 'http://localhost:8080/', viewport: SIZE });
   const sp = await setup.newPage();
   for (const day of ['2026-09-20', '2026-09-27', '2026-10-04']) {
-    await sp.goto(`#/grace-chapel/folder/2026/${day}`);
+    await sp.goto(`c/grace-chapel/recordings/${day}/edit`);
     await waitEditor(sp);
     await clearProposed(sp, T);
     await sp.evaluate(() => window.__editor.addSection(8, 112));
@@ -112,7 +112,7 @@ test('the studio in use', async ({ browser }) => {
     await select.selectOption(value);
   };
 
-  await page.goto('#/grace-chapel');
+  await page.goto('c/grace-chapel/');
   await expect(page.locator('tr.row').first()).toBeVisible();
   await page.mouse.move(mouse.x, mouse.y);
   fs.writeFileSync(path.join(OUT, 'video-start'), String(at()));

@@ -1,6 +1,7 @@
 // Makes the pictures of the documentation (docs/img) from a real speech, by using the app the way
 // the guide describes. Not a test of the app (tests/ is that): run with scripts/test.sh guide.
 import { test, expect } from '@playwright/test';
+import { editPage, recordingPage } from '../tests/pages.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -19,7 +20,7 @@ const editor = (page, fn, arg) => page.evaluate(fn, arg);
 const save = (page) => page.getByRole('button', { name: 'Save', exact: true });
 
 async function openEditor(page, folder) {
-  await page.goto('#/folder/' + folder);
+  await page.goto(editPage(folder));
   await expect(page.locator('#waveform')).toBeVisible({ timeout: 120_000 });
   await page.waitForFunction(() => window.__editor && window.__editor.ws.getDuration() > 0, null, { timeout: 120_000 });
 }
@@ -61,7 +62,7 @@ test('upload, cut, save', async ({ page }) => {
   await expect(page.locator('input[name=date]')).toHaveValue('2026-10-18');
   await shot(page, '02-upload', page.locator('.upload'));
   await page.getByRole('button', { name: 'Upload' }).click();
-  await expect(page).toHaveURL(/#\/grace-chapel\/folder\/2026\/2026-10-18$/);
+  await expect(page).toHaveURL(/\/c\/grace-chapel\/recordings\/2026-10-18\/edit$/);
   await expect(page.locator('#waveform')).toBeVisible({ timeout: 300_000 });
   await page.waitForFunction(() => window.__editor && window.__editor.ws.getDuration() > 0, null, { timeout: 300_000 });
   await expect(page.locator('.input-file')).not.toContainText('Reading', { timeout: 120_000 });
@@ -116,10 +117,10 @@ test('the finished recording in the list, labels and search', async ({ page }) =
 });
 
 test('settings and a share for people without a login', async ({ page, context }) => {
-  await page.goto('#/settings');
+  await page.goto('settings');
   await expect(page.getByRole('heading', { name: 'Default tags' })).toBeVisible();
   await shot(page, '12-settings');
-  await page.goto('#/shares');
+  await page.goto('shares');
   await page.locator('input[name=label]').fill('Sound desk');
   await page.locator('input[name=maxUploads]').fill('5');
   await page.locator('input[name=expires]').fill('2026-12-31');
@@ -144,7 +145,7 @@ test('settings and a share for people without a login', async ({ page, context }
 });
 
 test('a finished sermon shared for download', async ({ page, context }) => {
-  await page.goto('#/grace-chapel/recording/2026/2026-10-18');
+  await page.goto(recordingPage('2026/2026-10-18', 'grace-chapel'));
   await page.locator('tr.detail-row').getByRole('button', { name: 'Share for download…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Share for download' });
   await dialog.locator('input[name=label]').fill('For the homebound');

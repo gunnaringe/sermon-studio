@@ -23,6 +23,7 @@ import (
 type folderEntry struct {
 	Name    string   `json:"name"`
 	Path    string   `json:"path"`
+	Slug    string   `json:"slug"` // its name in the page's address (slugOf)
 	Date    bool     `json:"date"` // a date folder: has sources or outputs
 	Raw     bool     `json:"raw"`
 	Outputs []string `json:"outputs"`
@@ -54,7 +55,7 @@ func outputsOf(p normalizer.Paths) []output {
 }
 
 func (s *Server) entry(abs string) folderEntry {
-	e := folderEntry{Name: filepath.Base(abs), Path: s.relPath(abs), Outputs: []string{}, Labels: []string{}}
+	e := folderEntry{Name: filepath.Base(abs), Path: s.relPath(abs), Slug: slugOf(filepath.Base(abs)), Outputs: []string{}, Labels: []string{}}
 	paths, err := normalizer.NewPaths(abs)
 	if err != nil {
 		return e
@@ -115,6 +116,39 @@ func (s *Server) allRecordings() []folderEntry {
 
 func (s *Server) handleRecordings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"recordings": s.allRecordings(), "newFor": int(newFor.Seconds()), "trashDays": s.trashDays()})
+}
+
+// handleRecording finds a recording by its slug (GET api/recording?slug=), for a page's address. A slug no
+// recording has, after a rename, still finds the recording if it is the only one of that date.
+func (s *Server) handleRecording(w http.ResponseWriter, r *http.Request) {
+	slug := r.URL.Query().Get("slug")
+	var ofDate []folderEntry
+	for _, e := range s.allRecordings() {
+		if e.Slug == slug {
+			writeJSON(w, http.StatusOK, e)
+			return
+		}
+		if len(slug) >= 10 && strings.HasPrefix(e.Slug, slug[:10]) {
+			ofDate = append(ofDate, e)
+		}
+	}
+	if len(ofDate) == 1 {
+		writeJSON(w, http.StatusOK, ofDate[0])
+		return
+	}
+	writeError(w, http.StatusNotFound, errors.New("no such recording"))
+}
+
+// slugTaken refuses a folder for a recording when another recording has the same slug: the address would not
+// tell them apart ("Evening" and "evening!" on the same date).
+func (s *Server) slugTaken(folder string) error {
+	slug := slugOf(filepath.Base(folder))
+	for _, e := range s.allRecordings() {
+		if e.Slug == slug && e.Path != s.relPath(folder) {
+			return fmt.Errorf("%s has almost the same name; use another name", e.Name)
+		}
+	}
+	return nil
 }
 
 const (
