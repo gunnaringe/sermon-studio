@@ -7,7 +7,7 @@ import MinimapPlugin from './vendor/wavesurfer/plugins/minimap.esm.js';
 import HoverPlugin from './vendor/wavesurfer/plugins/hover.esm.js';
 import { alertDialog, confirmDialog, infoDialog } from './dialog.js';
 import { t, tn, tr, lang } from './i18n.js';
-import { api, q, h, href, go, INPUT_TYPES, converts, isVideo, parseTime, formatTime, formatSize, typing, debounce, forTenant, currentTenant, isAdmin, dateInput, formatDateTime, wheelZoomNeedsKey, kbdText } from './util.js';
+import { api, q, h, href, go, soloPlayer, INPUT_TYPES, converts, isVideo, parseTime, formatTime, formatSize, typing, debounce, forTenant, currentTenant, isAdmin, dateInput, formatDateTime, wheelZoomNeedsKey, kbdText } from './util.js';
 
 const MAX_ZOOM = 200; // px per second: 5 ms per pixel, enough to cut between words
 
@@ -448,6 +448,11 @@ export async function editorView(view, slug, config) {
     });
     ws.on('pause', () => { if (!pausing) skipNow = false; });
     ws.on('play', () => { pausing = false; });
+    // The waveform is one of the page's players: another that starts pauses it, also while it waits out a pause.
+    cleanups.push(soloPlayer(ws.getMediaElement()));
+    const otherPlays = (e) => { if (e.target !== ws.getMediaElement()) pausing = false; };
+    document.addEventListener('play', otherPlays, true);
+    cleanups.push(() => document.removeEventListener('play', otherPlays, true));
     clock.textContent = `0:00.0 / ${formatTime(duration, 0)}`;
 
     ws.once('ready', () => {

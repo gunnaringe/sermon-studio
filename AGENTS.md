@@ -169,7 +169,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   make a format); clicking anywhere on a date row expands it; one with no files only offers the editor there. Its status (`badges`): to do / done from `saved` (or files), plus no files / files out of date (`outdated`: an output's `cut` ≠ `cutOf` the saved version) / not saved (`adjusted`: a draft.json). `icons/` = the logo: `logo.svg` is the one source (header, favicon,
   `manifest.webmanifest`); the PNGs (home screen, favicon fallback) come from it via `scripts/make-icons.sh`;
   the public page serves only the ones listed in `sharePage`. `dialog.js` = confirm/alert/prompt in the app's look
-  (never use the browser's `confirm`/`alert`/`prompt`). `vendor/wavesurfer/` is wavesurfer.js
+  (never use the browser's `confirm`/`alert`/`prompt`). One player plays at a time: a play event of any `<audio>`/`<video>` pauses the others (`util.js`;
+  the editor's waveform, not in the page, is added with `soloPlayer`). `vendor/wavesurfer/` is wavesurfer.js
   7.12.12, unmodified.
 - `web/static/i18n.js` + `locales.js` + `theme.js`: English, Norwegian bokmål (`nb`), nynorsk (`nn`) and the theme (automatic /
   light / dark; `data-theme` on `<html>`, set before the first paint). Every text the UI shows goes through `t('English text', {param})`
