@@ -13,6 +13,7 @@ test('the language is chosen in Settings, kept, and changes the whole page', asy
   await expect(page.getByRole('link', { name: 'Source code on GitHub' })).toHaveAttribute('href', REPO);
 
   await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'This browser' }).click(); // its group opens
   await expect(page.locator('select[name=language]')).toHaveValue('en');
   await page.locator('select[name=language]').selectOption('nb');
   await expect(page.getByRole('heading', { name: 'Utseende' })).toBeVisible(); // Settings opens again, in bokmål
@@ -78,6 +79,7 @@ test('the theme is automatic, or light, or dark', async ({ page }) => {
   expect(await bg(page)).toBe('#0b120f');
 
   await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('heading', { name: 'This browser' }).click(); // its group opens
   await page.locator('select[name=theme]').selectOption('light'); // chosen: the device does not matter
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await bg(page)).toBe('#f3f7f5');

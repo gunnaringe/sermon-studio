@@ -384,7 +384,8 @@ async function settingsView(box, part) {
   await clipsView(clips);
 
   const trash = h('section', { id: 'trash' });
-  await trashView(trash);
+  const trashCount = h('span', { class: 'muted' });
+  await trashView(trash, (n) => { trashCount.textContent = n ? tn(n, '{n} recording', '{n} recordings') : t('Empty'); });
 
   const processing = h('section', { id: 'processing' });
   await processingView(processing, async () => { config = await api('GET', 'api/config'); });
@@ -393,32 +394,54 @@ async function settingsView(box, part) {
   const admin = isAdmin();
   const church = tenants.tenants.find((c) => c.id === currentTenant());
   const members = h('section', { id: 'members' });
-  if (tenants.login && church) await membersView(members, church, admin);
+  const withMembers = tenants.login && church;
+  if (withMembers) await membersView(members, church, admin);
 
+  // The settings come in groups, the ones used most first. Each folds open and shut, and this browser remembers
+  // which are open; settings/<part> opens the group of that part (a group, or a section in it).
+  const opened = new Set(JSON.parse(localStorage.getItem('settingsOpen') || 'null') ?? ['recordings']);
+  const group = (id, title, summary, ...body) => {
+    const d = h('details', { class: 'settings-group', 'data-group': id, open: opened.has(id) },
+      h('summary', {}, h('h2', {}, title), summary), h('div', { class: 'group-body' }, body));
+    d.addEventListener('toggle', () => {
+      if (d.open) opened.add(id); else opened.delete(id);
+      localStorage.setItem('settingsOpen', JSON.stringify([...opened]));
+    });
+    return d;
+  };
+  const note = (text) => h('span', { class: 'muted' }, text);
   const view_ = h('div', {},
-    h('h2', {}, t('Appearance')),
-    appearance(),
     admin ? [
-      h('h2', {}, t('Church')),
-      h('div', { class: 'panel tags' }, h('label', {}, h('span', { class: 'name' }, t('Name')), nameInput), h('div', {}, saveName, ' ', nameStatus),
-        h('p', { class: 'muted' }, t('Logo, shown in a square in the header: use a square one, like an app icon; other shapes are shrunk to fit. PNG, JPEG, WebP or SVG, up to 1 MB.')), logoBox),
-      h('h2', {}, t('Default tags')),
-      h('p', { class: 'muted' }, t('Written into all generated recordings. You can change them for one recording in the editor. Placeholders:'), ' ',
-        data.placeholders.flatMap((p, i) => [h('code', {}, '{' + p.name + '}'), ' ' + tr(p.help) + (i < data.placeholders.length - 1 ? ' · ' : '.')])),
-      h('div', { class: 'panel tags' }, rows, h('div', {}, save, ' ', status)),
-      processing,
-      clips,
+      group('recordings', t('Recordings'), note(t('Intro and outro, default tags')),
+        clips,
+        h('section', { id: 'tags' },
+          h('h3', {}, t('Default tags')),
+          h('p', { class: 'muted' }, t('Written into all generated recordings. You can change them for one recording in the editor. Placeholders:'), ' ',
+            data.placeholders.flatMap((p, i) => [h('code', {}, '{' + p.name + '}'), ' ' + tr(p.help) + (i < data.placeholders.length - 1 ? ' · ' : '.')])),
+          h('div', { class: 'panel tags' }, rows, h('div', {}, save, ' ', status)))),
+      group('sound', t('Processing'), note(t('Noise reduction, loudness and formats')), processing),
     ] : '',
-    tenants.login ? members : '',
-    trash,
-    h('h2', {}, t('Waveform')),
-    h('p', { class: 'muted' }, t('Saved in this browser only.')),
-    h('div', { class: 'panel' }, h('label', { class: 'check' }, h('input', {
-      type: 'checkbox', name: 'wheel-zoom-key', checked: wheelZoomNeedsKey(),
-      onchange: (e) => setWheelZoomNeedsKey(e.target.checked),
-    }), t('Zoom with the scroll wheel only while holding Ctrl (Cmd on a Mac)'))));
+    admin || withMembers ? group('church', t('Church'), note(admin ? (withMembers ? t('Name, logo and members') : t('Name and logo')) : t('Members')),
+      admin ? h('section', { id: 'name-logo' },
+        h('div', { class: 'panel tags' }, h('label', {}, h('span', { class: 'name' }, t('Name')), nameInput), h('div', {}, saveName, ' ', nameStatus),
+          h('p', { class: 'muted' }, t('Logo, shown in a square in the header: use a square one, like an app icon; other shapes are shrunk to fit. PNG, JPEG, WebP or SVG, up to 1 MB.')), logoBox)) : '',
+      withMembers ? members : '') : '',
+    group('trash', t('Trash'), trashCount, trash),
+    group('browser', t('This browser'), note(t('Language, theme and waveform')),
+      h('section', { id: 'appearance' }, h('h3', {}, t('Appearance')), appearance()),
+      h('section', { id: 'waveform' },
+        h('h3', {}, t('Waveform')),
+        h('p', { class: 'muted' }, t('Saved in this browser only.')),
+        h('div', { class: 'panel' }, h('label', { class: 'check' }, h('input', {
+          type: 'checkbox', name: 'wheel-zoom-key', checked: wheelZoomNeedsKey(),
+          onchange: (e) => setWheelZoomNeedsKey(e.target.checked),
+        }), t('Zoom with the scroll wheel only while holding Ctrl (Cmd on a Mac)'))))));
   box.replaceChildren(view_);
-  if (part) view_.querySelector('#' + CSS.escape(part))?.scrollIntoView();
+  const target = part && (view_.querySelector(`[data-group="${CSS.escape(part)}"]`) || view_.querySelector('#' + CSS.escape(part)));
+  if (target) {
+    target.closest('details.settings-group').open = true;
+    target.scrollIntoView();
+  }
   preview();
 }
 
@@ -429,7 +452,7 @@ function appearance() {
     h('select', { name, onchange: (e) => onchange(e.target.value) },
       options.map(([v, text]) => h('option', { value: v, selected: v === value }, text))));
   return h('div', { class: 'panel tags' },
-    choose('language', t('Language'), LANGS, lang, (v) => { setLang(v); history.replaceState(null, '', href('settings')); location.reload(); }),
+    choose('language', t('Language'), LANGS, lang, (v) => { setLang(v); history.replaceState(null, '', href('settings', 'appearance')); location.reload(); }),
     choose('theme', t('Theme'), [['auto', t('Automatic (the device)')], ['light', t('Light')], ['dark', t('Dark')]], getTheme(), setTheme));
 }
 
