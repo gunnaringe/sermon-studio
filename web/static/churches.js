@@ -1,7 +1,7 @@
 // The church picker, on the login host when every church has its own address
 // (church hosts), also its start (/): with one church it goes straight there;
 // with several it lists them; with none it says how to get in. Logged out, it
-// offers Log in and, when the provider lets people make an account
+// (also after logging out) offers Log in and, when the provider lets people make an account
 // (--oidc-signup-url), Create an account.
 import { h, toLogin, churchURL } from './util.js';
 import { t, tr, lang, LANGS, setLang } from './i18n.js';
@@ -32,8 +32,10 @@ async function start() {
 }
 
 // welcome is the start for someone who is not logged in.
+// After a login that did not work (?failed), it says so.
 function welcome(signup) {
   view.replaceChildren(h('h1', {}, t('Welcome to Sermon Studio')),
+    location.search === '?failed' ? h('p', { class: 'error' }, t('The login did not work. Try again, or ask the church\'s admin if it keeps failing.')) : '',
     h('p', {}, t('Log in to open the recordings of your church.')),
     h('p', { class: 'choices' },
       h('button', { class: 'primary', type: 'button', name: 'login', onclick: toLogin }, t('Log in')), ' ',

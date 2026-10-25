@@ -1,5 +1,5 @@
 // The pages of the studio's own login (--oidc-issuer): an invite link, and
-// after logging out. The test server has no login, so the invite's API is
+// the start after logging out. The test server has no login, so the invite's API is
 // answered here, as the studio would with one.
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
@@ -55,13 +55,15 @@ test('with signup, an invite without a login offers Log in and Create an account
   await expect(page).toHaveURL(/auth\/login\?next=%2Finvite%23kirke\.abc$/);
 });
 
-test('the logged-out page offers to log in again', async ({ page }) => {
-  await page.goto('logged-out');
-  await expect(page.getByRole('heading', { name: 'You are logged out' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', 'auth/login');
-  await page.screenshot({ path: path.join(shots, 'logged-out.png') });
-  await page.goto('logged-out?failed');
+test('after a login that did not work, the start says so', async ({ page }) => {
+  await page.route('**/api/tenants', (r) => r.fulfill({ status: 401, json: { error: 'log in first', login: true } }));
+  await page.goto('churches?failed');
   await expect(page.getByText('The login did not work.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible();
+  await page.screenshot({ path: path.join(shots, 'churches-failed.png') });
+  await page.goto('churches');
+  await expect(page.getByRole('heading', { name: 'Welcome to Sermon Studio' })).toBeVisible();
+  await expect(page.getByText('The login did not work.')).toHaveCount(0);
 });
 
 // Members in the settings (with the login). The test server has none, so the church list and the

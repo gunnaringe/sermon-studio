@@ -71,7 +71,7 @@ for (const lang of LANGS) {
       // Every link: inside the site it resolves; outside it is GitHub or the contact address.
       for (const href of new Set(await page.locator('a[href]').evaluateAll((as) => as.map((a) => a.getAttribute('href'))))) {
         if (/^mailto:/.test(href)) expect(href).toMatch(/^mailto:contact@sermon-studio\.app(\?subject=[^&]+)?$/);
-        else if (/^https?:/.test(href)) expect(href).toMatch(/^https:\/\/(github\.com\/gunnaringe\/sermon-studio(\/|$)|my\.sermon-studio\.app\/$|id\.sermon-studio\.app\/signup$)/);
+        else if (/^https?:/.test(href)) expect(href).toMatch(/^https:\/\/(github\.com\/gunnaringe\/sermon-studio(\/|$)|my\.sermon-studio\.app\/$)/);
         else {
           const url = new URL(href, page.url());
           expect((await request.get(url.pathname)).status(), href).toBe(200);

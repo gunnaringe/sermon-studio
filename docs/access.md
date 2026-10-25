@@ -35,7 +35,7 @@ sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-clien
 - **Churches** are added by the site administrator, with `sermon-studio admin` (below), not in the studio.
 - **Log out** ends the studio's session, and then the login at the provider too, when the provider supports it
   (OpenID Connect RP-initiated logout: an `end_session_endpoint`). The browser goes there and comes back to the
-  studio's logged-out page. For that the ID token from the login is kept with the session in `sessions.json`,
+  studio's start, which offers Log in. For that the ID token from the login is kept with the session in `sessions.json`,
   never in a cookie. A provider without it leaves its own login as it is.
 
 ## Each church at its own address

@@ -198,7 +198,7 @@ func TestChurchHostLogout(t *testing.T) {
 		t.Errorf("session after logout: %d", w.Code)
 	}
 	w = l.do("GET", "/auth/logout/callback?state="+url.QueryEscape(to.Query().Get("state")), "", state)
-	if w.Header().Get("Location") != "https://app.example.org/logged-out" {
+	if w.Header().Get("Location") != "https://app.example.org/churches" {
 		t.Errorf("callback: %s", w.Header().Get("Location"))
 	}
 }
