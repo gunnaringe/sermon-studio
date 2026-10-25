@@ -130,7 +130,8 @@ func TestChurchFolders(t *testing.T) {
 	}
 	defer a.Close()
 	list := decode[struct{ Tenants []TenantInfo }](t, do(a.Handler(), "GET", "/api/tenants", "")).Tenants
-	want := []TenantInfo{{ID: "kirke-b", Name: "kirke-b", Role: RoleAdmin}, {ID: "norkirken-melhus", Name: "Norkirken Melhus", Role: RoleAdmin}}
+	all := actionsOf(RoleAdmin)
+	want := []TenantInfo{{ID: "kirke-b", Name: "kirke-b", Role: RoleAdmin, Actions: all}, {ID: "norkirken-melhus", Name: "Norkirken Melhus", Role: RoleAdmin, Actions: all}}
 	if !reflect.DeepEqual(list, want) {
 		t.Errorf("churches %+v, want %+v", list, want)
 	}

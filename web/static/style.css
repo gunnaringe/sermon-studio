@@ -112,7 +112,7 @@ header .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-we
 header .brand-name { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 header .brand img { border-radius: 6px; }
 header .tools { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
-header #logout[hidden] { display: none; }
+header #logout[hidden], header .icon[hidden] { display: none; }
 /* Settings and Log out: icons. Log out asks first: one click opens "Log out?", the next logs out. */
 header .icon { box-shadow: none; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem; border: 1px solid transparent;
   border-radius: 8px; background: none; font: inherit; color: var(--muted); cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s; }

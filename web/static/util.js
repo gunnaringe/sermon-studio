@@ -9,11 +9,11 @@ export function setTenant(id) {
   localStorage.setItem('tenant', id);
 }
 
-// The user's role in each church (admin or member), from the church list.
-// Without the studio's login everyone is an admin.
-let roles = {};
-export function setRoles(list) { roles = Object.fromEntries(list.map((c) => [c.id, c.role || 'admin'])); }
-export const isAdmin = () => roles[tenant] !== 'member';
+// What the user may do in each church (its actions, like 'church.settings'; web/permissions.go), from the
+// church list. The page shows only what they may do; the server refuses the rest.
+let actions = {};
+export function setActions(list) { actions = Object.fromEntries(list.map((c) => [c.id, c.actions || []])); }
+export const can = (action) => (actions[tenant] || []).includes(action);
 
 // Whether the scroll wheel zooms the waveform only with ctrl/cmd held. A
 // choice of this browser, not of the church: kept in localStorage.

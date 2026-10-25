@@ -27,6 +27,23 @@ sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-clien
   recordings, editing, runs, downloads and shares. Admins also change the church's settings (name, logo, tags,
   processing, intro and outro clips, how long ended shares are kept) and who its members are. A user who is no
   church's member is told to ask for an invite link.
+- **What a role may do** is a set of actions, listed in `web/permissions.go`:
+
+  | Action | What it is | Admin | Member |
+  |---|---|---|---|
+  | `church.view` | see the church: its recordings, settings and runs | ✓ | ✓ |
+  | `recording.upload` | add a recording | ✓ | ✓ |
+  | `recording.edit` | cut, tag, rename, hear a sample | ✓ | ✓ |
+  | `recording.make` | make the files, stop a run | ✓ | ✓ |
+  | `recording.download` | listen to and download the files | ✓ | ✓ |
+  | `recording.delete` | delete files, originals and recordings; the trash | ✓ | ✓ |
+  | `shares.manage` | the church's shares | ✓ | ✓ |
+  | `church.settings` | name, logo, default tags, processing, how long ended shares are kept | ✓ | |
+  | `church.clips` | the church's intro and outro clips | ✓ | |
+  | `members.manage` | the members and invite links | ✓ | |
+
+  Every request is one of these, and is refused (403) when the role does not have it; the page shows only what the
+  user may do. Without the login, everyone may do everything.
 - **Settings → Members** (admins): the members with their name and email from the login, their role, Remove; invite
   links (role, 1, 7 or 30 days), shown once with a copy button; the open invites, with Revoke. A member sees only
   **Leave this church…**. A church always keeps an admin: the last one cannot step down, leave or be removed.

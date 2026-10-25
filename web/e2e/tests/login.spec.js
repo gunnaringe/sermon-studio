@@ -69,7 +69,10 @@ test('after a login that did not work, the start says so', async ({ page }) => {
 // Members in the settings (with the login). The test server has none, so the church list and the
 // members' API are answered here, as the studio would with one.
 const church = { id: 'first-church', name: 'Norkirken Melhus' };
-const tenants = (role) => ({ tenants: [{ ...church, role }], default: church.id, canAdd: false, shares: false, login: true });
+// A role's actions, as in web/permissions.go.
+const member = ['church.view', 'recording.upload', 'recording.edit', 'recording.make', 'recording.download', 'recording.delete', 'shares.manage'];
+const actions = { admin: [...member, 'church.settings', 'church.clips', 'members.manage'], member };
+const tenants = (role) => ({ tenants: [{ ...church, role, actions: actions[role] }], default: church.id, canAdd: false, shares: false, login: true });
 
 test('an admin sees the members, changes a role and makes an invite link', async ({ page }) => {
   const members = [
@@ -129,6 +132,18 @@ test('a member sees no church settings, and can leave', async ({ page }) => {
   await page.getByRole('button', { name: 'Leave this church…' }).click();
   await page.getByRole('dialog', { name: 'Leave Norkirken Melhus?' }).getByRole('button', { name: 'Leave' }).click();
   await expect.poll(() => left).toBe(true);
+});
+
+// The page shows only what the user may do: a role without deleting or shares (a demo's visitor) has no trash
+// and no shares icon.
+test('a role without deleting or shares sees no trash and no shares', async ({ page }) => {
+  await page.route('**/api/tenants', (r) => r.fulfill({ json: { ...tenants('member'), shares: true,
+    tenants: [{ ...church, role: 'demo', actions: ['church.view', 'recording.edit', 'recording.make', 'recording.download'] }] } }));
+  await page.goto('c/first-church/settings');
+  await expect(page.getByRole('heading', { name: 'This browser' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Trash' })).toHaveCount(0);
+  await expect(page.locator('[data-nav=shares]')).toBeHidden();
+  await page.screenshot({ path: path.join(shots, 'settings-few-actions.png') });
 });
 
 // With church hosts (--church-host), the start (/) goes to a church at its own address: the one last opened

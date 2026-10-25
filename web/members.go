@@ -211,36 +211,6 @@ func (a *App) roleOf(u user, t *tenant) string {
 	return ""
 }
 
-// adminOnly are the requests only a church's admins may make: its settings,
-// and who its members are.
-var adminOnly = func() *http.ServeMux {
-	m := http.NewServeMux()
-	for _, p := range []string{
-		"PUT /api/church", "PUT /api/logo", "DELETE /api/logo", "PUT /api/settings", "PUT /api/processing",
-		"POST /api/clips", "PUT /api/clips/defaults", "PUT /api/clips/{id}", "POST /api/clips/{id}/replace",
-		"POST /api/clips/{id}/delete", "POST /api/sermon/clip/add", "PUT /api/shares/ended-days",
-		"GET /api/members", "PUT /api/members/{id}", "POST /api/members/{id}/remove",
-		"POST /api/invites", "POST /api/invites/{id}/revoke",
-	} {
-		m.HandleFunc(p, func(http.ResponseWriter, *http.Request) {})
-	}
-	return m
-}()
-
-// requireAdmin lets a member's request to change the church's settings or
-// members go no further.
-func (a *App) requireAdmin(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, pattern := adminOnly.Handler(r); pattern != "" {
-			if t, ok := a.tenantFor(r); ok && a.roleOf(a.userOf(r), t) != RoleAdmin {
-				writeError(w, http.StatusForbidden, errors.New("only the church's admins can change this"))
-				return
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 // changeMembers changes a church's members and saves them; a church always
 // keeps an admin.
 func (a *App) changeMembers(t *tenant, change func([]member) ([]member, error)) error {
