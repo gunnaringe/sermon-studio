@@ -42,7 +42,6 @@ export async function processingView(box, saved) {
   } }, t('Use the built-in values'));
 
   box.replaceChildren(
-    h('h2', {}, t('Processing')),
     h('p', { class: 'muted' }, t('What a recording starts with in the editor. A recording keeps its own processing once it is changed there; Use the defaults in the editor brings these back.')),
     h('div', { class: 'panel tags processing-defaults' },
       channels,

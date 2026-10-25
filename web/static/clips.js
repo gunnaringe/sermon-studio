@@ -125,7 +125,7 @@ export async function clipsView(box) {
 
   show(data);
   box.replaceChildren(
-    h('h2', {}, t('Intro and outro')),
+    h('h3', {}, t('Intro and outro')),
     h('p', { class: 'muted' }, t("Clips put before and after the sermon, such as a jingle. Each is brought to the sermon's loudness, with a short pause at each join. A recording can choose another clip, or none, in the editor.")),
     defaults, list);
 }

@@ -4,8 +4,8 @@ import { api, h, formatSize, formatDate } from './util.js';
 import { alertDialog, confirmDialog } from './dialog.js';
 import { t, tn } from './i18n.js';
 
-// trashView fills box with the trash of the church.
-export async function trashView(box) {
+// trashView fills box with the trash of the church; onCount hears how many recordings are in it.
+export async function trashView(box, onCount = () => {}) {
   const note = h('p', { class: 'muted', role: 'status' });
   const list = h('div', { class: 'panel' });
 
@@ -28,6 +28,7 @@ export async function trashView(box) {
 
   async function draw() {
     const data = await api('GET', 'api/trash');
+    onCount(data.items.length);
     list.replaceChildren(...(data.items.length ? data.items.map((item) => h('div', { class: 'trash-item' },
       h('strong', {}, item.name),
       h('span', { class: 'muted' }, ` · ${t('deleted {date}', { date: formatDate(item.deletedAt) })} · ${formatSize(item.size)} · ${tn(item.daysLeft, '{n} day left', '{n} days left')}`),
@@ -40,7 +41,6 @@ export async function trashView(box) {
 
   const data = await draw();
   box.replaceChildren(
-    h('h2', {}, t('Trash')),
     h('p', { class: 'muted' }, t('Deleted recordings are kept for {days} days, then removed for good.', { days: data.days })),
     list, note);
 }

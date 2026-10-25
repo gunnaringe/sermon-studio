@@ -23,7 +23,7 @@ export async function membersView(box, church, admin) {
   } }, label);
 
   if (!admin) {
-    box.replaceChildren(h('h2', {}, t('Members')),
+    box.replaceChildren(h('h3', {}, t('Members')),
       h('div', { class: 'panel' }, h('p', {}, t('You are a member of {church}. Its admins invite others and change its settings.', { church: church.name })), leave(t('Leave this church…'))));
     return;
   }
@@ -82,16 +82,16 @@ export async function membersView(box, church, admin) {
 
   await draw();
   box.replaceChildren(
-    h('h2', {}, t('Members')),
+    h('h3', {}, t('Members')),
     h('p', { class: 'muted' }, t('Who can use the studio for this church. Admins also change its settings and who its members are.')),
     list,
-    h('h3', {}, t('Invite someone')),
+    h('h4', {}, t('Invite someone')),
     h('div', { class: 'panel tags' },
       h('p', { class: 'muted' }, t('An invite link works once, for the first person who opens it and accepts. Send it to the one you invite only.')),
       h('label', {}, h('span', { class: 'name' }, t('Role')), role),
       h('label', {}, h('span', { class: 'name' }, t('Works for')), days),
       h('div', {}, make, ' ', status)),
-    h('h3', {}, t('Open invites')),
+    h('h4', {}, t('Open invites')),
     invites);
 }
 

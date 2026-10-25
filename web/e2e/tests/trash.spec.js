@@ -38,7 +38,7 @@ test('delete a recording on its edit page: confirm, the trash in settings, resto
   await expect(page.locator('tr.row', { hasText: '2027-03-07' })).toHaveCount(0);
   expect(fs.existsSync(dir)).toBe(false);
 
-  await page.goto('settings');
+  await page.goto('settings/trash');
   const item = page.locator('.trash-item', { hasText: '2027-03-07' });
   await expect(item).toContainText('30 days left');
   await page.locator('#trash').screenshot({ path: path.join(shots, 'settings-trash.png') });
@@ -55,7 +55,7 @@ test('delete a recording on its edit page: confirm, the trash in settings, resto
   await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Recordings' })).toBeVisible();
   await expect.poll(() => fs.existsSync(dir)).toBe(false);
-  await page.goto('settings');
+  await page.goto('settings/trash');
   await page.locator('.trash-item', { hasText: '2027-03-07' }).getByRole('button', { name: 'Delete now' }).click();
   await page.getByRole('dialog', { name: 'Delete 2027-03-07 for good?' }).getByRole('button', { name: 'Delete now' }).click();
   await expect(page.getByText('The trash is empty.')).toBeVisible();

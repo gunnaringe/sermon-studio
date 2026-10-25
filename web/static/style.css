@@ -358,6 +358,19 @@ button.link { border: 0; background: none; box-shadow: none; color: var(--accent
 .settings-head .close { min-width: 40px; min-height: 40px; font-size: 1.1rem; border: 0; box-shadow: none; background: none; color: var(--muted); cursor: pointer; border-radius: 6px; }
 .settings-head .close:hover { color: var(--fg); background: var(--bg); }
 .settings { padding: 0.2rem 1.4rem 1.4rem; }
+/* the settings' groups: each folds open and shut, with a line under its name saying what is in it */
+details.settings-group { border-bottom: 1px solid var(--line); }
+details.settings-group > summary { list-style: none; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.2rem 0.7rem;
+  margin: 0; padding: 0.9rem 0; color: var(--fg); }
+details.settings-group > summary::-webkit-details-marker { display: none; }
+details.settings-group > summary::before { content: '▸'; color: var(--muted); width: 0.8rem; }
+details.settings-group[open] > summary::before { content: '▾'; }
+details.settings-group > summary h2 { margin: 0; font-size: 1.1rem; }
+details.settings-group > summary .muted { font-size: 0.9em; }
+.group-body { padding: 0 0 1.2rem 1.5rem; }
+.group-body > section + section { margin-top: 1.4rem; }
+.group-body h3 { font-size: 1rem; margin: 0.4rem 0 0.5rem; }
+.group-body h4 { font-size: 0.95rem; margin: 1rem 0 0.4rem; }
 .about > p { max-width: 38rem; }
 /* The author's signature: their handwriting, cut down to the letters of the name (not under the licence, see NOTICE). */
 @font-face { font-family: "signature"; src: url("fonts/signature.woff2") format("woff2"); font-display: swap; }
@@ -604,3 +617,6 @@ input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(-
 /* The church picker (churches.html) */
 .church-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; max-width: 24rem; }
 .church-list .button { display: block; }
+@media (max-width: 640px) {
+  .group-body { padding-left: 0; }
+}

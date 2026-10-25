@@ -161,7 +161,7 @@ test('scroll zooms at the mouse, sideways moves along; settings can make it need
   await expect.poll(zoom).toBe(0);
 
   // With the setting, a plain scroll leaves the zoom alone; ctrl+scroll zooms.
-  await page.goto('settings');
+  await page.goto('settings/waveform');
   await page.getByLabel(/holding Ctrl/).check();
   await openEditor(page, '2026/2026-10-04');
   await page.getByRole('button', { name: 'Keys…' }).click(); // the Keys list says so
@@ -773,6 +773,29 @@ test('settings: an overlay over the page, closed by the cross, Esc or a click ou
   await expect(dialog).toBeHidden();
 });
 
+test('settings: groups fold open and shut, this browser remembers which; an address opens its group', async ({ page }) => {
+  await page.goto('settings');
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeVisible(); // Recordings is open at first
+  await expect(page.locator('select[name=language]')).toBeHidden();
+  await expect(page.locator('details.settings-group > summary')).toHaveText([
+    'RecordingsIntro and outro, default tags', 'ProcessingNoise reduction, loudness and formats', 'ChurchName and logo',
+    /^Trash(Empty|\d+ recordings?)$/, 'This browserLanguage, theme and waveform']);
+  await dialog.getByRole('heading', { name: 'Recordings', exact: true }).click();
+  await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeHidden();
+  await dialog.screenshot({ path: path.join(shots, 'settings-groups.png') });
+  await dialog.getByRole('heading', { name: 'Recordings', exact: true }).click();
+  await dialog.getByRole('heading', { name: 'This browser' }).click();
+  await expect(page.locator('select[name=language]')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('select[name=language]')).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeVisible();
+  await dialog.screenshot({ path: path.join(shots, 'settings-groups-open.png') });
+  await page.goto('settings/processing');
+  await expect(page.locator('select[name=compression]')).toBeVisible();
+  await page.evaluate(() => localStorage.removeItem('settingsOpen'));
+});
+
 test('shares: their own overlay from the header icon, with the number of uploads and downloads going on', async ({ page }) => {
   await page.goto('c/first-church');
   const icon = page.locator('header [data-nav=shares]');
@@ -886,7 +909,7 @@ test('header: log out is an icon and asks first', async ({ page }) => {
 });
 
 test('settings: rename the church; the dropdown follows', async ({ page }) => {
-  await page.goto('settings');
+  await page.goto('settings/church');
   await page.locator('input[name=church]').fill('Norkirken Melhus');
   await page.locator('button[name=save-church]').click();
   await expect(page.getByText('Saved.')).toBeVisible();
@@ -897,7 +920,7 @@ test('settings: rename the church; the dropdown follows', async ({ page }) => {
 
 test('settings: a church logo replaces the app logo in the header', async ({ page }) => {
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#b00020"/></svg>';
-  await page.goto('settings');
+  await page.goto('settings/church');
   const brand = page.locator('header .brand img');
   await expect(brand).toHaveAttribute('src', 'icons/logo.svg');
   await page.locator('input[name=logo]').setInputFiles({ name: 'logo.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
@@ -1413,13 +1436,14 @@ test('processing: the church\'s defaults in Settings; a recording goes back to t
     // Settings: the defaults a recording starts with.
     await page.goto('settings/processing');
     const settings = page.locator('#processing');
-    await expect(settings.getByRole('heading', { name: 'Processing' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Processing' })).toBeVisible();
+    await expect(settings).toBeVisible();
     await settings.locator('select[name=compression]').selectOption('strong');
     await settings.locator('input[name=fadeIn]').fill('2');
     await settings.getByLabel('Opus bitrate Stereo').fill('80k');
     await settings.getByRole('button', { name: 'Save' }).click();
     await expect(settings.getByText('Saved.')).toBeVisible();
-    await settings.getByRole('heading', { name: 'Processing' }).scrollIntoViewIfNeeded();
+    await page.getByRole('heading', { name: 'Processing' }).scrollIntoViewIfNeeded();
     await settings.screenshot({ path: path.join(shots, 'settings-processing.png') });
     const defaults = async () => (await (await page.request.get('api/config')).json()).defaults;
     expect((await defaults()).processing).toMatchObject({ compression: 'strong', fadeIn: 2, stereoLevels: { opusBitrate: '80k' } });
