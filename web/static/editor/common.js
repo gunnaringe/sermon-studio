@@ -31,6 +31,8 @@ export const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.
  * @property {(() => void)[]} cleanups what is undone when the page is left
  * @property {boolean} alive the page is still shown
  * @property {import('../vendor/wavesurfer/wavesurfer.esm.js').default} ws the waveform, once it is there
+ * @property {import('../vendor/wavesurfer/plugins/regions.esm.js').default} regions the waveform's regions: sections, cuts, silences, pauses
+ * @property {number} duration the recording's length, in seconds, once the waveform is there
  * @property {Span[]} sections the parts of the recording that are the sermon, in time order
  * @property {Span[]} cuts the parts cut out of the sections, in time order
  * @property {{ saved: any, adjusted: any, savedAt?: string }} sermon the kept versions of the edit (sermon.json)
@@ -40,13 +42,51 @@ export const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.
  *
  * The parts' functions, called by the others:
  * @property {() => void} changed the edit changed: check it, keep it, make it a step of undo
- * @property {() => void} adopt make the start the page made the user's own
- * @property {(start: number, end: number, label?: string, pause?: number) => Span} addSection
- * @property {(start: number, end: number, label?: string, pause?: number) => Span} addCut
- * @property {() => void} renderSections
- * @property {() => void} renderCuts
+ *
+ * The waveform (waveform.js):
  * @property {(time: number) => void} reveal scroll a zoomed waveform so the time is in view
+ * @property {(from: number, seconds: number, skipCuts?: boolean) => void} playFor play from a time for some seconds
+ *
+ * The sections and the selection (sections.js):
+ * @property {() => HTMLElement} sectionsGroup the tools and the list of the sections
+ * @property {(region: any) => Span} sectionOf
+ * @property {() => number} first the start of the first section
+ * @property {() => number} last the end of the last section
+ * @property {(start: number, end: number, label?: string, pause?: number) => Span} addSection
+ * @property {(region: any) => void} addDrawn make a region drawn on the waveform a section
+ * @property {() => void} tidySections sort the sections, make overlapping ones one, and show them
+ * @property {() => void} splitHere
+ * @property {() => void} markStart
+ * @property {() => void} markEnd
+ * @property {(x: Span) => void} select
+ * @property {() => void} markSelected
+ * @property {() => void} removeSelected
+ * @property {(seconds: number) => void} nudge
+ * @property {() => any} selection the selected section or cut, for the tests
+ * @property {() => void} renderSections
+ * @property {() => void} syncSections
+ * @property {() => void} showLength
+ * @property {(silences: { start: number, end: number }[]) => void} proposeSection start with the recording without the silence at its ends
+ * @property {() => void} adopt make the start the page made the user's own
+ *
+ * The cuts (cuts.js):
+ * @property {() => HTMLElement} cutsGroup the tools and the list of the cuts
+ * @property {(region: any) => Span} cutOf
+ * @property {() => void} sortCuts
+ * @property {(start: number, end: number, label?: string, pause?: number) => Span} addCut
+ * @property {() => void} addCutHere start a cut at the playhead, or end the one started
+ * @property {(now: number) => void} followOpenCut
+ * @property {() => boolean} cancelCut
+ * @property {(c: Span) => void} removeCut
+ * @property {() => void} renderCuts
+ * @property {() => void} syncCuts
+ *
+ * The fades (fades.js):
  * @property {(key: string, seconds: number) => void} setFade
+ * @property {() => void} buildFades
+ * @property {() => void} drawFades
+ *
+ * The others:
  * @property {() => number} keptLength the sections without the cuts
  * @property {() => { at: number, seconds: number }[]} activePauses
  * @property {() => any} currentSettings the edit on the page as it is kept, or null
@@ -65,9 +105,7 @@ export const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.
  * @property {() => void} check ask the server what the edit would make
  * @property {() => void} renderOutputs
  * @property {() => Promise<void>} refreshInfo read the folder again
- * @property {() => void} renderDelete
  * @property {() => void} showChannelWarning
- * @property {(stereo: boolean) => void} setStereo
  * @property {() => void} redrawProcessing show the processing choices again, after they were set from outside
  * @property {() => void} showDefaults
  * @property {() => Record<string, string>} clipChoices
