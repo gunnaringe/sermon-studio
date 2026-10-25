@@ -190,7 +190,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   browser's (`no` = bokmål) unless chosen in Settings → Appearance (or on the public page's header); stored in localStorage.
 - `site/`: the website at sermon-studio.app (`site/README.md`): plain HTML, `site.js` and `style.css` (the studio's look), the
   texts in `site/lang/{en,nb,nn}.json` (the same keys; `data-t="key"` in the pages), Log in (my.sermon-studio.app, whose start
-  also offers Create an account) and Ask for an invite (contact@) in the header and under For churches. A Cloudflare Worker with static assets only (`site/wrangler.jsonc`, `_headers` keeps it to its own host), deployed by
+  also offers Create an account) and Ask for an invite (contact@) in the header and under For churches; Try the demo (demo.sermon-studio.app, at the top and in its own section, `#demo`). A Cloudflare Worker with static assets only (`site/wrangler.jsonc`, `_headers` keeps it to its own host), deployed by
   Workers Builds on a push to `main` that changes `site/**`. Its pictures (`site/img/shots/<lang>/`) and its English video
   (`site/media/`) come from `scripts/site-shots.sh` (`web/e2e/site-shots/`: the real studio, `--no-login`, the sample speech;
   the video has a drawn pointer and captions); its test is `web/e2e/site/` (`scripts/test.sh site`, also the PR screenshots

@@ -26,11 +26,17 @@
   "home.h1": "Fra opptaket av gudstjenesten til prekenfiler",
   "home.lede": "Sermon Studio kjører i nettleseren. Last opp opptaket av hele gudstjenesten, merk hvor prekenen begynner og slutter, og trykk Lagre. Du får prekenen som FLAC, MP3 og Opus, med jevn og vanlig lydstyrke, klar for en podkast eller menighetens nettside.",
   "home.cta.how": "Se hvordan det virker",
+  "home.cta.demo": "Prøv demoen",
   "home.hero.alt": "Redigeringen: gudstjenesten som bølgeform, med prekenen merket",
 
   "home.video.h2": "Studioet i bruk",
   "home.video.note": "Videoen er på engelsk, uten lyd.",
   "home.video.fallback": "Nettleseren din kan ikke spille av denne videoen. <a href=\"media/demo.mp4\">Last den ned (MP4)</a>.",
+
+  "home.demo.h2": "Prøv selv",
+  "home.demo.p1": "Demoen har ett opptak, president Kennedys innsettelsestale, klart til å klippe, tagge og lage filer av som du kan lytte til og laste ned. Det er ingen innlogging.",
+  "home.demo.p2": "I demoen kan du ikke laste opp opptak, og du kan ikke lage delingslenker. Alle kan se det du endrer, og alt tilbakestilles hver natt.",
+  "home.demo.button": "Åpne demoen",
 
   "home.how.h2": "Slik virker det",
   "home.how.intro": "Fem steg, hvert av dem i studioet slik bildene viser.",

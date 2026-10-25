@@ -26,11 +26,17 @@
   "home.h1": "Frå opptaket av gudstenesta til preikefiler",
   "home.lede": "Sermon Studio køyrer i nettlesaren. Last opp opptaket av heile gudstenesta, merk kvar preika byrjar og sluttar, og trykk Lagre. Du får preika som FLAC, MP3 og Opus, med jamn og vanleg lydstyrke, klar for ein podkast eller nettsida til kyrkjelyden.",
   "home.cta.how": "Sjå korleis det verkar",
+  "home.cta.demo": "Prøv demoen",
   "home.hero.alt": "Redigeringa: gudstenesta som bølgjeform, med preika merkt",
 
   "home.video.h2": "Studioet i bruk",
   "home.video.note": "Videoen er på engelsk, utan lyd.",
   "home.video.fallback": "Nettlesaren din kan ikkje spele av denne videoen. <a href=\"media/demo.mp4\">Last han ned (MP4)</a>.",
+
+  "home.demo.h2": "Prøv sjølv",
+  "home.demo.p1": "Demoen har eitt opptak, president Kennedys innsetjingstale, klart til å klippe, tagge og lage filer av som du kan lytte til og laste ned. Det er inga innlogging.",
+  "home.demo.p2": "I demoen kan du ikkje laste opp opptak, og du kan ikkje lage delingslenkjer. Alle kan sjå det du endrar, og alt vert tilbakestilt kvar natt.",
+  "home.demo.button": "Opne demoen",
 
   "home.how.h2": "Slik verkar det",
   "home.how.intro": "Fem steg, kvart av dei i studioet slik bileta viser.",

@@ -26,11 +26,17 @@
   "home.h1": "From the recording of a service to sermon files",
   "home.lede": "Sermon Studio runs in the browser. Upload the recording of the whole service, mark where the sermon starts and ends, and press Save. You get the sermon as FLAC, MP3 and Opus, at an even, standard loudness, ready for a podcast or the church's website.",
   "home.cta.how": "See how it works",
+  "home.cta.demo": "Try the demo",
   "home.hero.alt": "The editor: the service as a waveform, with the sermon marked",
 
   "home.video.h2": "The studio in use",
   "home.video.note": "The video is in English, without sound.",
   "home.video.fallback": "Your browser cannot play this video. <a href=\"media/demo.mp4\">Download it (MP4)</a>.",
+
+  "home.demo.h2": "Try it yourself",
+  "home.demo.p1": "The demo has one recording, President Kennedy's inaugural address, ready to cut, tag and make into files you can listen to and download. There is no login.",
+  "home.demo.p2": "Uploading recordings is not supported in the demo, and share links cannot be made. Anyone can see what you change, and everything is reset every night.",
+  "home.demo.button": "Open the demo",
 
   "home.how.h2": "How it works",
   "home.how.intro": "Five steps, each in the studio as the pictures show it.",
