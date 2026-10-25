@@ -146,6 +146,17 @@ test('the church picker lists the churches, and goes straight to the only one', 
   await expect(page).toHaveURL('http://kirke-a.localhost:8080/');
 });
 
+test('logged out, the church picker is the start: Log in, or Create an account', async ({ page }) => {
+  await page.route('**/api/tenants', (r) => r.fulfill({ status: 401, json: { error: 'log in first', login: true, signup: 'https://id.example.org/signup' } }));
+  await page.goto('churches');
+  await expect(page.getByRole('heading', { name: 'Welcome to Sermon Studio' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Create an account' })).toHaveAttribute('href', 'https://id.example.org/signup');
+  await expect(page.getByText('Invited? Open the invite link you got.')).toBeVisible();
+  await page.screenshot({ path: path.join(shots, 'churches-welcome.png') });
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await expect(page).toHaveURL(/auth\/login\?next=%2Fchurches$/);
+});
+
 test('a church that has its own address is shown there', async ({ page }) => {
   await page.route('**/api/tenants', (r) => r.fulfill({ json: { tenants: [
     { id: 'first-church', name: 'Norkirken Melhus', role: 'admin', url: 'http://first-church.localhost:8080/' }],

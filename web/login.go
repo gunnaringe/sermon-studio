@@ -461,13 +461,13 @@ func (au *auth) fail(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 // publicPath reports the paths anyone may fetch without a session: the login
-// itself, the health check, the invite and logged-out pages, and the static
-// files (no studio data is in them), but not the studio's pages.
+// itself, the health check, the church picker, the invite and logged-out pages,
+// and the static files (no studio data is in them), but not the studio's pages.
 func publicPath(rel string) bool {
 	switch {
 	case strings.HasPrefix(rel, "auth/"), rel == "healthz":
 		return true
-	case IsPage("/"+rel) || rel == "churches" || strings.HasPrefix(rel, "api/"):
+	case IsPage("/"+rel) || strings.HasPrefix(rel, "api/"):
 		return false
 	}
 	return true
@@ -478,7 +478,8 @@ func publicPath(rel string) bool {
 func (au *auth) require(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rel, ok := strings.CutPrefix(r.URL.Path, "/")
-		if !ok || publicPath(rel) {
+		// The login host's start is public: it is the church picker, which offers Log in.
+		if !ok || publicPath(rel) || (au.hosts != nil && r.Host == au.base.Host && rel == "") {
 			next.ServeHTTP(w, r)
 			return
 		}

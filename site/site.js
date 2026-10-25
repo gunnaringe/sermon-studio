@@ -1,13 +1,8 @@
 // The website's script: the texts in the chosen language, the language selector, the studio's pictures in that
-// language, and the Log in button. The texts are in lang/<code>.json, one file per language with the same keys
+// language. The texts are in lang/<code>.json, one file per language with the same keys
 // (web/e2e/site checks that). An element with data-t="key" gets the text (which may hold a link or <strong>);
 // data-t-alt, data-t-aria-label and data-t-content set those attributes; img data-shot="name" shows
 // img/shots/<lang>/<name>.webp. Loaded in <head> (not deferred), so the page is hidden until its text is there.
-
-// SHOW_LOGIN shows the Log in button. Off until the hosted studio runs at LOGIN_URL (issues #82, #84): with it
-// off, the button is hidden and has no address, so no dead link goes out.
-const SHOW_LOGIN = false;
-const LOGIN_URL = 'https://my.sermon-studio.app/';
 
 const LANGS = { en: 'English', nb: 'Norsk bokmål', nn: 'Norsk nynorsk' };
 
@@ -86,11 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       show(select.value);
     });
-  }
-  const login = document.getElementById('login');
-  if (login && SHOW_LOGIN) {
-    login.href = LOGIN_URL;
-    login.hidden = false;
   }
   show(detect()).catch(() => document.documentElement.classList.add('ready'));
 });

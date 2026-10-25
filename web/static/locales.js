@@ -796,6 +796,9 @@ export const nb = {
   "Create an account": "Lag en konto",
   "New here? Create an account in the tab that opens, and make a passkey when you are asked to. Then come back to this tab and press Log in.": "Ny her? Lag en konto i fanen som åpnes, og lag en passnøkkel når du blir bedt om det. Kom så tilbake til denne fanen og trykk Logg inn.",
   "Your churches": "Dine menigheter",
+  "Welcome to Sermon Studio": "Velkommen til Sermon Studio",
+  "Log in to open the recordings of your church.": "Logg inn for å åpne opptakene til menigheten din.",
+  "Invited? Open the invite link you got.": "Invitert? Åpne invitasjonslenken du fikk.",
   "Choose a church.": "Velg en menighet.",
 };
 
@@ -1593,5 +1596,8 @@ export const nn = {
   "Create an account": "Lag ein konto",
   "New here? Create an account in the tab that opens, and make a passkey when you are asked to. Then come back to this tab and press Log in.": "Ny her? Lag ein konto i fana som blir opna, og lag ein passnøkkel når du blir beden om det. Kom så tilbake til denne fana og trykk Logg inn.",
   "Your churches": "Kyrkjelydane dine",
+  "Welcome to Sermon Studio": "Velkomen til Sermon Studio",
+  "Log in to open the recordings of your church.": "Logg inn for å opne opptaka til kyrkjelyden din.",
+  "Invited? Open the invite link you got.": "Invitert? Opne invitasjonslenkja du fekk.",
   "Choose a church.": "Vel ein kyrkjelyd.",
 };

@@ -62,9 +62,6 @@ for (const lang of LANGS) {
         expect((await el.innerHTML()).trim(), key).not.toBe('');
       }
       expect(await page.title()).toBe(dicts[lang][await page.locator('title').getAttribute('data-t')]);
-      // Log in is hidden, with no address, until site.js turns it on.
-      await expect(page.locator('#login')).toBeHidden();
-      expect(await page.locator('#login').getAttribute('href')).toBeNull();
 
       // Every picture is this language's, and loads.
       await eager(page);
@@ -73,8 +70,8 @@ for (const lang of LANGS) {
       }
       // Every link: inside the site it resolves; outside it is GitHub or the contact address.
       for (const href of new Set(await page.locator('a[href]').evaluateAll((as) => as.map((a) => a.getAttribute('href'))))) {
-        if (/^mailto:/.test(href)) expect(href).toBe('mailto:contact@sermon-studio.app');
-        else if (/^https?:/.test(href)) expect(href).toMatch(/^https:\/\/github\.com\/gunnaringe\/sermon-studio(\/|$)/);
+        if (/^mailto:/.test(href)) expect(href).toMatch(/^mailto:contact@sermon-studio\.app(\?subject=[^&]+)?$/);
+        else if (/^https?:/.test(href)) expect(href).toMatch(/^https:\/\/(github\.com\/gunnaringe\/sermon-studio(\/|$)|my\.sermon-studio\.app\/$|id\.sermon-studio\.app\/signup$)/);
         else {
           const url = new URL(href, page.url());
           expect((await request.get(url.pathname)).status(), href).toBe(200);
@@ -167,6 +164,7 @@ test('screenshots for the PR', async ({ browser }) => {
     await ready(page);
     await eager(page);
     await page.screenshot({ path: path.join(shots, `site-home-${lang}.png`) });
+    await page.locator('#churches').screenshot({ path: path.join(shots, `site-churches-${lang}.png`) });
     if (lang === 'en') {
       await page.screenshot({ path: path.join(shots, 'site-home-full.png'), fullPage: true });
       for (const [p, name] of [['guide.html', 'site-guide'], ['privacy.html', 'site-privacy']]) {
