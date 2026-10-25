@@ -239,6 +239,24 @@ test('an unknown address is the not-found page, and the Worker files are not ser
   expect((await request.get('/guide')).status()).toBe(200);
 });
 
+// A link preview (Signal, Slack…) runs no script: each page's head has its English title, description and picture.
+test('every page has a link preview without its script', async ({ request }) => {
+  for (const p of PAGES) {
+    const head = (await (await request.get(p)).text()).split('</head>')[0];
+    const tag = (prop) => head.match(new RegExp(`<meta (?:property|name)="${prop}"[^>]* content="([^"]*)"`))?.[1];
+    const key = p === '/' ? 'home' : p.slice(1, -5);
+    expect(tag('description'), p).toBe(dicts.en[key + '.description']);
+    expect(tag('og:title'), p).toBe(dicts.en[key + '.title']);
+    expect(tag('og:description'), p).toBe(dicts.en[key + '.description']);
+    expect(tag('og:url'), p).toBe('https://sermon-studio.app' + p);
+    const image = tag('og:image');
+    expect(image, p).toBe('https://sermon-studio.app/img/og.png');
+    const r = await request.get(new URL(image).pathname);
+    expect(r.status()).toBe(200);
+    expect(r.headers()['content-type']).toContain('image/png');
+  }
+});
+
 test('screenshots for the PR', async ({ browser }) => {
   fs.mkdirSync(shots, { recursive: true });
   for (const lang of LANGS) {
