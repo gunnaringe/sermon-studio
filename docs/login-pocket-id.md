@@ -40,7 +40,7 @@ decided in the studio, by its members.
 
 **Logging out.** The studio's Log out also logs out of Pocket ID: it ends its own session, sends the browser to
 Pocket ID's logout (with the ID token from the login, which Pocket ID requires), and Pocket ID sends it back to the
-Logout Callback URL, which goes on to the studio's "You are logged out" page. Without the Logout Callback URL,
+Logout Callback URL, which goes on to the studio's start (Log in). Without the Logout Callback URL,
 Pocket ID logs out but stays on its own page.
 
 ## Who can make an account

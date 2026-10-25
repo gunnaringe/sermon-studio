@@ -14,8 +14,8 @@ from other hosts (`_headers` sets a Content-Security-Policy that keeps it so).
 | `img/shots/<lang>/*.webp` | the studio in each language, made by `scripts/site-shots.sh shots` |
 | `media/demo.mp4`, `demo.webm`, `demo-poster.webp` | the video, in English, made by `scripts/site-shots.sh video` |
 
-**Log in** goes to the hosted studio's login host (https://my.sermon-studio.app/), **Sign up** to its Pocket ID
-(https://id.sermon-studio.app/signup), and **Ask for an invite** writes to contact@sermon-studio.app.
+**Log in** goes to the hosted studio's login host (https://my.sermon-studio.app/), whose start offers Log in and
+Create an account, and **Ask for an invite** writes to contact@sermon-studio.app.
 
 ## Changing it
 

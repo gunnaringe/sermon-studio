@@ -64,10 +64,10 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   go-oidc (+ nonce), then a session of its own (cookie `studio_session`, 30 days; `<data-dir>/sessions.json` keeps the cookie's hash and
   the ID token, for logging out;
   `users.json` = issuer + sub, with name/email for display only, never for access). `require` wraps the whole handler: no session
-  = a page goes to `auth/login?next=`, `api/…` answers 401 (`util.js` `toLogin`); only `auth/*`, `invite`, `logged-out` and the
-  static files are public, not the app's pages (`IsPage`) or `churches`. Logout (`POST auth/logout`) ends the session, then, if the provider has an `end_session_endpoint`, sends
+  = a page goes to `auth/login?next=`, `api/…` answers 401 (`util.js` `toLogin`); only `auth/*`, `invite`, `churches` and the
+  static files are public, not the app's pages (`IsPage`). Logout (`POST auth/logout`) ends the session, then, if the provider has an `end_session_endpoint`, sends
   the browser there (RP-initiated logout, with `id_token_hint` and a `state` in the cookie `studio_logout`), which comes back to
-  `auth/logout/callback`; then, or without one, `logged-out`. The provider is found on the first login, so the studio starts
+  `auth/logout/callback`; then, or without one, `churches` (the start: logged out, it offers Log in; `?failed` after a login that did not work). The provider is found on the first login, so the studio starts
   while it is down. Pocket ID, the recommended provider: docs/login-pocket-id.md, its styling assets in `docs/pocket-id/`
   (`scripts/make-pocket-id-assets.sh`).
 - `web/members.go`: with the login, a church is for its members (`<church>/members.json`: issuer, sub, role admin/member). They
@@ -89,7 +89,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   the studio, `canAdd`). `default` is a reserved id. Every church request goes through `App.tenantFor`,
   which only picks churches the user sees.
 - `web/pages.go`: the page addresses (`IsPage`, served as `index.html` with a relative `<base>`, so the studio works under a
-  sub-path; `churches`, `invite`, `logged-out` are their own files) and `slugOf`, a recording's name in its address
+  sub-path; `churches`, `invite` are their own files) and `slugOf`, a recording's name in its address
   (`2026-10-19-morning-service`; `GET api/recording?slug=` finds it, also the old slug of the only recording of a date; a
   name with the slug of another recording is refused, `slugTaken`).
 - `web/server.go`: Config, routes, `resolve` (every path parameter: inside the
@@ -180,8 +180,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   entry in `locales.js` (`TestLocales` fails otherwise). Never name a variable `t` where `t()` is called. The language is the
   browser's (`no` = bokmål) unless chosen in Settings → Appearance (or on the public page's header); stored in localStorage.
 - `site/`: the website at sermon-studio.app (`site/README.md`): plain HTML, `site.js` and `style.css` (the studio's look), the
-  texts in `site/lang/{en,nb,nn}.json` (the same keys; `data-t="key"` in the pages), Log in (my.sermon-studio.app), Sign up
-  (id.sermon-studio.app/signup) and Ask for an invite (contact@) in the header and under For churches. A Cloudflare Worker with static assets only (`site/wrangler.jsonc`, `_headers` keeps it to its own host), deployed by
+  texts in `site/lang/{en,nb,nn}.json` (the same keys; `data-t="key"` in the pages), Log in (my.sermon-studio.app, whose start
+  also offers Create an account) and Ask for an invite (contact@) in the header and under For churches. A Cloudflare Worker with static assets only (`site/wrangler.jsonc`, `_headers` keeps it to its own host), deployed by
   Workers Builds on a push to `main` that changes `site/**`. Its pictures (`site/img/shots/<lang>/`) and its English video
   (`site/media/`) come from `scripts/site-shots.sh` (`web/e2e/site-shots/`: the real studio, `--no-login`, the sample speech;
   the video has a drawn pointer and captions); its test is `web/e2e/site/` (`scripts/test.sh site`, also the PR screenshots

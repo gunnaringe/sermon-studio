@@ -18,11 +18,11 @@ import (
 //	/shares, /about
 //
 // The other pages are their own files: /churches (the churches of the user), /invite#<token> (an invite link:
-// the token after # never reaches the server) and /logged-out.
+// the token after # never reaches the server).
 var pageNames = map[string]bool{"recordings": true, "settings": true, "shares": true, "about": true}
 
 // otherPages are the pages that are not the app, by address.
-var otherPages = map[string]string{"churches": "churches.html", "invite": "invite.html", "logged-out": "loggedout.html"}
+var otherPages = map[string]string{"churches": "churches.html", "invite": "invite.html"}
 
 // IsPage reports whether path (from the root of the studio) is a page of the app, served as index.html.
 func IsPage(path string) bool {

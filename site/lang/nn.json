@@ -6,7 +6,6 @@
   "nav.guide": "Rettleiing",
   "nav.privacy": "Personvern",
   "nav.login": "Logg inn",
-  "nav.signup": "Registrer deg",
   "nav.home": "Sermon Studio, framsida",
   "footer.source": "Kjeldekoden på GitHub",
   "footer.licence": "Gratis og open kjeldekode, med Apache 2.0-lisensen.",
@@ -52,7 +51,7 @@
   "home.what.4": "<strong>Òg på mobilen.</strong> På engelsk, bokmål og nynorsk, lyst eller mørkt.",
 
   "home.churches.h2": "For kyrkjelydar",
-  "home.churches.p1": "Tek de opp gudstenestene og vil ha preikene på nett? Be om ein invitasjon, med namnet på kyrkjelyden: vi set opp kyrkjelyden i studioet, og så inviterer du dei andre som skal bruke det. Er du invitert? Opne lenkja du fekk; har du ingen konto enno, registrerer du deg først.",
+  "home.churches.p1": "Tek de opp gudstenestene og vil ha preikene på nett? Be om ein invitasjon, med namnet på kyrkjelyden: vi set opp kyrkjelyden i studioet, og så inviterer du dei andre som skal bruke det. Er du invitert? Opne lenkja du fekk: der kan du òg lage ein konto om du ikkje har ein.",
   "home.churches.invite": "Be om ein invitasjon",
   "home.churches.p2": "Vil de heller køyre det sjølve? Sermon Studio er gratis og open kjeldekode. Køyr det på dykkar eigen tenar med Docker (<a href=\"https://github.com/gunnaringe/sermon-studio/blob/main/docs/running.md\">slik</a>, på engelsk), eller bruk skrivebordsappen nedanfor på éi datamaskin.",
   "home.churches.p3": "Les korleis studioet vert brukt i <a href=\"guide.html\">rettleiinga</a>, og kva som vert lagra under <a href=\"privacy.html\">personvern</a>.",

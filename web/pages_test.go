@@ -35,7 +35,7 @@ func TestPages(t *testing.T) {
 			t.Errorf("%s: %d, want the app with base %s", path, rec.Code, base)
 		}
 	}
-	for path, file := range map[string]string{"/churches": "churches.js", "/invite": "invite.js", "/logged-out": "loggedout.js"} {
+	for path, file := range map[string]string{"/churches": "churches.js", "/invite": "invite.js"} {
 		if rec := ts.do(t, "GET", path, nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), file) {
 			t.Errorf("%s: %d", path, rec.Code)
 		}
