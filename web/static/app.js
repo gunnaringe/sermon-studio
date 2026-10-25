@@ -3,7 +3,7 @@
 // recordings, that one opened), recordings/<slug>/edit (the editor), settings[/<part>] (the settings over the
 // recordings), shares (the shares, the same way), about (what the studio is). The last three also open as an
 // overlay from their icon in the header, or the link in the footer.
-import { api, q, h, href, go, ROOT, setHosted, INPUT_TYPES, isInputType, formatSize, formatDate, formatDateTime, dateInput, forTenant, currentTenant, setTenant, setRoles, churchURL, isAdmin, debounce, wheelZoomNeedsKey, setWheelZoomNeedsKey } from './util.js';
+import { api, q, h, href, go, ROOT, setHosted, INPUT_TYPES, isInputType, formatSize, formatDate, formatDateTime, dateInput, forTenant, currentTenant, setTenant, setActions, churchURL, can, debounce, wheelZoomNeedsKey, setWheelZoomNeedsKey } from './util.js';
 import { editorView } from './editor.js';
 import { alertDialog, promptDialog } from './dialog.js';
 import { sharesView } from './shares.js';
@@ -391,12 +391,13 @@ async function settingsView(box, part) {
   const processing = h('section', { id: 'processing' });
   await processingView(processing, async () => { config = await api('GET', 'api/config'); });
 
-  // Members, with the login. A member does not see the church's own settings (name, logo, tags, processing, clips).
-  const admin = isAdmin();
+  // Members, with the login. Only those who may (admins) see the church's own settings (name, logo, tags,
+  // processing; its clips) and change its members; the trash is for those who may delete.
+  const settings = can('church.settings'), ownClips = can('church.clips');
   const church = tenants.tenants.find((c) => c.id === currentTenant());
   const members = h('section', { id: 'members' });
   const withMembers = tenants.login && church;
-  if (withMembers) await membersView(members, church, admin);
+  if (withMembers) await membersView(members, church, can('members.manage'));
 
   // The settings come in groups, the ones used most first. Each folds open and shut, and this browser remembers
   // which are open; settings/<part> opens the group of that part (a group, or a section in it).
@@ -412,22 +413,20 @@ async function settingsView(box, part) {
   };
   const note = (text) => h('span', { class: 'muted' }, text);
   const view_ = h('div', {},
-    admin ? [
-      group('recordings', t('Recordings'), note(t('Intro and outro, default tags')),
-        clips,
-        h('section', { id: 'tags' },
+    settings || ownClips ? group('recordings', t('Recordings'), note(settings ? t('Intro and outro, default tags') : t('Intro and outro')),
+      ownClips ? clips : '',
+      settings ? h('section', { id: 'tags' },
           h('h3', {}, t('Default tags')),
           h('p', { class: 'muted' }, t('Written into all generated recordings. You can change them for one recording in the editor. Placeholders:'), ' ',
             data.placeholders.flatMap((p, i) => [h('code', {}, '{' + p.name + '}'), ' ' + tr(p.help) + (i < data.placeholders.length - 1 ? ' · ' : '.')])),
-          h('div', { class: 'panel tags' }, rows, h('div', {}, save, ' ', status)))),
-      group('sound', t('Processing'), note(t('Noise reduction, loudness and formats')), processing),
-    ] : '',
-    admin || withMembers ? group('church', t('Church'), note(admin ? (withMembers ? t('Name, logo and members') : t('Name and logo')) : t('Members')),
-      admin ? h('section', { id: 'name-logo' },
+          h('div', { class: 'panel tags' }, rows, h('div', {}, save, ' ', status))) : '') : '',
+    settings ? group('sound', t('Processing'), note(t('Noise reduction, loudness and formats')), processing) : '',
+    settings || withMembers ? group('church', t('Church'), note(settings ? (withMembers ? t('Name, logo and members') : t('Name and logo')) : t('Members')),
+      settings ? h('section', { id: 'name-logo' },
         h('div', { class: 'panel tags' }, h('label', {}, h('span', { class: 'name' }, t('Name')), nameInput), h('div', {}, saveName, ' ', nameStatus),
           h('p', { class: 'muted' }, t('Logo, shown in a square in the header: use a square one, like an app icon; other shapes are shrunk to fit. PNG, JPEG, WebP or SVG, up to 1 MB.')), logoBox)) : '',
       withMembers ? members : '') : '',
-    group('trash', t('Trash'), trashCount, trash),
+    can('recording.delete') ? group('trash', t('Trash'), trashCount, trash) : '',
     group('browser', t('This browser'), note(t('Language, theme and waveform')),
       h('section', { id: 'appearance' }, h('h3', {}, t('Appearance')), appearance()),
       h('section', { id: 'waveform' },
@@ -472,7 +471,7 @@ function fillPicker() {
   brand.href = href();
   gear.href = href('settings');
   sharesIcon.href = href('shares');
-  sharesIcon.hidden = !churches.shares;
+  sharesIcon.hidden = !churches.shares || !can('shares.manage');
   aboutLink.href = href('about');
   const single = churches.tenants.length === 1 && !churches.canAdd;
   select.hidden = single;
@@ -485,7 +484,7 @@ function fillPicker() {
 
 async function loadChurches() {
   churches = await api('GET', 'api/tenants');
-  setRoles(churches.tenants);
+  setActions(churches.tenants);
   setHosted(hosted());
   if (!churches.tenants.some((t) => t.id === currentTenant())) setTenant(churches.default);
   fillPicker();
@@ -535,7 +534,7 @@ aboutLink.addEventListener('click', (e) => {
 // countActive puts the number of uploads and downloads going on now on the shares icon; asked again every
 // 30 seconds while the page is in view, when the church changes and when the shares are closed.
 async function countActive() {
-  if (!churches.shares || document.hidden) return;
+  if (!churches.shares || !can('shares.manage') || document.hidden) return;
   const count = sharesIcon.querySelector('.count');
   try {
     const { active } = await api('GET', 'api/shares/active');

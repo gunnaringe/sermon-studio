@@ -2,7 +2,7 @@
 // here), and the joins to hear them.
 import { alertDialog } from '../dialog.js';
 import { t, tr } from '../i18n.js';
-import { api, q, h, INPUT_TYPES, formatTime, forTenant, isAdmin } from '../util.js';
+import { api, q, h, INPUT_TYPES, formatTime, forTenant, can } from '../util.js';
 import { CLIP_KEYS } from './common.js';
 
 /** @param {import('./common.js').Editor} ed */
@@ -106,7 +106,7 @@ export function clipsPart(ed) {
         parts.push(h('button', { type: 'button', name: 'join-' + which, disabled: !sections.length, onclick: (e) => hearJoin(which, e.target) },
           which === 'intro' ? t('Hear the intro join') : t('Hear the outro join')));
       }
-      if (isAdmin() && choice === 'own' && d.own[which] && d.available && !d.clips.some((c) => c.id === d.own[which].copiedAs)) {
+      if (can('church.clips') && choice === 'own' && d.own[which] && d.available && !d.clips.some((c) => c.id === d.own[which].copiedAs)) {
         parts.push(h('button', { type: 'button', name: 'add-' + which, onclick: async () => {
           try {
             showClips(await api('POST', 'api/sermon/clip/add?path=' + q(path) + '&which=' + which));

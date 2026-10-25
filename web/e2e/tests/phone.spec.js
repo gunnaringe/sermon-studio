@@ -40,7 +40,7 @@ test('phone: every page fits the screen', async ({ page }) => {
 
 test('phone: the logo is a square, so a long church name has the room it can', async ({ page }) => {
   await page.route('**/api/tenants', (r) => r.fulfill({ json: {
-    tenants: [{ id: 'first-church', name: 'Norkirken Melhus kirke', logo: '1' }], default: 'first-church', canAdd: false, shares: true } }));
+    tenants: [{ id: 'first-church', name: 'Norkirken Melhus kirke', logo: '1', role: 'admin', actions: ['church.view', 'shares.manage'] }], default: 'first-church', canAdd: false, shares: true } }));
   await page.route('**/api/logo*', (r) => r.fulfill({ contentType: 'image/svg+xml',
     body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><rect width="120" height="40" fill="#b00020"/></svg>' }));
   await page.goto('c/first-church/');

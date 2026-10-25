@@ -74,10 +74,12 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - `web/members.go`: with the login, a church is for its members (`<church>/members.json`: issuer, sub, role admin/member). They
   join by an invite link `invite#<church>.<secret>` (`addInvite`: from Settings → Members, `POST api/invites`, or
   `sermon-studio admin invite`; `<church>/invites.json` keeps hashes, single use, an expiry; revoke by `id`, the
-  hash's start). `api/invite` (GET what it is for, POST accept) needs a session but no church; without one, `invite.js` offers Log in and, with `--oidc-signup-url` (the 401 carries it as `signup`), Create an account in a new tab (Pocket ID's app sign-in has no Sign Up). Admin-only requests are listed in
-  `adminOnly` and stopped by `requireAdmin` before any handler (settings, logo, clips, ended-days, members, invites); a member
-  gets 403. `changeMembers` keeps an admin. The church list carries the user's `role`; `util.js` `isAdmin()` hides the admin
-  parts of Settings (`members.js` is the Members section) and the editor's Add to the church's clips.
+  hash's start). `api/invite` (GET what it is for, POST accept) needs a session but no church; without one, `invite.js` offers Log in and, with `--oidc-signup-url` (the 401 carries it as `signup`), Create an account in a new tab (Pocket ID's app sign-in has no Sign Up). What a role may do is in `web/permissions.go`:
+  every route has an action in `routeActions` (`handle` will not register one without; under `/api/` a request no route has
+  gets 404), `roleActions` gives each role (admin, member, demo) its actions, and `permit` checks them before any handler
+  (403). `changeMembers` keeps an admin. The church list carries the user's `role` and `actions`; `util.js` `can(action)` hides
+  what they may not do (Settings' admin parts, `members.js` the Members section, the trash, the shares icon, the editor's Add
+  to the church's clips).
 - `web/admin.go`: the site administrator's API (`AdminHandler`), served by `serve` only on the Unix socket
   `<data-dir>/.admin.sock` (`web.AdminSocket`, 0600; one that answers = another studio on the data dir, refused). `addChurch`
   and `renameChurch` are shared with the studio's API; `statusError`/`writeStatusError` carry an error's HTTP status.

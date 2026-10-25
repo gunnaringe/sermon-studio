@@ -71,11 +71,12 @@ type churchConfig struct {
 
 // TenantInfo is a church as listed in the UI.
 type TenantInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Logo string `json:"logo,omitempty"` // the church's own logo (see logo.go): its version; "" = none
-	Role string `json:"role,omitempty"` // the user's: admin or member (in the church list)
-	URL  string `json:"url,omitempty"`  // the church's own address, with church hosts (hosts.go)
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	Logo    string   `json:"logo,omitempty"`    // the church's own logo (see logo.go): its version; "" = none
+	Role    string   `json:"role,omitempty"`    // the user's: admin or member (in the church list)
+	Actions []string `json:"actions,omitempty"` // what the user may do in it (permissions.go)
+	URL     string   `json:"url,omitempty"`     // the church's own address, with church hosts (hosts.go)
 }
 
 type tenant struct {
@@ -365,38 +366,38 @@ func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	sub, _ := fs.Sub(static, "static")
 	mux.Handle("GET /", servePages(sub, a.isStart))
-	mux.HandleFunc("GET /api/session", a.handleSession)
+	handle(mux, "GET /api/session", a.handleSession)
 	// healthz is for the health checks (Kubernetes): open, also with the login.
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
+	handle(mux, "GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
 	if a.auth != nil {
-		mux.HandleFunc("GET /auth/login", a.auth.handleLogin)
-		mux.HandleFunc("GET /auth/callback", a.auth.handleCallback)
-		mux.HandleFunc("POST /auth/logout", a.auth.handleLogout)
-		mux.HandleFunc("GET /auth/logout/callback", a.auth.handleLogoutCallback)
-		mux.HandleFunc("GET /api/invite", a.handleInvite)
-		mux.HandleFunc("POST /api/invite", a.handleInviteAccept)
-		mux.HandleFunc("GET /api/members", a.handleMembers)
-		mux.HandleFunc("PUT /api/members/{id}", a.handleMemberRole)
-		mux.HandleFunc("POST /api/members/{id}/remove", a.handleMemberRemove)
-		mux.HandleFunc("POST /api/members/leave", a.handleLeave)
-		mux.HandleFunc("POST /api/invites", a.handleInviteCreate)
-		mux.HandleFunc("POST /api/invites/{id}/revoke", a.handleInviteRevoke)
+		handle(mux, "GET /auth/login", a.auth.handleLogin)
+		handle(mux, "GET /auth/callback", a.auth.handleCallback)
+		handle(mux, "POST /auth/logout", a.auth.handleLogout)
+		handle(mux, "GET /auth/logout/callback", a.auth.handleLogoutCallback)
+		handle(mux, "GET /api/invite", a.handleInvite)
+		handle(mux, "POST /api/invite", a.handleInviteAccept)
+		handle(mux, "GET /api/members", a.handleMembers)
+		handle(mux, "PUT /api/members/{id}", a.handleMemberRole)
+		handle(mux, "POST /api/members/{id}/remove", a.handleMemberRemove)
+		handle(mux, "POST /api/members/leave", a.handleLeave)
+		handle(mux, "POST /api/invites", a.handleInviteCreate)
+		handle(mux, "POST /api/invites/{id}/revoke", a.handleInviteRevoke)
 	}
-	mux.HandleFunc("GET /api/tenants", a.handleTenants)
-	mux.HandleFunc("POST /api/tenants", a.handleTenantCreate)
-	mux.HandleFunc("PUT /api/church", a.handleChurchRename)
-	mux.HandleFunc("GET /api/logo", a.handleLogo)
-	mux.HandleFunc("PUT /api/logo", a.handleLogoPut)
-	mux.HandleFunc("DELETE /api/logo", a.handleLogoDelete)
+	handle(mux, "GET /api/tenants", a.handleTenants)
+	handle(mux, "POST /api/tenants", a.handleTenantCreate)
+	handle(mux, "PUT /api/church", a.handleChurchRename)
+	handle(mux, "GET /api/logo", a.handleLogo)
+	handle(mux, "PUT /api/logo", a.handleLogoPut)
+	handle(mux, "DELETE /api/logo", a.handleLogoDelete)
 	if a.share != nil {
-		mux.HandleFunc("GET /api/shares", a.handleShares)
-		mux.HandleFunc("POST /api/shares", a.handleShareCreate)
-		mux.HandleFunc("POST /api/shares/{id}/pause", a.handleSharePause)
-		mux.HandleFunc("POST /api/shares/{id}/resume", a.handleShareResume)
-		mux.HandleFunc("POST /api/shares/{id}/remove", a.handleShareRemove)
-		mux.HandleFunc("POST /api/shares/remove-ended", a.handleShareRemoveEnded)
-		mux.HandleFunc("PUT /api/shares/ended-days", a.handleEndedSharesDays)
-		mux.HandleFunc("GET /api/shares/active", a.handleSharesActive)
+		handle(mux, "GET /api/shares", a.handleShares)
+		handle(mux, "POST /api/shares", a.handleShareCreate)
+		handle(mux, "POST /api/shares/{id}/pause", a.handleSharePause)
+		handle(mux, "POST /api/shares/{id}/resume", a.handleShareResume)
+		handle(mux, "POST /api/shares/{id}/remove", a.handleShareRemove)
+		handle(mux, "POST /api/shares/remove-ended", a.handleShareRemoveEnded)
+		handle(mux, "PUT /api/shares/ended-days", a.handleEndedSharesDays)
+		handle(mux, "GET /api/shares/active", a.handleSharesActive)
 	}
 	toChurch := func(w http.ResponseWriter, r *http.Request) {
 		t, ok := a.tenantFor(r)
@@ -412,9 +413,9 @@ func (a *App) Handler() http.Handler {
 	for _, method := range []string{"GET", "POST", "PUT"} {
 		mux.HandleFunc(method+" /api/", toChurch)
 	}
-	var h http.Handler = mux
+	h := a.permit(mux)
 	if a.auth != nil {
-		h = a.auth.require(a.requireAdmin(a.hostGate(mux)))
+		h = a.auth.require(a.permit(a.hostGate(mux)))
 	}
 	// Once there is a login cookie, other sites must not be able to
 	// start runs, uploads or imports on the user's behalf.
@@ -455,6 +456,7 @@ func (a *App) handleTenants(w http.ResponseWriter, r *http.Request) {
 	for _, t := range a.visible(u) {
 		i := a.infoOf(t)
 		i.Role = a.roleOf(u, t)
+		i.Actions = actionsOf(i.Role)
 		list = append(list, i)
 		if def == "" || t.id == host || t.id == last {
 			def = t.id
