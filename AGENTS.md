@@ -195,8 +195,9 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   (`site/media/`) come from `scripts/site-shots.sh` (`web/e2e/site-shots/`: the real studio, `--no-login`, the sample speech;
   the video has a drawn pointer and captions); its test is `web/e2e/site/` (`scripts/test.sh site`, also the PR screenshots
   `site-*.png`). It knows nothing of the studio's code: copy what it needs (the logo), never link into `web/static`.
-- `demo/`: the public demo's intro and outro (`intro.flac`, `outro.flac`; `demo/README.md`), made by `demo/make-jingles.sh`
-  (music from ffmpeg via `jingle.py`, a line read by Piper's CC0 `joe` voice). The demo's deployment downloads them from here.
+- `demo/`: scripts that make the public demo's recording (`make-recording.sh`: the JFK speech with quiet and room noise
+  around it) and its intro and outro (`make-jingles.sh`: music from ffmpeg via `jingle.py`, a line read by Piper's CC0 `joe`
+  voice); tools from `demo/mise.toml`, the audio in `~/.cache/sermon-studio-samples/`, never in the repository (`demo/README.md`).
 - `normalizer/`: the pipeline (`pipeline.go` the steps, with `options.go`, `paths.go`, `cut.go`, `filters.go`, `render.go`; `Options.Cuts` = parts left out of
   Start..End, each kept part is its own ffmpeg input joined by `cutInput`'s filter graph; `Intro`/`Outro` clips are
   joined around the finished sermon by `join`, making the main files with them and `<date>_sermon.*` without, `versions`),
