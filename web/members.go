@@ -195,11 +195,11 @@ func (a *App) handleInviteAccept(w http.ResponseWriter, r *http.Request) {
 // they are.
 func memberID(id userID) string { return hashToken(id.key())[:16] }
 
-// roleOf is the user's role in a church: admin without the login, else their
-// role as a member ("" for none).
+// roleOf is the user's role in a church: the visitor role without the login
+// (admin unless set), else their role as a member ("" for none).
 func (a *App) roleOf(u user, t *tenant) string {
 	if u.open {
-		return RoleAdmin
+		return a.visitorRole()
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()

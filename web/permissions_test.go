@@ -1,7 +1,10 @@
 package web
 
 import (
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 	"time"
@@ -92,5 +95,47 @@ func TestDemoRole(t *testing.T) {
 	// Editing goes past the check (and fails on the folder that is not there).
 	if w := l.do("PUT", "/api/sermon?tenant=kirke-a&path=2026/2026-10-04", `{}`, visitor); w.Code == http.StatusForbidden {
 		t.Errorf("editing: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// Without the login, --visitor-role gives every visitor a role: a demo's visitor edits, and adds no churches.
+func TestVisitorRole(t *testing.T) {
+	data := t.TempDir()
+	os.MkdirAll(filepath.Join(data, "demo-church", "Taler"), 0o755)
+	a, err := NewApp(AppConfig{Base: Config{CacheDir: t.TempDir(), Logger: log.New(testLog{t}, "", 0)}, DataDir: data,
+		VisitorRole: RoleDemo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(a.Close)
+	h := a.Handler()
+	got := decode[struct {
+		Tenants []TenantInfo
+		CanAdd  bool
+	}](t, do(h, "GET", "/api/tenants", ""))
+	if got.CanAdd || len(got.Tenants) != 1 || got.Tenants[0].Role != RoleDemo || slices.Contains(got.Tenants[0].Actions, "recording.upload") {
+		t.Errorf("churches: %+v", got)
+	}
+	for _, req := range [][3]string{
+		{"POST", "/api/tenants", `{"name":"Mine"}`}, {"POST", "/api/upload", ""}, {"POST", "/api/sermon/clip?which=intro", ""},
+		{"POST", "/api/recordings/delete", `{}`}, {"PUT", "/api/settings", `{}`},
+	} {
+		if w := do(h, req[0], req[1], req[2]); w.Code != http.StatusForbidden {
+			t.Errorf("%s %s: %d", req[0], req[1], w.Code)
+		}
+	}
+	if w := do(h, "GET", "/api/recordings", ""); w.Code != http.StatusOK {
+		t.Errorf("recordings: %d %s", w.Code, w.Body.String())
+	}
+
+	for _, cfg := range []AppConfig{
+		{DataDir: data, VisitorRole: "guest"},
+		{DataDir: data, VisitorRole: RoleDemo, OIDC: &OIDCOptions{Issuer: "https://id.example", PublicURL: "https://studio.example/"}},
+	} {
+		cfg.Base = Config{CacheDir: t.TempDir(), Logger: log.New(testLog{t}, "", 0)}
+		if a, err := NewApp(cfg); err == nil {
+			a.Close()
+			t.Errorf("%q, login %v: started", cfg.VisitorRole, cfg.OIDC != nil)
+		}
 	}
 }

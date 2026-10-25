@@ -52,6 +52,8 @@ type serveCmd struct {
 	CookieDomain         string `group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: a parent domain for the session cookie, shared by the studio's hosts (default: this host only)."`
 	OIDCSignupURL        string `name:"oidc-signup-url" group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: where someone without an account at the provider makes one (Pocket ID: <issuer>/signup); an invite link then offers Create an account next to Log in."`
 
+	VisitorRole string `name:"visitor-role" group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --no-login: the role every visitor has in every church: admin (the default), member, or demo (edits and makes files, nothing else; for a public demo). See docs/access.md."`
+
 	ChurchHost string `group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: give every church a host of its own, like {church}.example.org; the login, invite links and the church picker are then on --public-url's host (e.g. my.example.org), and --cookie-domain must be example.org."`
 
 	CacheDir     string `default:"${cacheDir}" help:"Where waveform data and previews are kept."`
@@ -79,6 +81,9 @@ func (s *serveCmd) Validate() error {
 	}
 	if s.ParallelRuns < 1 {
 		return errors.New("--parallel-runs must be at least 1")
+	}
+	if !s.NoLogin && s.VisitorRole != "" {
+		return errors.New("--visitor-role is for --no-login: with the login, a church's members have their own roles")
 	}
 	if s.NoLogin && (s.OIDCClientID != "" || s.OIDCClientSecretFile != "" || s.CookieDomain != "" || s.OIDCSignupURL != "") {
 		return errors.New("--no-login, but OIDC settings are given: choose the login (--oidc-issuer) or none")
@@ -225,7 +230,7 @@ func (s *serveCmd) Run() error {
 		Base: web.Config{Root: s.Root, Inbox: s.Inbox, CacheDir: s.CacheDir,
 			Layout: s.Layout, TrashDays: s.TrashDays, FFmpeg: normalizer.FFmpeg{Bin: bin}, Logger: logger},
 		DataDir: s.DataDir, OIDC: oidc, ChurchHost: s.ChurchHost,
-		Share: share, ParallelRuns: s.ParallelRuns,
+		Share: share, ParallelRuns: s.ParallelRuns, VisitorRole: s.VisitorRole,
 	})
 	if err != nil {
 		return err

@@ -43,13 +43,26 @@ gen "$data/upload.flac" -f lavfi -i "aevalsrc=exprs='$expr':s=48000:d=30" -c:a f
 ./bin/sermon-studio --no-login --listen 127.0.0.1:8080 --data-dir "$data/churches" --cache-dir "$data/cache" \
 	--share-listen 127.0.0.1:8081 --share-url http://localhost:8081/ >"$data/server.log" 2>&1 &
 server=$!
-trap 'kill $server 2>/dev/null; wait $server 2>/dev/null || true' EXIT
+
+# A demo (demo.spec.js), set up as its deployment does (issue #118): an empty data dir, a church folder, and the
+# recording in its inbox, named by its date; the studio files it. cp -p keeps the file's time, so the inbox takes
+# it at once rather than after it settles.
+demo="$data/demo"
+mkdir -p "$demo/demo-church/Taler" "$demo/demo-church/Innboks" "$data/demo-cache"
+printf '{"name":"Demo"}' >"$demo/demo-church/church.json"
+gen "$data/speech.flac" -f lavfi -i "aevalsrc=exprs='$quiet':s=8000:d=60" -c:a flac
+touch -d '2026-01-01' "$data/speech.flac"
+cp -p "$data/speech.flac" "$demo/demo-church/Innboks/2026-01-15.flac"
+./bin/sermon-studio --no-login --visitor-role demo --listen 127.0.0.1:8082 --data-dir "$demo" --cache-dir "$data/demo-cache" \
+	>"$data/demo.log" 2>&1 &
+demoServer=$!
+trap 'kill $server $demoServer 2>/dev/null; wait $server $demoServer 2>/dev/null || true' EXIT
 for i in $(seq 50); do
-	curl -sf http://127.0.0.1:8080/api/config >/dev/null && break
+	curl -sf http://127.0.0.1:8080/api/config >/dev/null && curl -sf http://127.0.0.1:8082/api/config >/dev/null && break
 	sleep 0.1
 done
 
 # node_modules is kept between runs (it is in the mounted folder): installed again only when the lock file changes.
 lock=$(sha256sum package-lock.json | cut -c1-64)
 [ "$(cat node_modules/.lock-sha 2>/dev/null)" = "$lock" ] || { npm ci --silent --no-audit --no-fund && echo "$lock" >node_modules/.lock-sha; }
-DATA="$data" npx playwright test --reporter=line "$@" || { echo "---- server log (end) ----"; tail -n 50 "$data/server.log"; exit 1; }
+DATA="$data" npx playwright test --reporter=line "$@" || { echo "---- server log (end) ----"; tail -n 50 "$data/server.log"; echo "---- demo log (end) ----"; tail -n 20 "$data/demo.log"; exit 1; }

@@ -31,6 +31,8 @@ func TestLoginMustBeChosen(t *testing.T) {
 		{[]string{"--data-dir", "d", "--oidc-isuer", "https://id.example"}, "did you mean"},
 		{[]string{"--no-login"}, "--root or --data-dir"},
 		{[]string{"--data-dir", "d", "--no-login"}, ""},
+		{[]string{"--data-dir", "d", "--no-login", "--visitor-role", "demo"}, ""},
+		{[]string{"--data-dir", "d", "--oidc-issuer", "https://id.example", "--visitor-role", "demo"}, "--visitor-role is for --no-login"},
 		{[]string{"serve", "--data-dir", "d", "--oidc-issuer", "https://id.example", "--oidc-client-id", "x"}, ""},
 	} {
 		_, err := parse(t, c.args...)

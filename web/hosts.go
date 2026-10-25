@@ -148,7 +148,7 @@ func (a *App) hasChurch(id string) bool {
 
 // hostReserved are names a church cannot have when it has a host of its own:
 // they are, or may become, the site's own hosts.
-var hostReserved = map[string]bool{"app": true, "my": true, "share": true, "www": true, "id": true, "api": true, "auth": true, "login": true,
+var hostReserved = map[string]bool{"app": true, "my": true, "share": true, "www": true, "id": true, "api": true, "auth": true, "login": true, "demo": true,
 	"mail": true, "admin": true, "static": true, "status": true, "docs": true, "help": true}
 
 // infoOf is a church as the studio lists it: with church hosts, with its address.

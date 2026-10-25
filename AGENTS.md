@@ -77,9 +77,10 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   hash's start). `api/invite` (GET what it is for, POST accept) needs a session but no church; without one, `invite.js` offers Log in and, with `--oidc-signup-url` (the 401 carries it as `signup`), Create an account in a new tab (Pocket ID's app sign-in has no Sign Up). What a role may do is in `web/permissions.go`:
   every route has an action in `routeActions` (`handle` will not register one without; under `/api/` a request no route has
   gets 404), `roleActions` gives each role (admin, member, demo) its actions, and `permit` checks them before any handler
-  (403). `changeMembers` keeps an admin. The church list carries the user's `role` and `actions`; `util.js` `can(action)` hides
-  what they may not do (Settings' admin parts, `members.js` the Members section, the trash, the shares icon, the editor's Add
-  to the church's clips).
+  (403). Without the login every visitor has `--visitor-role` (`AppConfig.VisitorRole`, admin by default; a demo is `demo`,
+  which adds no churches, and the page shows a banner; `web/e2e/tests/demo.spec.js` runs one at :8082, set up as in docs/access.md). `changeMembers` keeps an admin. The church list carries the user's `role` and `actions`; `util.js` `can(action)` hides
+  what they may not do (Settings' admin parts, `members.js` the Members section, the trash, the shares icon, the upload, the
+  editor's Delete, its Upload for this sermon only and Add to the church's clips).
 - `web/admin.go`: the site administrator's API (`AdminHandler`), served by `serve` only on the Unix socket
   `<data-dir>/.admin.sock` (`web.AdminSocket`, 0600; one that answers = another studio on the data dir, refused). `addChurch`
   and `renameChurch` are shared with the studio's API; `statusError`/`writeStatusError` carry an error's HTTP status.

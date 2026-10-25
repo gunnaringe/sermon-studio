@@ -1,7 +1,7 @@
 // The editor for one date folder: cut the sermon on the waveform, set the options, save, and follow the job.
 // Its parts are in editor/, each given the editor (ed, Editor in editor/common.js): this puts them together.
 import { t } from './i18n.js';
-import { api, q, h, href, go, dateInput } from './util.js';
+import { api, q, h, href, go, dateInput, can } from './util.js';
 import { CLIP_KEYS, FORMAT_KEYS } from './editor/common.js';
 import { keptLength, activePauses } from './editor/spans.js';
 import { infoPart } from './editor/info.js';
@@ -98,7 +98,7 @@ export async function editorView(view, slug, config) {
     h('section', { class: 'step', 'aria-labelledby': 'step-processing' }, h('h2', { id: 'step-processing' }, t('Processing')), processing.processingEl),
     clips.clipsSection,
     output.outputEl,
-    h('section', { class: 'step', 'aria-labelledby': 'step-delete' }, h('h2', { id: 'step-delete' }, t('Delete')), inputFile.deletePanel),
+    can('recording.delete') ? h('section', { class: 'step', 'aria-labelledby': 'step-delete' }, h('h2', { id: 'step-delete' }, t('Delete')), inputFile.deletePanel) : '',
     saveBar,
   );
 

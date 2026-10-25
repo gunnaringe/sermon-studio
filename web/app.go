@@ -50,6 +50,9 @@ type AppConfig struct {
 	ChurchHost string
 	// Share turns on shares (codes for the public upload page); nil = off.
 	Share *ShareOptions
+	// VisitorRole is, without the login, the role every visitor has in every church (permissions.go): "" =
+	// admin. A demo is "demo".
+	VisitorRole string
 	// ParallelRuns is how many runs (and samples) can work at once, across all churches; 0 = 1. A run uses
 	// about one core; more of them wait their turn. One recording is never run twice at once.
 	ParallelRuns int
@@ -141,6 +144,14 @@ func NewApp(cfg AppConfig) (*App, error) {
 		a.share = &shareState{limits: newLimiter(cfg.Share.Limits), busy: map[string]bool{}, sending: map[string]int{}, done: make(chan struct{})}
 	}
 	fail := func(err error) (*App, error) { a.Close(); return nil, err }
+	if cfg.VisitorRole != "" {
+		if cfg.OIDC != nil {
+			return nil, errors.New("a visitor role is for the studio without the login")
+		}
+		if _, ok := roleActions[cfg.VisitorRole]; !ok {
+			return nil, fmt.Errorf("no role %q: the roles are %s, %s and %s", cfg.VisitorRole, RoleAdmin, RoleMember, RoleDemo)
+		}
+	}
 	if cfg.OIDC != nil {
 		var err error
 		if a.auth, err = newAuth(*cfg.OIDC, cfg.DataDir, cfg.Base.Logger); err != nil {
@@ -502,8 +513,18 @@ func (a *App) nameTaken(t *tenant, name string) (string, bool) {
 }
 
 // canAdd reports whether churches are added in the studio: only without the
-// login (with it, `sermon-studio admin` does that), and with a data dir.
-func (a *App) canAdd() bool { return a.auth == nil && a.cfg.DataDir != "" }
+// login (with it, `sermon-studio admin` does that), when visitors are admins, and with a data dir.
+func (a *App) canAdd() bool {
+	return a.auth == nil && a.visitorRole() == RoleAdmin && a.cfg.DataDir != ""
+}
+
+// visitorRole is the role of every visitor without the login.
+func (a *App) visitorRole() string {
+	if a.cfg.VisitorRole == "" {
+		return RoleAdmin
+	}
+	return a.cfg.VisitorRole
+}
 
 func (a *App) handleTenantCreate(w http.ResponseWriter, r *http.Request) {
 	if a.auth != nil {

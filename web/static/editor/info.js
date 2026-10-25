@@ -2,7 +2,7 @@
 // into the trash, or only its original, keeping the files, to free the space).
 import { alertDialog, confirmDialog } from '../dialog.js';
 import { t, tn, tr, lang } from '../i18n.js';
-import { api, q, h, href, go, isVideo, formatTime, formatSize, forTenant, formatDateTime } from '../util.js';
+import { api, q, h, href, go, isVideo, formatTime, formatSize, forTenant, formatDateTime, can } from '../util.js';
 
 // describeCodec names a recording's format the way people know it.
 function describeCodec(fmt) {
@@ -45,7 +45,7 @@ export function infoPart(ed) {
   const originalGone = () => t('The original recording was deleted {date}, to free the space. The files made from it are kept, but the sermon can no longer be edited or regenerated.',
     { date: formatDateTime(info.originalDeleted) });
   // The original can go once files have been made from it, and nothing is being made.
-  const canDeleteOriginal = () => Boolean(info.raw) && (info.outputs || []).length > 0;
+  const canDeleteOriginal = () => can('recording.delete') && Boolean(info.raw) && (info.outputs || []).length > 0;
   const fileURL = (f, download) => forTenant('api/file?' + (download ? 'download=1&' : '') + 'path=' + q(f.path));
 
   function showInput() {

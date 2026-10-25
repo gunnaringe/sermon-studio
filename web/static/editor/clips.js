@@ -82,7 +82,7 @@ export function clipsPart(ed) {
         options.push(['own', d.own[which] ? t("This sermon's own: {name}", { name: d.own[which].name }) : t("This sermon's own (missing)")]);
       }
       if (!options.some(([v]) => v === choice)) options.push([choice, t('A deleted clip')]);
-      options.push([UPLOAD, t('Upload for this sermon only…')]);
+      if (can('recording.upload')) options.push([UPLOAD, t('Upload for this sermon only…')]);
       const select = h('select', { name: which, 'aria-label': label, onchange: (e) => {
         if (e.target.value === UPLOAD) {
           e.target.value = choice;
