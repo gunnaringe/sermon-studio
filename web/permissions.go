@@ -33,7 +33,7 @@ const (
 const RoleDemo = "demo"
 
 // roleActions is what each role may do in a church. Adding a church is no church's: permit lets only the
-// user without the login do it.
+// user without the login do it, when visitors are admins (AppConfig.VisitorRole).
 var roleActions = map[string][]action{
 	RoleAdmin:  {actView, actChurchSettings, actChurchClips, actMembers, actUpload, actEdit, actMake, actDownload, actDelete, actShares},
 	RoleMember: {actView, actUpload, actEdit, actMake, actDownload, actDelete, actShares},
@@ -176,6 +176,10 @@ func (a *App) permit(next http.Handler) http.Handler {
 		case act == actChurchCreate:
 			if !a.userOf(r).open { // with the login, `sermon-studio admin` adds churches
 				writeError(w, http.StatusForbidden, errors.New("churches are not added in the studio when it has a login"))
+				return
+			}
+			if a.visitorRole() != RoleAdmin {
+				writeError(w, http.StatusForbidden, refusal(act))
 				return
 			}
 		default:

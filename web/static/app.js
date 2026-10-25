@@ -3,7 +3,7 @@
 // recordings, that one opened), recordings/<slug>/edit (the editor), settings[/<part>] (the settings over the
 // recordings), shares (the shares, the same way), about (what the studio is). The last three also open as an
 // overlay from their icon in the header, or the link in the footer.
-import { api, q, h, href, go, ROOT, setHosted, INPUT_TYPES, isInputType, formatSize, formatDate, formatDateTime, dateInput, forTenant, currentTenant, setTenant, setActions, churchURL, can, debounce, wheelZoomNeedsKey, setWheelZoomNeedsKey } from './util.js';
+import { api, q, h, href, go, ROOT, setHosted, INPUT_TYPES, isInputType, formatSize, formatDate, formatDateTime, dateInput, forTenant, currentTenant, setTenant, setActions, churchURL, can, role, debounce, wheelZoomNeedsKey, setWheelZoomNeedsKey } from './util.js';
 import { editorView } from './editor.js';
 import { alertDialog, promptDialog } from './dialog.js';
 import { sharesView } from './shares.js';
@@ -93,11 +93,13 @@ async function route() {
 // The recordings page: the upload on top (a recording goes into its date
 // folder anyway), then recordings.js.
 async function foldersView() {
+  const upload = can('recording.upload');
   return recordingsView(view, {
-    top: uploadBox(),
+    top: upload ? uploadBox() : '',
     church: currentTenant(),
-    shares: churches.shares,
-    emptyNote: config.inbox ? t('No recordings here yet. Upload one above, or put one in the inbox folder.') : t('No recordings here yet. Upload one above.'),
+    shares: churches.shares && can('shares.manage'),
+    emptyNote: !upload ? t('No recordings here yet.')
+      : config.inbox ? t('No recordings here yet. Upload one above, or put one in the inbox folder.') : t('No recordings here yet. Upload one above.'),
   });
 }
 
@@ -463,6 +465,11 @@ const nameText = document.getElementById('church-name');
 const gear = document.querySelector('[data-nav=settings]');
 const sharesIcon = document.querySelector('[data-nav=shares]');
 const aboutLink = document.querySelector('[data-nav=about]');
+// A demo's visitor is told what it is, under the header.
+const demoBanner = h('p', { class: 'demo-banner', role: 'note', hidden: true },
+  t('This is a demo. Anyone can see your changes, and everything is reset every night.'), ' ',
+  h('a', { href: 'https://sermon-studio.app/' }, t('About Sermon Studio')));
+document.querySelector('header').after(demoBanner);
 
 function fillPicker() {
   const cur = currentTenant();
@@ -472,6 +479,7 @@ function fillPicker() {
   gear.href = href('settings');
   sharesIcon.href = href('shares');
   sharesIcon.hidden = !churches.shares || !can('shares.manage');
+  demoBanner.hidden = role() !== 'demo';
   aboutLink.href = href('about');
   const single = churches.tenants.length === 1 && !churches.canAdd;
   select.hidden = single;

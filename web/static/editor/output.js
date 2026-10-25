@@ -2,7 +2,7 @@
 // saved version and makes the files (a job, followed here).
 import { confirmDialog } from '../dialog.js';
 import { t, tr } from '../i18n.js';
-import { api, q, h, debounce, forTenant } from '../util.js';
+import { api, q, h, debounce, forTenant, can } from '../util.js';
 import { spanOf } from './common.js';
 
 const FORMATS = [['flac', 'FLAC'], ['mp3', 'MP3'], ['opus', 'Opus']];
@@ -71,7 +71,8 @@ export function outputPart(ed) {
   // toMake is what Save makes: the chosen formats that are missing or out
   // of date; toDelete what it deletes: the files of the formats not chosen.
   const toMake = () => FORMATS.map(([f]) => f).filter((f) => opts[f] && (!outputState(f).file || outputState(f).stale));
-  const toDelete = () => FORMATS.map(([f]) => f).filter((f) => !opts[f] && outputState(f).file);
+  // Without the right to delete (a demo), a format turned off is only not made.
+  const toDelete = () => (can('recording.delete') ? FORMATS.map(([f]) => f).filter((f) => !opts[f] && outputState(f).file) : []);
   const labels = (list) => list.map((f) => FORMATS.find(([x]) => x === f)[1]).join(', ');
 
   function renderOutputs() {

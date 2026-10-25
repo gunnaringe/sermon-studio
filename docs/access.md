@@ -6,6 +6,9 @@ There are two ways to run the studio, and one of them must be chosen: the studio
 - **With its own login** (`--oidc-issuer`, below): a church is for its members, who join with an invite link.
 - **Without** (`--no-login`): no access control. Everyone sees every church and can add churches (the desktop app, a trusted
   network, or behind a login proxy that lets only the right people through).
+- **A demo** (`--no-login --visitor-role demo`): everyone sees every church as a demo's visitor: they edit, make and
+  download the files, and nothing else (no upload, deleting, shares, settings or adding churches). The page says it is a
+  demo. See [A public demo](#a-public-demo).
 
 ## Its own login (OpenID Connect)
 
@@ -29,21 +32,21 @@ sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-clien
   church's member is told to ask for an invite link.
 - **What a role may do** is a set of actions, listed in `web/permissions.go`:
 
-  | Action | What it is | Admin | Member |
-  |---|---|---|---|
-  | `church.view` | see the church: its recordings, settings and runs | ✓ | ✓ |
-  | `recording.upload` | add a recording, or a sermon's own intro or outro | ✓ | ✓ |
-  | `recording.edit` | cut, tag, rename, hear a sample | ✓ | ✓ |
-  | `recording.make` | make the files, stop a run | ✓ | ✓ |
-  | `recording.download` | listen to and download the files | ✓ | ✓ |
-  | `recording.delete` | delete files, originals and recordings; the trash | ✓ | ✓ |
-  | `shares.manage` | the church's shares | ✓ | ✓ |
-  | `church.settings` | name, logo, default tags, processing, how long ended shares are kept | ✓ | |
-  | `church.clips` | the church's intro and outro clips | ✓ | |
-  | `members.manage` | the members and invite links | ✓ | |
+  | Action | What it is | Admin | Member | Demo |
+  |---|---|---|---|---|
+  | `church.view` | see the church: its recordings, settings and runs | ✓ | ✓ | ✓ |
+  | `recording.upload` | add a recording, or a sermon's own intro or outro | ✓ | ✓ | |
+  | `recording.edit` | cut, tag, rename, hear a sample | ✓ | ✓ | ✓ |
+  | `recording.make` | make the files, stop a run | ✓ | ✓ | ✓ |
+  | `recording.download` | listen to and download the files | ✓ | ✓ | ✓ |
+  | `recording.delete` | delete files, originals and recordings; the trash | ✓ | ✓ | |
+  | `shares.manage` | the church's shares | ✓ | ✓ | |
+  | `church.settings` | name, logo, default tags, processing, how long ended shares are kept | ✓ | | |
+  | `church.clips` | the church's intro and outro clips | ✓ | | |
+  | `members.manage` | the members and invite links | ✓ | | |
 
   Every request is one of these, and is refused (403) when the role does not have it; the page shows only what the
-  user may do. Without the login, everyone may do everything.
+  user may do. Without the login, everyone is an admin, unless `--visitor-role` says otherwise.
 - **Settings → Members** (admins): the members with their name and email from the login, their role, Remove; invite
   links (role, 1, 7 or 30 days), shown once with a copy button; the open invites, with Revoke. A member sees only
   **Leave this church…**. A church always keeps an admin: the last one cannot step down, leave or be removed.
@@ -78,7 +81,7 @@ sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-clien
   out, it is the start, with Log in and, with `--oidc-signup-url`, Create an account).
 - The church is known from the host, so it is not in the page's address (`norkirken-melhus.sermon-studio.app/settings`);
   an address with `c/<church>/` in it goes to that church's host.
-- Church ids the site's own hosts may have are reserved: `app`, `share`, `www`, `id`, `api`, `auth`, `login`, `mail`,
+- Church ids the site's own hosts may have are reserved: `app`, `my`, `share`, `www`, `id`, `api`, `auth`, `login`, `demo`, `mail`,
   `admin`, `static`, `status`, `docs`, `help`.
 - The public share page keeps its own host (`--share-listen`, `--share-url`, e.g. `share.sermon-studio.app`).
 
@@ -107,3 +110,19 @@ Without `--oidc-issuer` the server has no login of its own: run it on the LAN, o
 It uses relative URLs (works under a sub-path), refuses cross-site POSTs, keeps every path
 inside `--root`, and has no read/write timeouts (long uploads and live updates). On SIGTERM it
 cancels running jobs and waits for them to clean up.
+
+## A public demo
+
+`--visitor-role demo` (with `--no-login`) gives every visitor the demo role above; `--visitor-role` takes any role
+(`admin`, the default, `member`, `demo`). A demo keeps nothing for long: run it on a data dir that starts empty, and
+start it again to reset it. With a church folder and a recording in its inbox, named by its date, it is ready when the
+inbox has filed it (within seconds when the file keeps an old time, `cp -p`):
+
+```sh
+mkdir -p /data/demo-church/Taler /data/demo-church/Innboks
+printf '{"name":"Demo"}' > /data/demo-church/church.json
+cp -p /seed/speech.mp3 /data/demo-church/Innboks/2026-01-15.mp3
+sermon-studio --data-dir /data --no-login --visitor-role demo
+```
+
+`demo` is a reserved church id (the demo's host), so the church needs another.

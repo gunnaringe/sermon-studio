@@ -11,9 +11,14 @@ export function setTenant(id) {
 
 // What the user may do in each church (its actions, like 'church.settings'; web/permissions.go), from the
 // church list. The page shows only what they may do; the server refuses the rest.
-let actions = {};
-export function setActions(list) { actions = Object.fromEntries(list.map((c) => [c.id, c.actions || []])); }
+// role is the user's role there (admin, member or demo).
+let actions = {}, roles = {};
+export function setActions(list) {
+  actions = Object.fromEntries(list.map((c) => [c.id, c.actions || []]));
+  roles = Object.fromEntries(list.map((c) => [c.id, c.role || '']));
+}
 export const can = (action) => (actions[tenant] || []).includes(action);
+export const role = () => roles[tenant] || '';
 
 // Whether the scroll wheel zooms the waveform only with ctrl/cmd held. A
 // choice of this browser, not of the church: kept in localStorage.

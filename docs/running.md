@@ -70,6 +70,7 @@ church and no right to add more sees just its name in the header; otherwise a qu
 | `--root`, `--inbox` | | one church without a church folder, instead of `--data-dir`: its date folders and the inbox where new recordings arrive. Settings are not saved. |
 | `--oidc-issuer` | | the OpenID Connect provider: the studio's own login; a church is for its members, who join with an invite link ([access](access.md)). This or `--no-login` is required |
 | `--no-login` | | no login and no access control: anyone who reaches the studio can use every church (the desktop, a trusted network). This or `--oidc-issuer` is required |
+| `--visitor-role` | `admin` | with `--no-login`: the role of every visitor; `demo` for a public demo ([access](access.md#a-public-demo)) |
 | `--oidc-client-id`, `--oidc-client-secret-file` | | the studio's client at the provider; no secret file = a public client (PKCE) |
 | `--public-url` | | with `--oidc-issuer`: the studio's address as the browser sees it (the callback is `<public-url>/auth/callback`) |
 | `--oidc-signup-url` | | with `--oidc-issuer`: where someone without an account makes one (Pocket ID: `<issuer>/signup`); an invite link then offers Create an account next to Log in |
