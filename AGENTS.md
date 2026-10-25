@@ -170,9 +170,12 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   page: `body` is a flex column). `recordings.js` = the one recordings page (years, search, Newly imported, rows, `open(slug)` for links); `sermons.js` = a sermon's details inside it (labels, copy link, play, the Download menu,
   make a format); clicking anywhere on a date row expands it; one with no files only offers the editor there. Its status (`badges`): to do / done from `saved` (or files), plus no files / files out of date (`outdated`: an output's `cut` ≠ `cutOf` the saved version) / not saved (`adjusted`: a draft.json). `icons/` = the logo: `logo.svg` is the one source (header, favicon,
   `manifest.webmanifest`); the PNGs (home screen, favicon fallback) come from it via `scripts/make-icons.sh`;
-  the public page serves only the ones listed in `sharePage`. `editor.js` = the editor; its parts are in `editor/`, each a function
-  that is given the editor (`ed`: `Editor` in `editor/common.js`, the shared state and the parts' functions) and returns what the
-  others call. `dialog.js` = confirm/alert/prompt in the app's look
+  the public page serves only the ones listed in `sharePage`. `editor.js` = the editor, put together from its parts in `editor/`: each a
+  function that is given the editor (`ed`: `Editor` in `editor/common.js`, the shared state and the parts' functions) and returns
+  what the others call — `waveform.js` (playing, zoom, keys), `sections.js` (and the selection), `cuts.js`, `fades.js`, `history.js`
+  (keeping the edit, versions, undo), `output.js` (check, Save, the job), `processing.js`, `clips.js`, `info.js` (the input file,
+  Delete); `spans.js` is the sermon in time without the page (tested in `web/e2e/tests/spans.spec.js`). A new function one part
+  calls on another goes in `Editor`. `dialog.js` = confirm/alert/prompt in the app's look
   (never use the browser's `confirm`/`alert`/`prompt`). One player plays at a time: a play event of any `<audio>`/`<video>` pauses the others (`util.js`;
   the editor's waveform, not in the page, is added with `soloPlayer`). `vendor/wavesurfer/` is wavesurfer.js
   7.12.12, unmodified.
