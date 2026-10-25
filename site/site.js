@@ -1,5 +1,5 @@
-// The website's script: the texts in the chosen language, the language selector, the studio's pictures in that
-// language. The texts are in lang/<code>.json, one file per language with the same keys
+// The website's script: the texts in the chosen language, the language menu (the globe in the header), the
+// studio's pictures in that language, and the header's menu on a phone. The texts are in lang/<code>.json, one file per language with the same keys
 // (web/e2e/site checks that). An element with data-t="key" gets the text (which may hold a link or <strong>);
 // data-t-alt, data-t-aria-label and data-t-content set those attributes; img data-shot="name" shows
 // img/shots/<lang>/<name>.webp. Loaded in <head> (not deferred), so the page is hidden until its text is there.
@@ -63,25 +63,53 @@ async function show(lang) {
     for (const el of document.querySelectorAll(`[data-t-${attr}]`)) el.setAttribute(attr, dict[el.getAttribute(`data-t-${attr}`)] ?? '');
   }
   for (const img of document.querySelectorAll('img[data-shot]')) img.src = `img/shots/${lang}/${img.dataset.shot}.webp`;
-  const select = document.getElementById('lang');
-  if (select) select.value = lang;
+  const menu = document.getElementById('lang');
+  if (menu) {
+    menu.querySelector('.code').textContent = lang.toUpperCase();
+    for (const b of menu.querySelectorAll('button')) b.setAttribute('aria-pressed', b.lang === lang);
+  }
   root.classList.add('ready');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const select = document.getElementById('lang');
-  if (select) {
-    select.replaceChildren(...Object.entries(LANGS).map(([code, name]) => new Option(name, code)));
-    select.addEventListener('change', () => {
-      store(select.value);
-      const url = new URL(location.href);
-      if (url.searchParams.has('lang')) {
-        url.searchParams.delete('lang');
-        history.replaceState(null, '', url);
-      }
-      show(select.value);
-    });
+  const menu = document.getElementById('lang');
+  if (menu) {
+    menu.querySelector('.menu').replaceChildren(...Object.entries(LANGS).map(([code, name]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.lang = code;
+      b.textContent = name;
+      b.addEventListener('click', () => {
+        menu.open = false;
+        store(code);
+        const url = new URL(location.href);
+        if (url.searchParams.has('lang')) {
+          url.searchParams.delete('lang');
+          history.replaceState(null, '', url);
+        }
+        show(code);
+      });
+      return b;
+    }));
   }
+  // On a phone the pages are behind the menu button.
+  const header = document.querySelector('header');
+  const toggle = document.querySelector('.menu-button');
+  const setOpen = (open) => {
+    header.classList.toggle('open', open);
+    toggle?.setAttribute('aria-expanded', open);
+  };
+  toggle?.addEventListener('click', () => setOpen(!header.classList.contains('open')));
+  // A click elsewhere, or Escape, closes the menus.
+  document.addEventListener('click', (e) => {
+    if (menu?.open && !menu.contains(e.target)) menu.open = false;
+    if (header?.classList.contains('open') && !header.contains(e.target)) setOpen(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (menu) menu.open = false;
+    if (header) setOpen(false);
+  });
   show(detect()).catch(() => document.documentElement.classList.add('ready'));
 });
 // Never leave the page hidden, whatever happens to the texts.

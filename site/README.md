@@ -8,7 +8,7 @@ from other hosts (`_headers` sets a Content-Security-Policy that keeps it so).
 |---|---|
 | `index.html`, `guide.html`, `privacy.html`, `404.html` | the pages: the markup, with `data-t="key"` where a text goes |
 | `lang/en.json`, `nb.json`, `nn.json` | all the texts, one file per language, with the same keys |
-| `site.js` | the language (`?lang=`, else the one chosen before, else the browser's), the selector, the pictures, Log in |
+| `site.js` | the language (`?lang=`, else the one chosen before, else the browser's), the language menu (the globe), the pictures, the header's menu on a phone |
 | `style.css` | the studio's look: its green, its gradient, light and dark as the device is |
 | `img/logo.svg`, `img/*.png` | the studio's logo and icons, copied from `web/static/icons/` |
 | `img/shots/<lang>/*.webp` | the studio in each language, made by `scripts/site-shots.sh shots` |
@@ -23,7 +23,7 @@ Create an account, and **Ask for an invite** writes to contact@sermon-studio.app
   `web/e2e/site-shots/shots.spec.js` and run `scripts/site-shots.sh shots`.
 - When the studio looks different: `scripts/site-shots.sh` makes all the pictures and the video again (about 10
   minutes, in podman; the speech comes from `scripts/fetch-sample.sh`).
-- Check it: `scripts/test.sh site` serves this folder and checks every page in every language, the selector,
+- Check it: `scripts/test.sh site` serves this folder and checks every page in every language, the language menu, the phone's menu,
   that the languages have the same keys, every link and picture, and the video. It saves screenshots of the
   pages in `web/e2e/screenshots/site-*.png` for the PR.
 
