@@ -207,6 +207,11 @@ test('on a phone the header is one line, with the pages behind the menu button',
   await ready(page);
   const bar = await page.locator('header').boundingBox();
   expect(bar.height).toBeLessThan(64);
+  // Log in is a person only, still named for screen readers.
+  const login = page.locator('header').getByRole('link', { name: dicts.nb['nav.login'] });
+  await expect(login).toBeVisible();
+  await expect(login.locator('span')).toBeHidden();
+  expect((await login.boundingBox()).width).toBeLessThan(48);
   const nav = page.locator('header nav');
   await expect(nav).toBeHidden();
   const button = page.getByRole('button', { name: dicts.nb['nav.menu'] });
