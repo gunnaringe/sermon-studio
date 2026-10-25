@@ -5,45 +5,15 @@ import RegionsPlugin from './vendor/wavesurfer/plugins/regions.esm.js';
 import TimelinePlugin from './vendor/wavesurfer/plugins/timeline.esm.js';
 import MinimapPlugin from './vendor/wavesurfer/plugins/minimap.esm.js';
 import HoverPlugin from './vendor/wavesurfer/plugins/hover.esm.js';
-import { alertDialog, confirmDialog, infoDialog } from './dialog.js';
-import { t, tn, tr, lang } from './i18n.js';
-import { api, q, h, href, go, soloPlayer, INPUT_TYPES, converts, isVideo, parseTime, formatTime, formatSize, typing, debounce, forTenant, currentTenant, isAdmin, dateInput, formatDateTime, wheelZoomNeedsKey, kbdText } from './util.js';
+import { confirmDialog, infoDialog } from './dialog.js';
+import { t, tn, tr } from './i18n.js';
+import { api, q, h, href, go, soloPlayer, converts, isVideo, parseTime, formatTime, typing, debounce, forTenant, currentTenant, dateInput, formatDateTime, wheelZoomNeedsKey, kbdText } from './util.js';
+import { SOUND_KEYS, CLIP_KEYS, FORMAT_KEYS, css } from './editor/common.js';
+import { infoPart } from './editor/info.js';
+import { processingPart } from './editor/processing.js';
+import { clipsPart } from './editor/clips.js';
 
 const MAX_ZOOM = 200; // px per second: 5 ms per pixel, enough to cut between words
-
-const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-// describeCodec names a recording's format the way people know it.
-function describeCodec(fmt) {
-  if (!fmt) return '';
-  const c = fmt.codec || '';
-  if (c.startsWith('pcm_')) return 'WAV';
-  return { flac: 'FLAC', mp3: 'MP3', opus: 'Opus', vorbis: 'Ogg Vorbis', aac: 'AAC', alac: 'ALAC' }[c] || (c || fmt.container || '').toUpperCase();
-}
-
-// describeFormat is a recording's format on one line: "FLAC · 48 kHz · 24-bit · 2 channels · 1,412 kb/s".
-function describeFormat(fmt) {
-  return [
-    describeCodec(fmt),
-    fmt.sampleRate ? `${fmt.sampleRate / 1000} kHz` : '',
-    fmt.bits ? `${fmt.bits}-bit` : '',
-    tn(fmt.channels, '{n} channel', '{n} channels'),
-    fmt.bitrate ? `${fmt.bitrate.toLocaleString(lang)} kb/s` : '',
-  ].filter(Boolean).join(' · ');
-}
-
-// SOUND_KEYS are the processing choices that are kept with a sermon.
-const SOUND_KEYS = ['stereo', 'noiseReduction', 'roomSound', 'leveling', 'compression', 'targetLufs', 'truePeak', 'mp3Bitrate', 'opusBitrate'];
-
-// DEFAULT_KEYS are what the church's default processing sets: the sound and the fades.
-const DEFAULT_KEYS = [...SOUND_KEYS, 'fadeIn', 'fadeOut'];
-
-// CLIP_KEYS are the clips around the sermon, kept with it: 'default' (the church's), 'own', a church clip's
-// id, or '' for none.
-const CLIP_KEYS = ['intro', 'outro'];
-
-// FORMAT_KEYS are chosen per recording.
-const FORMAT_KEYS = ['flac', 'mp3', 'opus'];
 
 export async function editorView(view, slug, config) {
   const { path, slug: own } = await api('GET', 'api/recording?slug=' + q(slug));
@@ -63,12 +33,6 @@ export async function editorView(view, slug, config) {
   // The intro and outro: a new sermon starts with the church's defaults, one kept from before without them has none.
   const kept = info.sermon && (info.sermon.adjusted || info.sermon.saved);
   if (kept) for (const which of CLIP_KEYS) opts[which] = kept[which] || '';
-  // Going back to the church's defaults, or making this processing the default (see useDefaults).
-  const sameAsDefaults = () => DEFAULT_KEYS.every((k) => String(opts[k]) === String(config.defaults.start[k]));
-  const defaultsNote = h('span', { class: 'muted', role: 'status' });
-  const useDefaultsButton = h('button', { type: 'button', name: 'use-defaults', onclick: useDefaults }, t('Use the defaults'));
-  const makeDefaultsButton = h('button', { type: 'button', name: 'make-defaults', onclick: makeDefaults }, t('Make these the defaults'));
-
   // The formats are this recording's own: those it has, or the defaults when it
   // has none. Choosing here changes nothing elsewhere.
   if (info.outputs.length) for (const f of FORMAT_KEYS) opts[f] = info.outputs.some((o) => o.format === f);
@@ -105,8 +69,6 @@ export async function editorView(view, slug, config) {
   const cutList = h('div', { class: 'cuts' });
   const cutHint = h('p', { class: 'muted' });
   const cutHelp = h('p', { class: 'muted' }, t('Mark a part that should not be published, such as a cough, a song or something sensitive.'));
-  const inputPanel = h('div', { class: 'panel input-file' });
-  const channelWarning = h('p', { class: 'notice', role: 'status', hidden: true });
   const pills = h('div', { class: 'pills', role: 'group', 'aria-label': t('Formats') });
   const outputNote = h('p', { class: 'muted' });
   const checkOut = h('div', {});
@@ -145,169 +107,37 @@ export async function editorView(view, slug, config) {
     h('div', { class: 'save-what' }, outputNote, checkOut),
     h('div', { class: 'save-actions' }, undoButton, redoButton, revertButton, saveButton));
 
-  // Deleting (below): the recording into the trash, or only its original.
-  const folderName = path.split('/').pop();
-  const originalGone = () => t('The original recording was deleted {date}, to free the space. The files made from it are kept, but the sermon can no longer be edited or regenerated.',
-    { date: formatDateTime(info.originalDeleted) });
-  // The original can go once files have been made from it, and nothing is being made.
-  const canDeleteOriginal = () => Boolean(info.raw) && (info.outputs || []).length > 0;
-  const deletePanel = h('div', { class: 'panel delete-panel' });
+  // The parts of the editor, each with its own file, share it as ed (Editor in editor/common.js).
+  const ed = /** @type {import('./editor/common.js').Editor} */ ({
+    view, path, info, config, opts, tags, cleanups, sections, cuts,
+    get alive() { return alive; },
+    get ws() { return ws; },
+    changed, record, setFade, keptLength, activePauses, request, renderOutputs,
+  });
+  const inputFile = infoPart(ed), processing = processingPart(ed), clips = clipsPart(ed);
+  Object.assign(ed, inputFile, processing, clips);
+  const { refreshInfo, renderDelete } = inputFile;
+  const { showChannelWarning, redrawProcessing, showDefaults } = processing;
+  const { clipChoices, drawClips, showClipLength, loadClips } = clips;
 
-  let processingEl = processingPanel();
-  const clipsBox = h('div', { class: 'panel clip-choice' });
-  const clipsSection = h('section', { class: 'step', 'aria-labelledby': 'step-clips', hidden: true },
-    h('h2', { id: 'step-clips' }, t('Intro and outro')), clipsBox);
   view.replaceChildren(
     h('div', { class: 'crumbs' }, h('a', { href: href('recordings', own) }, t('← Recordings'))),
     h('h1', {}, info.date, ' ', renameButton),
     renamePanel,
-    h('section', { class: 'step', 'aria-labelledby': 'step-input' }, h('h2', { id: 'step-input' }, t('Input file')), inputPanel),
+    h('section', { class: 'step', 'aria-labelledby': 'step-input' }, h('h2', { id: 'step-input' }, t('Input file')), inputFile.inputPanel),
     h('section', { class: 'step', 'aria-labelledby': 'step-edit' }, h('h2', { id: 'step-edit' }, t('Edit')), waveSection),
-    h('section', { class: 'step', 'aria-labelledby': 'step-metadata' }, h('h2', { id: 'step-metadata' }, t('Metadata added to the file')), metadataPanel()),
-    h('section', { class: 'step', 'aria-labelledby': 'step-processing' }, h('h2', { id: 'step-processing' }, t('Processing')), processingEl),
-    clipsSection,
+    h('section', { class: 'step', 'aria-labelledby': 'step-metadata' }, h('h2', { id: 'step-metadata' }, t('Metadata added to the file')), processing.metadataEl),
+    h('section', { class: 'step', 'aria-labelledby': 'step-processing' }, h('h2', { id: 'step-processing' }, t('Processing')), processing.processingEl),
+    clips.clipsSection,
     h('section', { class: 'step', 'aria-labelledby': 'step-output' }, h('h2', { id: 'step-output' }, t('Output')),
       h('div', { class: 'panel' }, pills),
       jobPanel),
-    h('section', { class: 'step', 'aria-labelledby': 'step-delete' }, h('h2', { id: 'step-delete' }, t('Delete')), deletePanel),
+    h('section', { class: 'step', 'aria-labelledby': 'step-delete' }, h('h2', { id: 'step-delete' }, t('Delete')), inputFile.deletePanel),
     saveBar,
   );
 
-  // ---- input file: what the recording is ----
-  const fileURL = (f, download) => forTenant('api/file?' + (download ? 'download=1&' : '') + 'path=' + q(f.path));
-
-  function showInput() {
-    const raw = info.raw, rec = info.recording, from = info.convertedFrom;
-    if (!raw) {
-      inputPanel.replaceChildren(h('p', {}, info.originalDeleted ? originalGone() : t('No recording yet.')));
-      return;
-    }
-    const fmt = rec && rec.format;
-    const rows = [
-      [t('File'), [raw.name, h('span', { class: 'muted' }, ' · ' + formatSize(raw.size))]],
-      [t('Format'), fmt ? describeFormat(fmt) : h('span', { class: 'muted' }, t('Reading…'))],
-      [t('Length'), fmt ? formatTime(fmt.duration, 0) : h('span', { class: 'muted' }, '…')],
-      [t('Source'), from && isVideo(from.name)
-        ? t('{codec}, the sound of the original video ({name}, {size}), copied out unchanged; verified identical',
-          { codec: describeCodec(fmt), name: from.name, size: formatSize(from.size) })
-        : from
-          ? t('{codec}, converted from the original {original} ({name}, {size}); verified identical',
-            { codec: describeCodec(fmt) || 'FLAC', original: describeCodec(from.format) || 'WAV', name: from.name, size: formatSize(from.size) })
-          : (fmt ? t('{codec} as it was received', { codec: describeCodec(fmt) }) : '…')],
-      [t('Channels'), channelsText()],
-    ];
-    const md = fmt && fmt.metadata ? Object.entries(fmt.metadata) : [];
-    const open = inputPanel.querySelector('details.input-more')?.open || false;
-    inputPanel.replaceChildren(h('div', { class: 'input-line' },
-      h('details', { class: 'input-more', open },
-        h('summary', { title: t('Show the details of the recording') },
-          h('strong', {}, raw.name), ' · ', formatSize(raw.size),
-          ' · ', fmt ? formatTime(fmt.duration, 0) : h('span', { class: 'muted' }, t('Reading…')),
-          ' · ', channelsText()),
-        h('dl', { class: 'facts' }, rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
-        md.length ? h('details', { class: 'metadata' }, h('summary', {}, t('Metadata in the file ({n})', { n: md.length })),
-          h('dl', { class: 'facts' }, md.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))) : ''),
-      h('span', { class: 'input-actions' }, h('a', { class: 'button', href: fileURL(raw, true) }, t('Download original')),
-        canDeleteOriginal() ? h('button', { type: 'button', class: 'delete', name: 'delete-original', onclick: deleteOriginal }, t('Delete original…')) : '')));
-    showChannelWarning();
-  }
-
-  // ---- deleting: the recording into the trash, or only its original, keeping the files, to free the space ----
-
-
-  async function deleteOriginal() {
-    const ok = await confirmDialog({
-      title: t('Delete the original of {name}?', { name: folderName }),
-      body: [
-        h('p', {}, t('The original recording ({name}, {size}) is deleted for good, not moved to the trash. The files made from it are kept, and can still be downloaded and shared.',
-          { name: info.raw.name, size: formatSize(info.raw.size) })),
-        h('p', { class: 'notice' }, t('The sermon can no longer be edited or regenerated: no new cuts, formats, processing or intro and outro.')),
-      ],
-      confirm: t('Delete original'), danger: true,
-    });
-    if (!ok) return;
-    try {
-      await api('POST', 'api/recordings/delete-original?path=' + q(path));
-      location.reload(); // the page without the waveform
-    } catch (e) {
-      alertDialog({ body: tr(e.message) });
-    }
-  }
-
-  function renderDelete() {
-    deletePanel.replaceChildren(
-      h('p', { class: 'muted' }, t('Delete recording moves it to the trash, with its files and the original, for {days} days. Until then you can restore it under Settings → Trash.', { days: config.trashDays })),
-      h('p', { class: 'actions' },
-        h('button', { type: 'button', class: 'delete', name: 'delete-recording', onclick: deleteRecording }, t('Delete recording…')),
-        canDeleteOriginal() ? h('button', { type: 'button', class: 'delete', name: 'delete-original', onclick: deleteOriginal }, t('Delete original…')) : ''),
-      canDeleteOriginal() ? h('p', { class: 'muted' }, t('Delete original frees the space of the original recording and keeps the files made from it, but then the sermon can no longer be edited or regenerated.')) : '');
-  }
-
-  async function deleteRecording() {
-    const ok = await confirmDialog({
-      title: t('Delete {name}?', { name: folderName }),
-      body: h('p', {}, t('It is moved to the trash, with its files and the original recording, and is removed for good after {days} days. Until then you can restore it under Settings → Trash.', { days: config.trashDays })),
-      confirm: t('Delete'), danger: true,
-    });
-    if (!ok) return;
-    try {
-      await api('POST', 'api/recordings/delete?path=' + q(path));
-      go(href());
-    } catch (e) {
-      alertDialog({ body: tr(e.message) });
-    }
-  }
-
-  // verdict is what the recording's channels are, for people.
-  function verdict(v) {
-    return {
-      mono: t('Mono (one channel)'),
-      stereo: t('Stereo'),
-      identical: t('Mono (both channels are the same)'),
-      more: t('More than two channels'),
-      'one-sided': v.quietBy
-        ? t('Mono (the {side} side is {by} dB quieter)', { side: t(v.quiet), by: v.quietBy })
-        : t('Mono (the {side} side is silent)', { side: t(v.quiet) }),
-    }[v.kind] || v.kind;
-  }
-
-  function channelsText() {
-    const rec = info.recording;
-    if (!rec) return h('span', { class: 'muted' }, t('Checking…'));
-    return rec.channels ? verdict(rec.channels) : h('span', { class: 'muted' }, rec.error ? tr(rec.error) : t('Not known'));
-  }
-
-  // A recording that is mono in effect gains nothing from stereo, or worse.
-  function showChannelWarning() {
-    const v = info.recording && info.recording.channels;
-    const mono = v && ['mono', 'identical', 'one-sided'].includes(v.kind);
-    const warn = opts.stereo && mono;
-    channelWarning.replaceChildren(...(warn ? [t(v.kind === 'one-sided'
-      ? '⚠ The recording is {verdict}: stereo gives the sermon on one side only. Choose mono.'
-      : '⚠ The recording is {verdict}: stereo gives the same sound in bigger files. Choose mono.', { verdict: verdict(v).toLowerCase() }),
-    ' ', h('button', { type: 'button', name: 'use-mono', onclick: () => setStereo(false) }, t('Use mono'))] : []));
-    channelWarning.hidden = !warn;
-  }
-
-  // refreshInfo reads the folder again: the recording and the outputs change
-  // with conversion, analysis and runs.
-  async function refreshInfo() {
-    const inf = await api('GET', 'api/folder?path=' + q(path));
-    if (!alive) return;
-    Object.assign(info, { raw: inf.raw, recording: inf.recording, convertedFrom: inf.convertedFrom, outputs: inf.outputs, originalDeleted: inf.originalDeleted });
-    showInput();
-    renderOutputs();
-    renderDelete();
-  }
-  showInput();
-  // The facts come with the waveform's preparation: look again until they are there.
-  const waitForFacts = async () => {
-    while (alive && info.raw && !info.recording) {
-      await new Promise((r) => setTimeout(r, 2000));
-      if (alive) await refreshInfo().catch(() => {});
-    }
-  };
-  waitForFacts();
+  inputFile.showInput();
+  inputFile.waitForFacts();
 
   // ---- waveform ----
   async function prepareWaveform() {
@@ -1400,171 +1230,6 @@ export async function editorView(view, slug, config) {
     if (sections.length) playFor(Math.max(last() - 5, first()), Math.min(5, last() - first()), true);
   }
 
-  // ---- the metadata written into the files, and the processing that makes them ----
-
-  // metadataPanel is the tags: title, artist and album, in every file.
-  function metadataPanel() {
-    const tag = (key, label) => h('label', { class: 'tag' }, h('span', { class: 'name' }, label), h('input', {
-      type: 'text', name: key, value: tags[key], maxlength: 200,
-      oninput: (e) => { tags[key] = e.target.value; changed(); },
-    }));
-    return h('div', { class: 'panel' },
-      info.tags
-        ? h('div', { class: 'options' }, tag('title', t('Title')), tag('artist', t('Artist')), tag('album', t('Album')))
-        : h('span', { class: 'muted' }, info.tagsError ? tr(info.tagsError) : t('No tags')),
-      h('p', { class: 'muted' }, t('Written into the FLAC, MP3 and Opus files. A field left empty is left out.')));
-  }
-
-  // redrawProcessing shows the processing choices again, after they were set from outside (a revert).
-  function redrawProcessing() {
-    const next = processingPanel();
-    processingEl.replaceWith(next);
-    processingEl = next;
-    showChannelWarning();
-    showDefaults();
-  }
-
-  // ---- the church's default processing: this recording can go back to it, or make its own the default ----
-
-  function showDefaults() {
-    const same = sameAsDefaults();
-    defaultsNote.textContent = same ? t('The same as the church\'s defaults.') : t('Not the same as the church\'s defaults.');
-    useDefaultsButton.disabled = makeDefaultsButton.disabled = same;
-  }
-
-  function useDefaults() {
-    record(); // its own step, also right after another change
-    const d = config.defaults.start;
-    for (const k of SOUND_KEYS) opts[k] = d[k];
-    for (const k of ['fadeIn', 'fadeOut']) {
-      if (sections.length) setFade(k, d[k]); // as long as the sermon allows
-      else opts[k] = d[k];
-    }
-    redrawProcessing();
-    changed();
-  }
-
-  async function makeDefaults() {
-    const ok = await confirmDialog({ title: t('Make these the defaults'), confirm: t('Make them the defaults'),
-      body: t('New recordings start with this processing and these fades. Recordings that have their own keep it.') });
-    if (!ok) return;
-    const levels = { targetLufs: opts.targetLufs, mp3Bitrate: opts.mp3Bitrate, opusBitrate: opts.opusBitrate };
-    const p = {
-      ...config.defaults.processing,
-      stereo: opts.stereo, noiseReduction: Math.round(opts.noiseReduction), roomSound: opts.roomSound,
-      leveling: opts.leveling, compression: opts.compression, truePeak: opts.truePeak,
-      fadeIn: opts.fadeIn, fadeOut: opts.fadeOut,
-      [opts.stereo ? 'stereoLevels' : 'mono']: levels,
-    };
-    try {
-      await api('PUT', 'api/processing', { processing: p });
-      Object.assign(config, await api('GET', 'api/config'));
-      showDefaults();
-    } catch (e) {
-      defaultsNote.textContent = t('Not saved: {error}', { error: e.message });
-    }
-  }
-
-  // processingPanel is how the sermon is made into files: channels, noise, levels, loudness and bitrates.
-  // The choices are kept with the sermon.
-  function processingPanel() {
-    const field = (label, input) => h('label', {}, h('span', { class: 'name' }, label), input);
-    const num = (key, label, step, min, max) => field(label, h('input', {
-      type: 'number', name: key, value: opts[key], step, min, max,
-      oninput: (e) => { opts[key] = e.target.value === '' ? NaN : Number(e.target.value); changed(); },
-    }));
-    const text = (key, label) => field(label, h('input', {
-      type: 'text', name: key, value: opts[key],
-      oninput: (e) => { opts[key] = e.target.value; changed(); },
-    }));
-    const choice = (key, label, values) => field(label, h('select', { name: key, onchange: (e) => { opts[key] = e.target.value; changed(); } },
-      values.map(([value, text]) => h('option', { value, selected: opts[key] === value }, text))));
-    const group = (title, ...children) => h('div', { class: 'pgroup' }, h('strong', {}, title), ...children);
-    const hint = (text) => h('p', { class: 'muted hint' }, text);
-    // Mono or stereo: a choice between the two, not on and off.
-    const channelButton = (stereo, label) => h('button', { type: 'button', class: 'seg', name: stereo ? 'stereo' : 'mono',
-      'aria-pressed': String(opts.stereo === stereo), onclick: () => setStereo(stereo) }, label);
-    const channels = h('div', { class: 'channels' },
-      h('span', { class: 'mode', role: 'group', 'aria-label': t('Channels') }, channelButton(false, t('Mono')), channelButton(true, t('Stereo'))));
-    const roomValue = h('output', { class: 'muted' }, `${opts.roomSound}%`);
-    const room = field(t('Keep room sound'), h('span', { class: 'range' }, h('input', {
-      type: 'range', name: 'roomSound', min: 0, max: 100, step: 5, value: opts.roomSound,
-      oninput: (e) => { opts.roomSound = Number(e.target.value); roomValue.textContent = `${opts.roomSound}%`; changed(); },
-    }), roomValue));
-    const strengths = (off, a, b, c) => [['off', off], ['gentle', a], ['normal', b], ['strong', c]];
-
-    const sample = h('audio', { class: 'player', controls: true, hidden: true, 'aria-label': t('The sample') });
-    const sampleStatus = h('span', { class: 'muted', role: 'status' });
-    const sampleButton = h('button', { type: 'button', name: 'sample', onclick: async () => {
-      sampleButton.disabled = true;
-      sample.hidden = true;
-      sampleStatus.className = 'muted';
-      sampleStatus.textContent = t('Making the sample…');
-      try {
-        const body = Object.fromEntries(SOUND_KEYS.map((k) => [k, opts[k]]));
-        const resp = await fetch(forTenant('api/sample?path=' + q(path) + '&at=' + (ws ? ws.getCurrentTime() : 0)), {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-        });
-        if (!resp.ok) throw new Error(tr((await resp.json().catch(() => ({}))).error || `${resp.status} ${resp.statusText}`));
-        URL.revokeObjectURL(sample.src);
-        sample.src = URL.createObjectURL(await resp.blob());
-        sample.hidden = false;
-        sampleStatus.textContent = '';
-        sample.play().catch(() => {});
-      } catch (e) {
-        sampleStatus.className = 'error';
-        sampleStatus.textContent = t('Could not make the sample: {error}', { error: e.message });
-      } finally {
-        sampleButton.disabled = false;
-      }
-    } }, t('Hear a sample'));
-
-    return h('div', { class: 'panel processing' },
-      group(t('Defaults'), h('p', {}, useDefaultsButton, ' ', makeDefaultsButton), defaultsNote),
-      group(t('Channels'), channels, channelWarning),
-      group(t('Noise'),
-        num('noiseReduction', t('Noise reduction (dB)'), 1, 0, 40),
-        room,
-        hint(t('Taking out noise also takes out some of the room\'s own sound, such as its reverb. Less reduction, or more room sound kept, sounds more natural; more sounds cleaner.'))),
-      group(t('Levels'),
-        choice('leveling', t('Leveling'), strengths(t('Off'), t('Gentle'), t('Normal'), t('Strong'))),
-        choice('compression', t('Compression'), [['off', t('Off')], ['light', t('compression|Light')], ['normal', t('Normal')], ['strong', t('Strong')]]),
-        hint(t('Leveling brings quiet speech and loud parts closer. Compression narrows the loudness range further: light is usually enough.'))),
-      group(t('Loudness'),
-        num('targetLufs', t('Target loudness (LUFS)'), 0.5, -70, -5),
-        num('truePeak', t('Max true peak (dBTP)'), 0.1, -20, 0),
-        hint(t('Podcasts are usually -19 LUFS in mono and -16 in stereo. The peaks are kept under the true peak.'))),
-      group(t('Encoding'), text('mp3Bitrate', t('MP3 bitrate')), text('opusBitrate', t('Opus bitrate'))),
-      group(t('Try the settings'),
-        h('p', {}, sampleButton, ' ', sampleStatus),
-        sample,
-        hint(t('Makes 30 seconds from the playhead with these settings, to listen to. The cuts, pauses and fades are not applied.'))));
-  }
-
-  // setStereo chooses mono or stereo.
-  function setStereo(stereo) {
-    if (opts.stereo === stereo) return;
-    followChannels(stereo);
-    opts.stereo = stereo;
-    for (const b of view.querySelectorAll('.channels button.seg')) b.setAttribute('aria-pressed', String((b.name === 'stereo') === stereo));
-    showChannelWarning();
-    changed();
-  }
-
-  // followChannels moves the loudness and bitrates to the new defaults when
-  // switching mono/stereo, unless they were changed by hand.
-  function followChannels(stereo) {
-    const from = stereo ? config.defaults.mono : config.defaults.stereo;
-    const to = stereo ? config.defaults.stereo : config.defaults.mono;
-    for (const key of ['targetLufs', 'mp3Bitrate', 'opusBitrate']) {
-      if (String(opts[key]) === String(from[key])) {
-        opts[key] = to[key];
-        const input = view.querySelector(`input[name=${key}]`);
-        if (input) input.value = to[key];
-      }
-    }
-  }
-
   function request(force = false) {
     return {
       ...opts,
@@ -1575,182 +1240,6 @@ export async function editorView(view, slug, config) {
       cuts: sections.length ? cuts.map(spanOf) : [],
     };
   }
-
-  // ---- intro and outro: the clips around the sermon, the church's or the sermon's own ----
-
-  let clipData = null; // api/sermon/clips: the church's clips and defaults, the sermon's own, uploads under way
-  let clipPoll = null;
-  const awaitingOwn = {}; // an own clip uploaded for intro or outro: chosen once it is ready
-  const clipLength = h('p', { class: 'muted', 'aria-live': 'polite' });
-  const clipNote = h('p', { class: 'muted', role: 'status' });
-  const joinPlayer = h('audio', { controls: true, hidden: true, 'aria-label': t('The join') });
-  cleanups.push(() => URL.revokeObjectURL(joinPlayer.src));
-  const ownInput = h('input', { type: 'file', name: 'own-clip', accept: INPUT_TYPES.join(','), hidden: true });
-  let ownFor = null; // which of the two the file chosen is for
-  const UPLOAD = '__upload';
-  cleanups.push(() => clearTimeout(clipPoll));
-
-  // clipChoices are the choices as they are kept with the sermon: none is left out.
-  function clipChoices() {
-    return Object.fromEntries(CLIP_KEYS.filter((k) => opts[k]).map((k) => [k, opts[k]]));
-  }
-
-  async function loadClips() {
-    try {
-      showClips(await api('GET', 'api/sermon/clips?path=' + q(path)));
-    } catch { /* without clips the step stays hidden */ }
-  }
-
-  function showClips(data) {
-    clipData = data;
-    clipsSection.hidden = !data.available;
-    for (const which of CLIP_KEYS) {
-      const p = data.ownPending[which];
-      if (!awaitingOwn[which] || (p && !p.error)) continue;
-      delete awaitingOwn[which];
-      if (!p && data.own[which]) { // ready: the sermon's own clip becomes the choice
-        opts[which] = 'own';
-        changed();
-      }
-    }
-    clearTimeout(clipPoll);
-    if (alive && Object.values(data.ownPending).some((p) => !p.error)) clipPoll = setTimeout(loadClips, 1000);
-    drawClips();
-  }
-
-  // clipOf is what a choice means now: the clip (with its address to listen to), null for none, or
-  // { missing: true } when the clip it chose is gone.
-  function clipOf(which, choice) {
-    const d = clipData;
-    if (!d || !choice) return null;
-    if (choice === 'own') {
-      const c = d.own[which];
-      return c ? { ...c, url: forTenant('api/sermon/clip/audio?path=' + q(path) + '&which=' + which) + '&v=' + c.version } : { missing: true, own: true };
-    }
-    const id = choice === 'default' ? d[which] : choice;
-    if (!id) return null;
-    const c = d.clips.find((x) => x.id === id);
-    return c ? { ...c, url: forTenant('api/clips/' + c.id + '/audio') + '&v=' + c.version } : { missing: true };
-  }
-
-  function drawClips() {
-    if (!clipData) return;
-    const d = clipData;
-    const rows = CLIP_KEYS.map((which) => {
-      const choice = opts[which] || '';
-      const label = which === 'intro' ? t('Intro') : t('Outro');
-      const def = d.clips.find((c) => c.id === d[which]);
-      const options = [
-        ['default', def ? t('Church default: {name}', { name: def.name }) : t('Church default: none')],
-        ['', t('None')],
-        ...d.clips.filter((c) => !c.archived || c.id === choice).map((c) => [c.id, c.archived ? t('{name} (archived)', { name: c.name }) : c.name]),
-      ];
-      if (d.own[which] || choice === 'own') {
-        options.push(['own', d.own[which] ? t("This sermon's own: {name}", { name: d.own[which].name }) : t("This sermon's own (missing)")]);
-      }
-      if (!options.some(([v]) => v === choice)) options.push([choice, t('A deleted clip')]);
-      options.push([UPLOAD, t('Upload for this sermon only…')]);
-      const select = h('select', { name: which, 'aria-label': label, onchange: (e) => {
-        if (e.target.value === UPLOAD) {
-          e.target.value = choice;
-          ownFor = which;
-          ownInput.click();
-          return;
-        }
-        opts[which] = e.target.value;
-        clipNote.textContent = '';
-        changed();
-        drawClips();
-      } }, options.map(([v, text]) => h('option', { value: v, selected: v === choice }, text)));
-      const clip = clipOf(which, choice);
-      const pending = d.ownPending[which];
-      const parts = [h('label', {}, h('span', { class: 'name' }, label), select)];
-      if (clip && clip.url) {
-        parts.push(h('span', { class: 'muted' }, formatTime(clip.seconds, 0)),
-          h('audio', { controls: true, preload: 'none', src: clip.url, 'aria-label': t('Listen to {name}', { name: clip.name }) }));
-      }
-      if (clip && clip.url) {
-        parts.push(h('button', { type: 'button', name: 'join-' + which, disabled: !sections.length, onclick: (e) => hearJoin(which, e.target) },
-          which === 'intro' ? t('Hear the intro join') : t('Hear the outro join')));
-      }
-      if (isAdmin() && choice === 'own' && d.own[which] && d.available && !d.clips.some((c) => c.id === d.own[which].copiedAs)) {
-        parts.push(h('button', { type: 'button', name: 'add-' + which, onclick: async () => {
-          try {
-            showClips(await api('POST', 'api/sermon/clip/add?path=' + q(path) + '&which=' + which));
-            clipNote.textContent = t("{name} is among the church's clips now.", { name: d.own[which].name });
-          } catch (e) { alertDialog({ body: e.message }); }
-        } }, t("Add to the church's clips")));
-      }
-      if (clip && clip.missing) {
-        parts.push(h('p', { class: 'error' }, clip.own ? t("This sermon's own clip is missing. Upload it again, or choose another.")
-          : which === 'intro' ? t('The intro this sermon used has been deleted. Choose another intro, or none.')
-            : t('The outro this sermon used has been deleted. Choose another outro, or none.')));
-      }
-      if (pending) {
-        parts.push(pending.error
-          ? h('p', { class: 'error' }, t('{name}: {error}', { name: pending.name, error: tr(pending.error) }), ' ',
-            h('button', { type: 'button', name: 'dismiss-' + which, onclick: async () => showClips(await api('POST', 'api/sermon/clip/dismiss?path=' + q(path) + '&which=' + which)) }, t('Remove')))
-          : h('p', { class: 'muted' }, t('Preparing {name}…', { name: pending.name })));
-      }
-      return h('div', { class: 'clip-row', 'data-which': which }, parts);
-    });
-    clipsBox.replaceChildren(...rows, clipLength, joinPlayer, clipNote, ownInput);
-    showClipLength();
-  }
-
-  // hearJoin makes and plays the end of the intro and the start of the sermon (or the end of the sermon and
-  // the start of the outro), made as the files will be.
-  async function hearJoin(which, button) {
-    button.disabled = true;
-    clipNote.className = 'muted';
-    clipNote.textContent = t('Making the join…');
-    try {
-      const resp = await fetch(forTenant('api/sample/join?path=' + q(path) + '&which=' + which), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request()),
-      });
-      if (!resp.ok) throw new Error(tr((await resp.json().catch(() => ({}))).error || `${resp.status} ${resp.statusText}`));
-      URL.revokeObjectURL(joinPlayer.src);
-      joinPlayer.src = URL.createObjectURL(await resp.blob());
-      joinPlayer.hidden = false;
-      clipNote.textContent = '';
-      joinPlayer.play().catch(() => {});
-    } catch (e) {
-      clipNote.className = 'error';
-      clipNote.textContent = t('Could not make the join: {error}', { error: e.message });
-    } finally {
-      button.disabled = false;
-    }
-  }
-
-  // showClipLength tells how long the files with the intro and outro are.
-  function showClipLength() {
-    if (!clipData) return;
-    const clips = CLIP_KEYS.map((w) => clipOf(w, opts[w])).filter((c) => c && !c.missing);
-    if (!clips.length || !sections.length) {
-      clipLength.textContent = clips.length ? '' : t('No intro or outro: the files are the sermon only.');
-      return;
-    }
-    const sermon = keptLength() + activePauses().reduce((n, p) => n + p.seconds, 0);
-    const total = sermon + clips.reduce((n, c) => n + c.seconds + clipData.pause, 0);
-    clipLength.textContent = t('With the intro and outro: {time}. The sermon only is made too.', { time: formatTime(total, 1) });
-  }
-
-  ownInput.addEventListener('change', async () => {
-    const file = ownInput.files[0];
-    ownInput.value = '';
-    if (!file || !ownFor) return;
-    const which = ownFor;
-    const url = 'api/sermon/clip?path=' + q(path) + '&which=' + which + '&name=' + q(file.name);
-    let body;
-    try {
-      body = await api('POST', url, file);
-    } catch (e) {
-      alertDialog({ body: e.message });
-      return;
-    }
-    awaitingOwn[which] = true;
-    showClips(body);
-  });
 
   // ---- check and run ----
   const check = debounce(async () => {
