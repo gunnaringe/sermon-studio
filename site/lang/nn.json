@@ -16,7 +16,6 @@
   "home.h1": "Frå opptaket av gudstenesta til preikefiler",
   "home.lede": "Sermon Studio køyrer i nettlesaren. Last opp opptaket av heile gudstenesta, merk kvar preika byrjar og sluttar, og trykk Lagre. Du får preika som FLAC, MP3 og Opus, med jamn og vanleg lydstyrke, klar for ein podkast eller nettsida til kyrkjelyden.",
   "home.cta.how": "Sjå korleis det verkar",
-  "home.cta.download": "Last ned skrivebordsappen",
   "home.hero.alt": "Redigeringa: gudstenesta som bølgjeform, med preika merkt",
 
   "home.video.h2": "Studioet i bruk",
@@ -43,6 +42,10 @@
   "home.step5.alt": "Dei ferdige filene i nedlastingsmenyen",
   "home.step5.alt2": "Del for nedlasting: eit namn, kva filer, kor mange nedlastingar, ein sluttdato",
 
+  "home.mixer.h2": "Rett frå miksebordet",
+  "home.mixer.p1": "Lydteknikaren treng inga innlogging. Lag ei opplastingsdeling i studioet, og gje lydteknikaren lenkja eller koden. Opplastingssida vert opna på datamaskina ved miksebordet, eller på ein mobil, og opptaket av gudstenesta vert sendt rett til kyrkjelyden: store filer går fint, og ei opplasting som vert avbroten, held fram der ho stoppa.",
+  "home.mixer.p2": "Du bestemmer kor lenge koden verkar, kor mange filer han tek imot og kor store dei kan vere, og du ser kvar opplasting i studioet. Opptaket kjem blant opptaka til kyrkjelyden, klart til å redigerast.",
+  "home.mixer.alt": "Opplastingssida på ein mobil, med eit opptak motteke.",
   "home.what.h2": "Kva det gjer",
   "home.what.1": "<strong>Jamn lydstyrke.</strong> Preika får støyreduksjon og utjamning, og vert bringa til vanleg podkastlydstyrke (−19 LUFS), målt med EBU R128.",
   "home.what.2": "<strong>Originalen vert halden på.</strong> Filer vert sletta først når kopien er kontrollert å vere lik.",
@@ -52,13 +55,17 @@
   "home.churches.h2": "For kyrkjelydar",
   "home.churches.p1": "Tek de opp gudstenestene og vil ha preikene på nett? Be om ein invitasjon, med namnet på kyrkjelyden: vi set opp kyrkjelyden i studioet, og så inviterer du dei andre som skal bruke det. Er du invitert? Opne lenkja du fekk: der kan du òg lage ein konto om du ikkje har ein.",
   "home.churches.invite": "Be om ein invitasjon",
-  "home.churches.p2": "Vil de heller køyre det sjølve? Sermon Studio er gratis og open kjeldekode. Køyr det på dykkar eigen tenar med Docker (<a href=\"https://github.com/gunnaringe/sermon-studio/blob/main/docs/running.md\">slik</a>, på engelsk), eller bruk skrivebordsappen nedanfor på éi datamaskin.",
   "home.churches.p3": "Les korleis studioet vert brukt i <a href=\"guide.html\">rettleiinga</a>, og kva som vert lagra under <a href=\"privacy.html\">personvern</a>.",
 
-  "home.download.h2": "Last ned skrivebordsappen",
+  "home.self.h2": "Køyr det sjølv",
+  "home.self.p": "Sermon Studio er gratis og open kjeldekode, med Apache 2.0-lisensen. Vil de heller ikkje bruke det drifta studioet? Køyr det på éi datamaskin, eller på dykkar eigen tenar.",
+  "home.download.h3": "Skrivebordsappen",
   "home.download.p1": "Skrivebordsappen køyrer studioet på éi datamaskin, utan tenar og utan innlogging. Han finst for Windows, macOS og Linux, og har alt han treng innebygd.",
   "home.download.button": "Last ned frå GitHub",
   "home.download.unsigned": "Appen er ikkje signert, så Windows og macOS åtvarar første gongen du startar han. I Windows vel du <strong>Mer informasjon</strong> og så <strong>Kjør likevel</strong>. I macOS opnar du <strong>Systeminnstillinger → Personvern og sikkerhet</strong> og vel <strong>Åpne likevel</strong>. Etter det startar han som alle andre program. Kvar utgjeving har sjekksummen til kvar fil.",
+  "home.server.h3": "På eigen tenar",
+  "home.server.p": "Det same studioet som her, med Docker, for éin kyrkjelyd eller fleire, med dykkar eiga innlogging (OpenID Connect, til dømes Pocket ID).",
+  "home.server.button": "Slik gjer du det (på engelsk)",
 
   "guide.title": "Rettleiing: slik brukar du Sermon Studio",
   "guide.description": "Ei kort rettleiing til Sermon Studio: opplasting, merke preika, handsaming, intro og outro, lagring og deling.",

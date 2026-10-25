@@ -197,6 +197,14 @@ video {
 @media (max-width: 760px) {
   .step { grid-template-columns: 1fr; }
 }
+/* A picture of a phone: at a phone's size, not stretched. */
+.shot.phone { width: 100%; max-width: 300px; justify-self: center; border-radius: 28px; border-width: 6px; border-color: #1c2a23; }
+
+/* Run it yourself: the desktop app and the own server side by side, one under the other on a phone. */
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.cards .panel { max-width: none; display: flex; flex-direction: column; }
+.cards .panel h3 { margin-bottom: 0.75rem; }
+@media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
 
 /* What it does: four cards, two by two on a tablet, one under the other on a phone. */
 .features { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }

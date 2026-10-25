@@ -16,7 +16,6 @@
   "home.h1": "Fra opptaket av gudstjenesten til prekenfiler",
   "home.lede": "Sermon Studio kjører i nettleseren. Last opp opptaket av hele gudstjenesten, merk hvor prekenen begynner og slutter, og trykk Lagre. Du får prekenen som FLAC, MP3 og Opus, med jevn og vanlig lydstyrke, klar for en podkast eller menighetens nettside.",
   "home.cta.how": "Se hvordan det virker",
-  "home.cta.download": "Last ned skrivebordsappen",
   "home.hero.alt": "Redigeringen: gudstjenesten som bølgeform, med prekenen merket",
 
   "home.video.h2": "Studioet i bruk",
@@ -43,6 +42,10 @@
   "home.step5.alt": "De ferdige filene i nedlastingsmenyen",
   "home.step5.alt2": "Del for nedlasting: et navn, hvilke filer, hvor mange nedlastinger, en sluttdato",
 
+  "home.mixer.h2": "Rett fra miksebordet",
+  "home.mixer.p1": "Lydteknikeren trenger ingen innlogging. Lag en opplastingsdeling i studioet, og gi lydteknikeren lenken eller koden. Opplastingssiden åpnes på datamaskinen ved miksebordet, eller på en mobil, og opptaket av gudstjenesten sendes rett til menigheten: store filer går fint, og en opplasting som blir avbrutt, fortsetter der den stoppet.",
+  "home.mixer.p2": "Du bestemmer hvor lenge koden virker, hvor mange filer den tar imot og hvor store de kan være, og du ser hver opplasting i studioet. Opptaket kommer blant menighetens opptak, klart til å redigeres.",
+  "home.mixer.alt": "Opplastingssiden på en mobil, med et opptak mottatt.",
   "home.what.h2": "Hva det gjør",
   "home.what.1": "<strong>Jevn lydstyrke.</strong> Prekenen får støyreduksjon og utjevning, og bringes til vanlig podkastlydstyrke (−19 LUFS), målt med EBU R128.",
   "home.what.2": "<strong>Originalen beholdes.</strong> Filer slettes først når kopien er kontrollert å være lik.",
@@ -52,13 +55,17 @@
   "home.churches.h2": "For menigheter",
   "home.churches.p1": "Tar dere opp gudstjenestene og vil ha prekenene på nett? Be om en invitasjon, med navnet på menigheten: vi setter opp menigheten i studioet, og så inviterer du de andre som skal bruke det. Er du invitert? Åpne lenken du fikk: der kan du også lage en konto hvis du ikke har en.",
   "home.churches.invite": "Be om en invitasjon",
-  "home.churches.p2": "Vil dere heller kjøre det selv? Sermon Studio er gratis og åpen kildekode. Kjør det på deres egen server med Docker (<a href=\"https://github.com/gunnaringe/sermon-studio/blob/main/docs/running.md\">slik</a>, på engelsk), eller bruk skrivebordsappen nedenfor på én datamaskin.",
   "home.churches.p3": "Les hvordan studioet brukes i <a href=\"guide.html\">veiledningen</a>, og hva som lagres under <a href=\"privacy.html\">personvern</a>.",
 
-  "home.download.h2": "Last ned skrivebordsappen",
+  "home.self.h2": "Kjør det selv",
+  "home.self.p": "Sermon Studio er gratis og åpen kildekode, med Apache 2.0-lisensen. Vil dere heller ikke bruke det driftede studioet? Kjør det på én datamaskin, eller på deres egen server.",
+  "home.download.h3": "Skrivebordsappen",
   "home.download.p1": "Skrivebordsappen kjører studioet på én datamaskin, uten server og uten innlogging. Den finnes for Windows, macOS og Linux, og har alt den trenger innebygd.",
   "home.download.button": "Last ned fra GitHub",
   "home.download.unsigned": "Appen er ikke signert, så Windows og macOS advarer første gang du starter den. I Windows velger du <strong>Mer informasjon</strong> og så <strong>Kjør likevel</strong>. I macOS åpner du <strong>Systeminnstillinger → Personvern og sikkerhet</strong> og velger <strong>Åpne likevel</strong>. Etter det starter den som alle andre programmer. Hver utgivelse har sjekksummen til hver fil.",
+  "home.server.h3": "På egen server",
+  "home.server.p": "Det samme studioet som her, med Docker, for én menighet eller flere, med deres egen innlogging (OpenID Connect, for eksempel Pocket ID).",
+  "home.server.button": "Slik gjør du det (på engelsk)",
 
   "guide.title": "Veiledning: slik bruker du Sermon Studio",
   "guide.description": "En kort veiledning til Sermon Studio: opplasting, merke prekenen, behandling, intro og outro, lagring og deling.",

@@ -16,7 +16,6 @@
   "home.h1": "From the recording of a service to sermon files",
   "home.lede": "Sermon Studio runs in the browser. Upload the recording of the whole service, mark where the sermon starts and ends, and press Save. You get the sermon as FLAC, MP3 and Opus, at an even, standard loudness, ready for a podcast or the church's website.",
   "home.cta.how": "See how it works",
-  "home.cta.download": "Download the desktop app",
   "home.hero.alt": "The editor: the service as a waveform, with the sermon marked",
 
   "home.video.h2": "The studio in use",
@@ -43,6 +42,10 @@
   "home.step5.alt": "The finished files in the Download menu",
   "home.step5.alt2": "Share for download: a name, which files, how many downloads, an end date",
 
+  "home.mixer.h2": "Straight from the mixing desk",
+  "home.mixer.p1": "The sound technician needs no login. Make an upload share in the studio and give them its link or code. They open the upload page on the computer at the mixing desk, or on a phone, and send the recording of the service straight to the church: large files are fine, and an upload that is interrupted continues where it stopped.",
+  "home.mixer.p2": "You decide how long the code works, how many files it takes and how large they may be, and you see each upload in the studio. The recording arrives among the church's recordings, ready to be edited.",
+  "home.mixer.alt": "The upload page on a phone, with a recording received.",
   "home.what.h2": "What it does",
   "home.what.1": "<strong>Even loudness.</strong> The sermon is noise-reduced, leveled and brought to podcast loudness (−19 LUFS), measured with EBU R128.",
   "home.what.2": "<strong>The original is kept.</strong> Files are only deleted after their copy has been checked to be identical.",
@@ -52,13 +55,17 @@
   "home.churches.h2": "For churches",
   "home.churches.p1": "Do you record your services and want the sermons online? Ask for an invite, with the name of your church: we set up the church in the studio, and you then invite the others who will use it. Have you been invited? Open the link you got: you can make an account there if you have none.",
   "home.churches.invite": "Ask for an invite",
-  "home.churches.p2": "Would you rather run it yourself? Sermon Studio is free and open source. Run it on your own server with Docker (<a href=\"https://github.com/gunnaringe/sermon-studio/blob/main/docs/running.md\">how</a>), or use the desktop app below on one computer.",
   "home.churches.p3": "Read how the studio is used in the <a href=\"guide.html\">guide</a>, and what is stored in <a href=\"privacy.html\">privacy</a>.",
 
-  "home.download.h2": "Download the desktop app",
+  "home.self.h2": "Run it yourself",
+  "home.self.p": "Sermon Studio is free and open source, under the Apache 2.0 licence. Would you rather not use the hosted studio? Run it on one computer, or on your own server.",
+  "home.download.h3": "The desktop app",
   "home.download.p1": "The desktop app runs the studio on one computer, without a server or a login. It is for Windows, macOS and Linux, and has everything it needs built in.",
   "home.download.button": "Download from GitHub",
   "home.download.unsigned": "The app is not signed, so Windows and macOS warn the first time you start it. On Windows, choose <strong>More info</strong>, then <strong>Run anyway</strong>. On macOS, open <strong>System Settings → Privacy &amp; Security</strong> and choose <strong>Open Anyway</strong>. After that it starts like any other program. Each release lists the checksum of every file.",
+  "home.server.h3": "On your own server",
+  "home.server.p": "The same studio as here, with Docker, for one church or several, with your own login (OpenID Connect, such as Pocket ID).",
+  "home.server.button": "How to run it",
 
   "guide.title": "Guide: using Sermon Studio",
   "guide.description": "A short guide to Sermon Studio: uploading, marking the sermon, processing, intro and outro, saving and sharing.",

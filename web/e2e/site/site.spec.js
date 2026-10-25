@@ -198,6 +198,8 @@ test('screenshots for the PR', async ({ browser }) => {
     await eager(page);
     await page.screenshot({ path: path.join(shots, `site-home-${lang}.png`) });
     await page.locator('#churches').screenshot({ path: path.join(shots, `site-churches-${lang}.png`) });
+    await page.locator('#mixer').screenshot({ path: path.join(shots, `site-mixer-${lang}.png`) });
+    await page.locator('#self').screenshot({ path: path.join(shots, `site-self-${lang}.png`) });
     if (lang === 'nb') {
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       await page.locator('#lang summary').click();
