@@ -75,10 +75,10 @@ for (const lang of LANGS) {
       for (const src of await page.locator('img[data-shot]').evaluateAll((imgs) => imgs.map((i) => i.getAttribute('src')))) {
         expect(src).toMatch(new RegExp(`^img/shots/${lang}/[a-z-]+\\.webp$`));
       }
-      // Every link: inside the site it resolves; outside it is GitHub or the contact address.
+      // Every link: inside the site it resolves; outside it is GitHub, the studio, the author's page or the contact address.
       for (const href of new Set(await page.locator('a[href]').evaluateAll((as) => as.map((a) => a.getAttribute('href'))))) {
         if (/^mailto:/.test(href)) expect(href).toMatch(/^mailto:contact@sermon-studio\.app(\?subject=[^&]+)?$/);
-        else if (/^https?:/.test(href)) expect(href).toMatch(/^https:\/\/(github\.com\/gunnaringe\/sermon-studio(\/|$)|my\.sermon-studio\.app\/$)/);
+        else if (/^https?:/.test(href)) expect(href).toMatch(/^https:\/\/(github\.com\/gunnaringe\/sermon-studio(\/|$)|my\.sermon-studio\.app\/$|gunnaringe\.sort\.land$)/);
         else {
           const url = new URL(href, page.url());
           expect((await request.get(url.pathname)).status(), href).toBe(200);
@@ -153,6 +153,52 @@ test('the video has its sources and poster, and they are small', async ({ page, 
   expect(await video.evaluate((v) => Math.round(v.duration))).toBeGreaterThanOrEqual(60);
 });
 
+test('the header has the sections and the guide; privacy and About are at the bottom', async ({ page }) => {
+  const problems = watch(page);
+  await page.goto('/?lang=nb');
+  await ready(page);
+  const nav = page.locator('header nav');
+  for (const key of ['nav.how', 'nav.mixer', 'nav.churches', 'nav.self', 'nav.guide']) await expect(nav.getByRole('link', { name: dicts.nb[key] })).toBeVisible();
+  await expect(nav.locator('a.page')).toHaveAttribute('href', 'guide.html');
+  await expect(nav.locator('a.page')).toHaveAttribute('title', dicts.nb['nav.guide.title']);
+  await expect(page.locator('header a[href="privacy.html"]')).toHaveCount(0);
+  const about = page.locator('footer');
+  await expect(about.getByRole('heading', { name: dicts.nb['about.h2'] })).toBeVisible();
+  await expect(about.getByRole('link', { name: 'Gunnar Inge Gjøvik Sortland' })).toHaveAttribute('href', 'https://gunnaringe.sort.land');
+  await expect(about.getByRole('link', { name: dicts.nb['nav.privacy'] })).toHaveAttribute('href', 'privacy.html');
+  // A section's link scrolls to it, and is marked while it is in view.
+  await nav.getByRole('link', { name: dicts.nb['nav.self'] }).click();
+  await expect(page).toHaveURL(/#self$/);
+  await expect.poll(() => page.locator('#self').evaluate((s) => Math.round(s.getBoundingClientRect().top))).toBeLessThan(120);
+  await expect(nav.getByRole('link', { name: dicts.nb['nav.self'] })).toHaveAttribute('aria-current', 'location');
+  await expect(nav.locator('a[aria-current]')).toHaveCount(1);
+  await nav.getByRole('link', { name: dicts.nb['nav.how'] }).click();
+  await expect(nav.getByRole('link', { name: dicts.nb['nav.how'] })).toHaveAttribute('aria-current', 'location');
+  // From another page, a section's link goes to it on the front page.
+  await nav.locator('a.page').click();
+  await ready(page);
+  await expect(nav.locator('a.page')).toHaveAttribute('aria-current', 'page');
+  await nav.getByRole('link', { name: dicts.nb['nav.mixer'] }).click();
+  await expect(page).toHaveURL(/\/#mixer$/);
+  await ready(page);
+  await expect(page.locator('#mixer h2')).toBeInViewport();
+  expect(problems).toEqual([]);
+});
+
+test('on a tablet the sections are behind the menu button', async ({ browser }) => {
+  const tablet = await browser.newContext({ viewport: { width: 820, height: 1100 } });
+  const page = await tablet.newPage();
+  await page.goto(ORIGIN + '/?lang=nb');
+  await ready(page);
+  const nav = page.locator('header nav');
+  await expect(nav).toBeHidden();
+  await page.getByRole('button', { name: dicts.nb['nav.menu'] }).click();
+  await nav.getByRole('link', { name: dicts.nb['nav.churches'] }).click();
+  await expect(nav).toBeHidden(); // a choice closes the menu
+  await expect(page.locator('#churches h2')).toBeInViewport();
+  await tablet.close();
+});
+
 test('on a phone the header is one line, with the pages behind the menu button', async ({ browser }) => {
   const phone = await browser.newContext({ viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true });
   const page = await phone.newPage();
@@ -166,7 +212,7 @@ test('on a phone the header is one line, with the pages behind the menu button',
   const button = page.getByRole('button', { name: dicts.nb['nav.menu'] });
   await button.click();
   await expect(button).toHaveAttribute('aria-expanded', 'true');
-  await expect(nav.getByRole('link', { name: dicts.nb['nav.privacy'] })).toBeVisible();
+  await expect(nav.getByRole('link', { name: dicts.nb['nav.mixer'] })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(nav).toBeHidden();
   // Nothing is wider than the screen.
@@ -200,6 +246,7 @@ test('screenshots for the PR', async ({ browser }) => {
     await page.locator('#churches').screenshot({ path: path.join(shots, `site-churches-${lang}.png`) });
     await page.locator('#mixer').screenshot({ path: path.join(shots, `site-mixer-${lang}.png`) });
     await page.locator('#self').screenshot({ path: path.join(shots, `site-self-${lang}.png`) });
+    await page.locator('footer').screenshot({ path: path.join(shots, `site-about-${lang}.png`) });
     if (lang === 'nb') {
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       await page.locator('#lang summary').click();
