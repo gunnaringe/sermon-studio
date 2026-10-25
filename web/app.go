@@ -418,7 +418,17 @@ func (a *App) Handler() http.Handler {
 	}
 	// Once there is a login cookie, other sites must not be able to
 	// start runs, uploads or imports on the user's behalf.
-	return http.NewCrossOriginProtection().Handler(h)
+	return noIndex(http.NewCrossOriginProtection().Handler(h))
+}
+
+// noIndex keeps the studio out of search engines: its pages are a login, a
+// church's own recordings or a share code's page, none of them for the public.
+// It is a header, not robots.txt, so a crawler sees it.
+func noIndex(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // handleSession tells the page what it needs before it knows the user has
