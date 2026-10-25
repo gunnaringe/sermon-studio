@@ -92,4 +92,8 @@ church and no right to add more sees just its name in the header; otherwise a qu
 Churches: the dropdown in the header switches church. A request names its church with
 `?tenant=<id>` or `X-Tenant`; without one it is the first church the user sees.
 
+**Search engines:** every response, from the studio and the share page, has `X-Robots-Tag: noindex, nofollow`,
+so neither shows up in search results. Don't block them in a `robots.txt` as well: a crawler that is turned away
+never sees the header, and may list the address anyway.
+
 Access control, for several users: [access.md](access.md); the login with Pocket ID, step by step: [login-pocket-id.md](login-pocket-id.md).

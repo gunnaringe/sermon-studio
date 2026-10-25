@@ -57,7 +57,7 @@ func (a *App) ShareHandler() http.Handler {
 	mux.HandleFunc("DELETE /api/share/uploads/{id}", a.handleShareCancel)
 	mux.HandleFunc("POST /api/share/downloads", a.handleShareDownloadStart)
 	mux.HandleFunc("GET /api/share/downloads/{id}", a.handleShareDownloadFile)
-	return a.shareGuard(http.NewCrossOriginProtection().Handler(mux))
+	return noIndex(a.shareGuard(http.NewCrossOriginProtection().Handler(mux)))
 }
 
 // shareGuard sets the security headers and counts every request.

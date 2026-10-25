@@ -568,3 +568,22 @@ func TestLoginSignupURL(t *testing.T) {
 		t.Error("a relative signup URL was accepted")
 	}
 }
+
+// Every page of the studio and the share page asks search engines not to index it, the login page and
+// a redirect to it too.
+func TestNoIndex(t *testing.T) {
+	l := newLoginApp(t)
+	st := newShareTest(t, RateLimits{})
+	for name, w := range map[string]*httptest.ResponseRecorder{
+		"login host":       l.do("GET", "/", ""),
+		"church host":      l.doOn("kirke-a.studio.example", "GET", "/", ""),
+		"api":              l.do("GET", "/api/session", ""),
+		"open studio":      do(st.studio, "GET", "/", ""),
+		"share page":       do(st.public, "GET", "/", ""),
+		"share page's api": do(st.public, "GET", "/api/share", ""),
+	} {
+		if got := w.Header().Get("X-Robots-Tag"); got != "noindex, nofollow" {
+			t.Errorf("%s (%d): X-Robots-Tag %q", name, w.Code, got)
+		}
+	}
+}
