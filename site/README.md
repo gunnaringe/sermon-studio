@@ -6,10 +6,11 @@ from other hosts (`_headers` sets a Content-Security-Policy that keeps it so).
 
 | | |
 |---|---|
-| `index.html`, `guide.html`, `privacy.html`, `404.html` | the pages: the markup, with `data-t="key"` where a text goes |
+| `index.html`, `guide.html`, `privacy.html`, `404.html` | the pages: the markup, with `data-t="key"` where a text goes. The header has the front page's sections and the guide (a page of its own: a line and a book before it); the footer is About, as in the studio, with privacy among its links |
 | `lang/en.json`, `nb.json`, `nn.json` | all the texts, one file per language, with the same keys |
-| `site.js` | the language (`?lang=`, else the one chosen before, else the browser's), the language menu (the globe), the pictures, the header's menu on a phone |
+| `site.js` | the language (`?lang=`, else the one chosen before, else the browser's), the language menu (the globe), the pictures, the header's menu on a tablet or phone, the section in view marked in the header |
 | `style.css` | the studio's look: its green, its gradient, light and dark as the device is |
+| `fonts/signature.woff2` | the signature in About, a copy of `web/static/fonts/signature.woff2` (not under the licence: see `NOTICE`) |
 | `img/logo.svg`, `img/*.png` | the studio's logo and icons, copied from `web/static/icons/` |
 | `img/shots/<lang>/*.webp` | the studio in each language, made by `scripts/site-shots.sh shots` |
 | `media/demo.mp4`, `demo.webm`, `demo-poster.webp` | the video, in English, made by `scripts/site-shots.sh video` |
