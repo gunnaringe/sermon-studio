@@ -161,6 +161,7 @@ export function sermonDetail(entry, ctx = {}) {
 
   // The download menu closes on a click outside it, and on Escape. It is placed by the window (the list would cut
   // it off), under its button, again when the page scrolls. One set of listeners for the panel, whichever menu it shows.
+  /** @type {[string, (e: Event) => void, boolean?][]} */
   const menuEvents = [['pointerdown', closeMenu], ['keydown', closeMenu], ['scroll', placeMenu, true], ['resize', placeMenu]];
   for (const [name, fn, capture] of menuEvents) (name === 'resize' ? window : document).addEventListener(name, fn, capture);
   function gone() {

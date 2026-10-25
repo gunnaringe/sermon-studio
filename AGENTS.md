@@ -13,6 +13,7 @@ The standard library, `golang.org/x/sys` (for Windows), `coreos/go-oidc` + `gola
 scripts/test.sh                       # unit tests, seconds — run after every change
 scripts/test.sh all ./web/ -run X     # with real ffmpeg, one package/test (container)
 scripts/test.sh all                   # everything (~3 min, normalizer integration is slow)
+scripts/test.sh js                    # the check of the JavaScript (~5 s); after changing web/static or site/*.js
 scripts/test.sh e2e [-g name]         # browser tests (~1.5 min); after changing web/static
 scripts/test.sh desktop               # the desktop program as released, from the outside (~15 s); after
                                       # changing cmd/sermon-studio-desktop or what it uses of web
@@ -221,6 +222,9 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   share's ticket sends its recording's finished files, by format, never by a path); `TestSharePublicIsSeparate` checks this.
 - Keep the Playwright image tag (`scripts/test.sh`) equal to `@playwright/test`
   in `web/e2e/package.json`.
+- The JavaScript stays plain, with no build; `tsc` only checks it (`jsconfig.json`, not strict). Elements and events
+  take any property (`web/js.d.ts`); give a JSDoc type where the check needs one (`/** @type {WaveSurfer} */`).
+  wavesurfer's types come from the npm package in `web/e2e/package.json`: keep its version equal to `web/static/vendor/wavesurfer/`.
 
 ## Pull requests, with screenshots
 

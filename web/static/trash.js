@@ -5,7 +5,7 @@ import { alertDialog, confirmDialog } from './dialog.js';
 import { t, tn } from './i18n.js';
 
 // trashView fills box with the trash of the church; onCount hears how many recordings are in it.
-export async function trashView(box, onCount = () => {}) {
+export async function trashView(box, onCount = (n) => {}) {
   const note = h('p', { class: 'muted', role: 'status' });
   const list = h('div', { class: 'panel' });
 

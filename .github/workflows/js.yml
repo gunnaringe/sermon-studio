@@ -1,0 +1,28 @@
+# The check of the JavaScript of the studio and the website (scripts/test.sh js): tsc over the plain JS, with
+# jsconfig.json, for names, imports and calls. Nothing is built from it.
+name: JS
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/static/**', 'site/*.js', 'web/js.d.ts', 'jsconfig.json', 'web/e2e/package*.json', '.github/workflows/js.yml']
+  pull_request:
+    branches: [main]
+    paths: ['web/static/**', 'site/*.js', 'web/js.d.ts', 'jsconfig.json', 'web/e2e/package*.json', '.github/workflows/js.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: js-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci --no-audit --no-fund
+        working-directory: web/e2e
+      - run: npx tsc -p ../../jsconfig.json
+        working-directory: web/e2e

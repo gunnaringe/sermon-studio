@@ -6,6 +6,7 @@ import { t } from './i18n.js';
 // ask shows a dialog with a title, a body and buttons, and resolves with the
 // dialog's result: what close() was given, or null when it was dismissed.
 // extra is more in the row of buttons, at its start (a Share button and its note).
+/** @param {{ title?: string, body: any, buttons: { label: string, value: string, class?: string }[], focus?: string, result?: (value: string) => any, extra?: any }} o */
 function ask({ title, body, buttons, focus, result, extra }) {
   return new Promise((resolve) => {
     const dialog = h('dialog', { class: 'dialog', 'aria-label': title });
@@ -42,6 +43,7 @@ export function confirmDialog({ title, body, confirm = t('OK'), cancel = t('Canc
 }
 
 // alertDialog shows a message with one button.
+/** @param {{ title?: string, body: any, extra?: any }} o */
 export function alertDialog({ title = t('Something went wrong'), body, extra }) {
   return ask({ title, body: h('p', {}, body), extra, buttons: [{ label: t('OK'), value: 'ok', class: 'primary' }] });
 }

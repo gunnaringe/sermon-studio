@@ -66,7 +66,7 @@ async function show(lang) {
   const menu = document.getElementById('lang');
   if (menu) {
     menu.querySelector('.code').textContent = lang.toUpperCase();
-    for (const b of menu.querySelectorAll('button')) b.setAttribute('aria-pressed', b.lang === lang);
+    for (const b of menu.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.lang === lang));
   }
   root.classList.add('ready');
 }
@@ -102,8 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
   toggle?.addEventListener('click', () => setOpen(!header.classList.contains('open')));
   // A click elsewhere, or Escape, closes the menus.
   document.addEventListener('click', (e) => {
-    if (menu?.open && !menu.contains(e.target)) menu.open = false;
-    if (header?.classList.contains('open') && !header.contains(e.target)) setOpen(false);
+    if (menu?.open && !menu.contains(/** @type {Node} */ (e.target))) menu.open = false;
+    if (header?.classList.contains('open') && !header.contains(/** @type {Node} */ (e.target))) setOpen(false);
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
