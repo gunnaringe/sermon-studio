@@ -75,10 +75,10 @@ for (const lang of LANGS) {
       for (const src of await page.locator('img[data-shot]').evaluateAll((imgs) => imgs.map((i) => i.getAttribute('src')))) {
         expect(src).toMatch(new RegExp(`^img/shots/${lang}/[a-z-]+\\.webp$`));
       }
-      // Every link: inside the site it resolves; outside it is GitHub, the studio, the author's page or the contact address.
+      // Every link: inside the site it resolves; outside it is GitHub, the studio, the demo, the author's page or the contact address.
       for (const href of new Set(await page.locator('a[href]').evaluateAll((as) => as.map((a) => a.getAttribute('href'))))) {
         if (/^mailto:/.test(href)) expect(href).toMatch(/^mailto:contact@sermon-studio\.app(\?subject=[^&]+)?$/);
-        else if (/^https?:/.test(href)) expect(href).toMatch(/^https:\/\/(github\.com\/gunnaringe\/sermon-studio(\/|$)|my\.sermon-studio\.app\/$|gunnaringe\.sort\.land$)/);
+        else if (/^https?:/.test(href)) expect(href).toMatch(/^https:\/\/(github\.com\/gunnaringe\/sermon-studio(\/|$)|(my|demo)\.sermon-studio\.app\/$|gunnaringe\.sort\.land$)/);
         else {
           const url = new URL(href, page.url());
           expect((await request.get(url.pathname)).status(), href).toBe(200);
@@ -151,6 +151,25 @@ test('the video has its sources and poster, and they are small', async ({ page, 
   await video.evaluate((v) => { v.preload = 'auto'; v.load(); });
   await expect.poll(() => video.evaluate((v) => v.readyState), { timeout: 15_000 }).toBeGreaterThanOrEqual(1);
   expect(await video.evaluate((v) => Math.round(v.duration))).toBeGreaterThanOrEqual(60);
+});
+
+// The demo (demo.sermon-studio.app): a button at the top and a section of its own, which says what it cannot do.
+test('the demo is linked from the top and has its own section, which says upload and share links are not there', async ({ page }) => {
+  for (const lang of LANGS) {
+    await page.goto('/?lang=' + lang);
+    await ready(page);
+    const DEMO = 'https://demo.sermon-studio.app/';
+    await expect(page.locator('.hero').getByRole('link', { name: dicts[lang]['home.cta.demo'] })).toHaveAttribute('href', DEMO);
+    const section = page.locator('#demo');
+    await expect(section.locator('h2')).toHaveText(dicts[lang]['home.demo.h2']);
+    await expect(section).toContainText(dicts[lang]['home.demo.p2']);
+    await expect(section.getByRole('link', { name: dicts[lang]['home.demo.button'] })).toHaveAttribute('href', DEMO);
+    if (lang === 'en') {
+      await section.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(shots, 'site-demo.png') });
+    }
+  }
+  expect(dicts.en['home.demo.p2']).toMatch(/Uploading recordings is not supported.*share links cannot be made/);
 });
 
 test('the header has the sections and the guide; privacy and About are at the bottom', async ({ page }) => {
