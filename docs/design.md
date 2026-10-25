@@ -50,7 +50,9 @@ Module `github.com/gunnaringe/sermon-studio`: the standard library and `golang.o
   (`web/static/`, plain JS with wavesurfer.js bundled)
 - `normalizer/ffmpeg.go`: thin wrapper around `ffmpeg` (`-nostdin`, captures stdout and stderr)
 - `normalizer/measure.go`: measurement with `ebur128` and parsing of the summary (LUFS, true peak, LRA)
-- `normalizer/pipeline.go`: the steps (raw, edit, master, lossy, report)
+- `normalizer/pipeline.go`: the steps (raw, edit, master, lossy, report); `options.go` what a run is asked to do, `paths.go`
+  the files of a date folder, `cut.go` the sections, cuts and pauses as ffmpeg inputs, `filters.go` the filter chains
+  (levels, compression, the limiter), `render.go` the master, the joins with the clips, the lossy files and the samples
 - `normalizer/levels.go`: volume per window and silence detection, for the waveform
 - `normalizer/channels.go`: the mono/one-sided checks behind the stereo warnings
 - `normalizer/outputs.go`: which outputs to make
