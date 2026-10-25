@@ -7,6 +7,7 @@
 #                              scripts/test.sh all ./web/ -run Inbox
 #   scripts/test.sh desktop    the desktop program as released (ffmpeg built in, Linux amd64) from the
 #                              outside: start, upload, make a sermon, stop by itself (TestEndToEnd)
+#   scripts/test.sh js         the check of the JavaScript (web/static, site): names, imports, calls (tsc, jsconfig.json)
 #   scripts/test.sh e2e [args] browser tests (Playwright); args go to playwright,
 #                              e.g. scripts/test.sh e2e -g upload
 #   scripts/test.sh guide      the pictures of the documentation (docs/img), from a real speech;
@@ -60,6 +61,13 @@ desktop)
 	TARGETS=linux-amd64 scripts/build-desktop.sh test >/dev/null
 	IMAGE=$(testimage go "$golang") incontainer 'DESKTOP_BIN=/src/dist/sermon-studio-desktop-linux-amd64 DESKTOP_EMBEDDED=1 go test -count=1 -run EndToEnd ./cmd/sermon-studio-desktop/'
 	;;
+js)
+	image=$(testimage e2e "$playwright")
+	"$run" run --rm -v "$PWD":/src:Z -w /src/web/e2e "$image" sh -c \
+		'lock=$(sha256sum package-lock.json | cut -c1-64)
+		[ "$(cat node_modules/.lock-sha 2>/dev/null)" = "$lock" ] || { npm ci --silent --no-audit --no-fund && echo "$lock" >node_modules/.lock-sha; }
+		npx tsc -p ../../jsconfig.json && echo "js ok"'
+	;;
 e2e)
 	incontainer 'go build -o web/e2e/bin/sermon-studio ./cmd/sermon-studio'
 	image=$(testimage e2e "$playwright")
@@ -89,7 +97,7 @@ image)
 	"$run" build -q -t sermon-studio .
 	;;
 *)
-	sed -n '2,17p' "$0"
+	sed -n '2,18p' "$0"
 	exit 2
 	;;
 esac

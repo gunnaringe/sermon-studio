@@ -6,6 +6,8 @@
     "test": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1"
+    "@playwright/test": "1.64.1",
+    "typescript": "7.0.2",
+    "wavesurfer.js": "7.12.12"
   }
 }

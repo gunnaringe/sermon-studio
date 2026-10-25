@@ -75,10 +75,12 @@ export async function editorView(view, slug, config) {
   // Tags are per sermon: the church's defaults for this folder, editable for this run.
   const tags = { title: '', artist: '', album: '', ...(info.tags || {}) };
   let job = info.job;
+  /** @type {RegionsPlugin} */
   let regions = null; // the waveform's regions plugin: sections, cuts, silences
   const sections = []; // the parts of the recording that are the sermon: { region, row, ... }, in time order
   const cuts = []; // parts cut out of the sections: { region, row, ... }, in time order
   let sectionSeq = 0, cutSeq = 0;
+  /** @type {WaveSurfer} */
   let ws = null;
   let duration = 0;
   let silenceEdges = [];
@@ -1739,10 +1741,11 @@ export async function editorView(view, slug, config) {
     if (!file || !ownFor) return;
     const which = ownFor;
     const url = 'api/sermon/clip?path=' + q(path) + '&which=' + which + '&name=' + q(file.name);
-    const resp = await fetch(forTenant(url), { method: 'POST', body: file }).catch((e) => ({ ok: false, json: async () => ({ error: e.message }) }));
-    const body = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      alertDialog({ body: tr(body.error || `${resp.status} ${resp.statusText}`) });
+    let body;
+    try {
+      body = await api('POST', url, file);
+    } catch (e) {
+      alertDialog({ body: e.message });
       return;
     }
     awaitingOwn[which] = true;

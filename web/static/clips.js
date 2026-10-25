@@ -58,13 +58,11 @@ export async function clipsView(box) {
     fileInput.value = '';
     if (!file) return;
     const url = (replacing ? 'api/clips/' + replacing + '/replace' : 'api/clips') + '?name=' + q(file.name);
-    const resp = await fetch(forTenant(url), { method: 'POST', body: file }).catch((e) => ({ ok: false, json: async () => ({ error: e.message }) }));
-    const body = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      alertDialog({ body: tr(body.error || `${resp.status} ${resp.statusText}`) });
-      return;
+    try {
+      show(await api('POST', url, file));
+    } catch (e) {
+      alertDialog({ body: e.message });
     }
-    show(body);
   });
 
   async function rename(c) {

@@ -367,11 +367,12 @@ async function settingsView(box, part) {
     if (!file) return;
     logoStatus.className = 'muted';
     logoStatus.textContent = '';
-    const resp = await fetch(forTenant('api/logo'), { method: 'PUT', body: file }).catch((e) => ({ ok: false, json: async () => ({ error: e.message }) }));
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
+    let data;
+    try {
+      data = await api('PUT', 'api/logo', file);
+    } catch (e) {
       logoStatus.className = 'error';
-      logoStatus.textContent = data.error || `${resp.status} ${resp.statusText}`;
+      logoStatus.textContent = e.message;
       return;
     }
     showLogo(data.logo);

@@ -58,10 +58,12 @@ export function forTenant(url) {
 }
 
 // api calls the server. URLs are relative ("api/..."), so the UI also
-// works behind a proxy under a sub-path.
+// works behind a proxy under a sub-path. A file (Blob) is sent as it is, anything else as JSON.
 export async function api(method, url, body) {
   const opts = { method, headers: {} };
-  if (body !== undefined) {
+  if (body instanceof Blob) {
+    opts.body = body;
+  } else if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
