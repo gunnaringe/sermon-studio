@@ -81,7 +81,7 @@ func TestDemoRole(t *testing.T) {
 		}
 	}
 	for _, req := range [][3]string{
-		{"POST", "/api/upload", ""}, {"POST", "/api/recordings/delete", `{}`}, {"POST", "/api/trash/remove", `{}`},
+		{"POST", "/api/upload", ""}, {"POST", "/api/sermon/clip?which=intro", ""}, {"POST", "/api/recordings/delete", `{}`}, {"POST", "/api/trash/remove", `{}`},
 		{"POST", "/api/outputs/remove", `{}`}, {"PUT", "/api/settings", `{}`}, {"POST", "/api/clips/x/delete", ""},
 		{"GET", "/api/members", ""}, {"POST", "/api/invites", `{"role":"member","days":1}`},
 	} {

@@ -32,7 +32,7 @@ sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-clien
   | Action | What it is | Admin | Member |
   |---|---|---|---|
   | `church.view` | see the church: its recordings, settings and runs | ✓ | ✓ |
-  | `recording.upload` | add a recording | ✓ | ✓ |
+  | `recording.upload` | add a recording, or a sermon's own intro or outro | ✓ | ✓ |
   | `recording.edit` | cut, tag, rename, hear a sample | ✓ | ✓ |
   | `recording.make` | make the files, stop a run | ✓ | ✓ |
   | `recording.download` | listen to and download the files | ✓ | ✓ |
