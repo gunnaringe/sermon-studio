@@ -21,7 +21,7 @@ const (
 	actChurchSettings action = "church.settings"    // name, logo, default tags, processing, how long ended shares are kept
 	actChurchClips    action = "church.clips"       // the church's intro and outro clips
 	actMembers        action = "members.manage"     // the members and invites
-	actUpload         action = "recording.upload"   // add a recording
+	actUpload         action = "recording.upload"   // send a file: a recording, a sermon's own intro or outro
 	actEdit           action = "recording.edit"     // cut, tag, rename, hear a sample
 	actMake           action = "recording.make"     // make the files, and stop a run
 	actDownload       action = "recording.download" // listen to and download the files
@@ -87,7 +87,7 @@ var routeActions = map[string]action{
 	"POST /api/sermon/clip/add":     actChurchClips,
 	"GET /api/sermon/clips":         actView,
 	"GET /api/sermon/clip/audio":    actView,
-	"POST /api/sermon/clip":         actEdit,
+	"POST /api/sermon/clip":         actUpload, // a file of its own: an upload
 	"POST /api/sermon/clip/dismiss": actEdit,
 
 	"GET /api/config":           actView,
