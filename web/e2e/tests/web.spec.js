@@ -787,6 +787,8 @@ test('settings: groups fold open and shut, this browser remembers which; an addr
   await dialog.getByRole('heading', { name: 'Recordings', exact: true }).click();
   await dialog.getByRole('heading', { name: 'This browser' }).click();
   await expect(page.locator('select[name=language]')).toBeVisible();
+  // The toggle event that keeps it comes a moment after the group opens.
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('settingsOpen'))).toContain('browser');
   await page.reload();
   await expect(page.locator('select[name=language]')).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeVisible();

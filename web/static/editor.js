@@ -5,13 +5,15 @@ import RegionsPlugin from './vendor/wavesurfer/plugins/regions.esm.js';
 import TimelinePlugin from './vendor/wavesurfer/plugins/timeline.esm.js';
 import MinimapPlugin from './vendor/wavesurfer/plugins/minimap.esm.js';
 import HoverPlugin from './vendor/wavesurfer/plugins/hover.esm.js';
-import { confirmDialog, infoDialog } from './dialog.js';
+import { infoDialog } from './dialog.js';
 import { t, tn, tr } from './i18n.js';
-import { api, q, h, href, go, soloPlayer, converts, isVideo, parseTime, formatTime, typing, debounce, forTenant, currentTenant, dateInput, formatDateTime, wheelZoomNeedsKey, kbdText } from './util.js';
-import { SOUND_KEYS, CLIP_KEYS, FORMAT_KEYS, css } from './editor/common.js';
+import { api, q, h, href, go, soloPlayer, converts, isVideo, parseTime, formatTime, typing, forTenant, dateInput, wheelZoomNeedsKey, kbdText } from './util.js';
+import { CLIP_KEYS, FORMAT_KEYS, css } from './editor/common.js';
 import { infoPart } from './editor/info.js';
 import { processingPart } from './editor/processing.js';
 import { clipsPart } from './editor/clips.js';
+import { historyPart } from './editor/history.js';
+import { outputPart } from './editor/output.js';
 
 const MAX_ZOOM = 200; // px per second: 5 ms per pixel, enough to cut between words
 
@@ -38,7 +40,6 @@ export async function editorView(view, slug, config) {
   if (info.outputs.length) for (const f of FORMAT_KEYS) opts[f] = info.outputs.some((o) => o.format === f);
   // Tags are per sermon: the church's defaults for this folder, editable for this run.
   const tags = { title: '', artist: '', album: '', ...(info.tags || {}) };
-  let job = info.job;
   /** @type {RegionsPlugin} */
   let regions = null; // the waveform's regions plugin: sections, cuts, silences
   const sections = []; // the parts of the recording that are the sermon: { region, row, ... }, in time order
@@ -57,9 +58,6 @@ export async function editorView(view, slug, config) {
   let pausing = false; // playback is waiting out a pause
   let lastTime = 0;
   let markSignature = '';
-  let lastCheck = { error: t('Checking…') };
-  let events = null; // the job's event stream
-  cleanups.push(() => events && events.close());
 
   // ---- layout ----
   const waveSection = h('section', {});
@@ -69,17 +67,6 @@ export async function editorView(view, slug, config) {
   const cutList = h('div', { class: 'cuts' });
   const cutHint = h('p', { class: 'muted' });
   const cutHelp = h('p', { class: 'muted' }, t('Mark a part that should not be published, such as a cough, a song or something sensitive.'));
-  const pills = h('div', { class: 'pills', role: 'group', 'aria-label': t('Formats') });
-  const outputNote = h('p', { class: 'muted' });
-  const checkOut = h('div', {});
-  const saveButton = h('button', { class: 'primary', disabled: true, title: t('Make this the saved version and make the files'), onclick: save }, t('Save'));
-  const saveNote = h('span', { class: 'muted', role: 'status' });
-  const versionOut = h('strong', {});
-  const revertButton = h('button', { disabled: true, title: t('Throw away the adjustments and go back to the saved version'), onclick: revertVersion }, t('Revert…'));
-  const undoButton = h('button', { disabled: true, title: t('Undo the last change to the edit (ctrl+z)'), 'aria-label': t('Undo'), onclick: () => undo() }, '↶', h('span', { class: 'wide-only' }, ' ' + t('Undo')));
-  const redoButton = h('button', { disabled: true, title: t('Redo what was undone (ctrl+shift+z)'), 'aria-label': t('Redo'), onclick: () => redo() }, '↷', h('span', { class: 'wide-only' }, ' ' + t('Redo')));
-  const jobPanel = h('section', {});
-
   // Another date or name for this sermon: renames the folder and its files.
   const renamePanel = h('div', { class: 'panel', hidden: true });
   const renameButton = h('button', { class: 'link', title: t('Change the date or name of this sermon'), onclick: () => {
@@ -100,22 +87,23 @@ export async function editorView(view, slug, config) {
     renamePanel.hidden = false;
   } }, t('Rename…'));
 
-  // The bar under the page: what the edit is (saved or not), what Save does, Revert and Save. It sticks to
-  // the bottom of the window, so Save is at hand wherever the page is scrolled.
-  const saveBar = h('div', { class: 'save-bar' },
-    h('div', { class: 'save-state' }, versionOut, ' ', saveNote),
-    h('div', { class: 'save-what' }, outputNote, checkOut),
-    h('div', { class: 'save-actions' }, undoButton, redoButton, revertButton, saveButton));
-
   // The parts of the editor, each with its own file, share it as ed (Editor in editor/common.js).
   const ed = /** @type {import('./editor/common.js').Editor} */ ({
     view, path, info, config, opts, tags, cleanups, sections, cuts,
     get alive() { return alive; },
     get ws() { return ws; },
-    changed, record, setFade, keptLength, activePauses, request, renderOutputs,
+    sermon: info.sermon || { saved: null, adjusted: null },
+    restoring: false, // putting settings back is not a change
+    proposed: false, // the one section is the start the page made, untouched (see proposeSection)
+    changed, adopt, addSection, addCut, renderSections, renderCuts, reveal, setFade, keptLength, activePauses,
   });
-  const inputFile = infoPart(ed), processing = processingPart(ed), clips = clipsPart(ed);
-  Object.assign(ed, inputFile, processing, clips);
+  ed.lastSent = JSON.stringify(ed.sermon.adjusted || ed.sermon.saved);
+  const inputFile = infoPart(ed), processing = processingPart(ed), clips = clipsPart(ed), history = historyPart(ed), output = outputPart(ed);
+  Object.assign(ed, inputFile, processing, clips, history, output);
+  // The bar under the page: what the edit is (saved or not), what Save does, Revert and Save. It sticks to
+  // the bottom of the window, so Save is at hand wherever the page is scrolled.
+  const saveBar = h('div', { class: 'save-bar' }, history.saveState, output.saveWhat,
+    h('div', { class: 'save-actions' }, history.undoButton, history.redoButton, history.revertButton, output.saveButton));
   const { refreshInfo, renderDelete } = inputFile;
   const { showChannelWarning, redrawProcessing, showDefaults } = processing;
   const { clipChoices, drawClips, showClipLength, loadClips } = clips;
@@ -129,9 +117,7 @@ export async function editorView(view, slug, config) {
     h('section', { class: 'step', 'aria-labelledby': 'step-metadata' }, h('h2', { id: 'step-metadata' }, t('Metadata added to the file')), processing.metadataEl),
     h('section', { class: 'step', 'aria-labelledby': 'step-processing' }, h('h2', { id: 'step-processing' }, t('Processing')), processing.processingEl),
     clips.clipsSection,
-    h('section', { class: 'step', 'aria-labelledby': 'step-output' }, h('h2', { id: 'step-output' }, t('Output')),
-      h('div', { class: 'panel' }, pills),
-      jobPanel),
+    output.outputEl,
     h('section', { class: 'step', 'aria-labelledby': 'step-delete' }, h('h2', { id: 'step-delete' }, t('Delete')), inputFile.deletePanel),
     saveBar,
   );
@@ -158,7 +144,7 @@ export async function editorView(view, slug, config) {
     }
     if (info.raw && converts(info.raw.name)) { // it became FLAC (or .mka) meanwhile
       await refreshInfo();
-      check();
+      ed.check();
     }
     const peaks = await api('GET', 'api/peaks?path=' + q(path));
     if (!alive) return;
@@ -293,13 +279,12 @@ export async function editorView(view, slug, config) {
         if (r.element) r.element.style.pointerEvents = 'none'; // selections can start on a silence
       });
       regions.enableDragSelection({ color: css('--selection') });
-      const initial = sermon.adjusted || sermon.saved;
+      const initial = ed.sermon.adjusted || ed.sermon.saved;
       if (initial) {
-        applySettings(initial);
-        lastSent = JSON.stringify(currentSettings()); // as the page shows it: opening is not an adjustment
+        ed.applySettings(initial);
+        ed.lastSent = JSON.stringify(ed.currentSettings()); // as the page shows it: opening is not an adjustment
       } else proposeSection(data.silences);
-      present = snapshot(); // what undo goes back to, at most
-      loadHistory();
+      ed.startHistory();
     });
     buildFades();
     // A drag on the waveform makes a region: it becomes a section. Sections
@@ -424,7 +409,7 @@ export async function editorView(view, slug, config) {
     cleanups.push(() => document.removeEventListener('keydown', onKey));
 
     const spans = (list) => list.map((x) => ({ start: x.region.start, end: x.region.end }));
-    window.__editor = { ws, regions, get sections() { return spans(sections); }, get cuts() { return spans(cuts); }, addSection, addCut, splitHere, setFade, undo, redo, get selected() { return selected ? { kind: sections.includes(selected) ? 'section' : 'cut', start: selected.region.start, end: selected.region.end } : null; }, get history() { record(); return { undo: undoStack.length, redo: redoStack.length }; }, get fades() { return { fadeIn: opts.fadeIn, fadeOut: opts.fadeOut }; } }; // for tests and the console
+    window.__editor = { ws, regions, get sections() { return spans(sections); }, get cuts() { return spans(cuts); }, addSection, addCut, splitHere, setFade, undo: ed.undo, redo: ed.redo, get selected() { return selected ? { kind: sections.includes(selected) ? 'section' : 'cut', start: selected.region.start, end: selected.region.end } : null; }, get history() { return ed.history(); }, get fades() { return { fadeIn: opts.fadeIn, fadeOut: opts.fadeOut }; } }; // for tests and the console
     cleanups.push(() => { delete window.__editor; });
   }
 
@@ -508,28 +493,27 @@ export async function editorView(view, slug, config) {
   // ---- the first section: a recording not cut yet opens with the sermon set to all of it but the
   // silence at its start and end. It is only a start: nothing is kept until something is changed. ----
 
-  let proposed = false; // the one section is that start, untouched
   function proposeSection(silences) {
     const lead = silences.find((s) => s.start <= 0.5);
     const tail = [...silences].reverse().find((s) => s.end >= duration - 0.5);
     const start = lead ? lead.end : 0, end = tail ? tail.start : duration;
-    restoring = true;
+    ed.restoring = true;
     try {
       if (end - start >= 1) addSection(start, end);
     } finally {
-      restoring = false;
+      ed.restoring = false;
     }
-    proposed = sections.length > 0;
-    lastSent = JSON.stringify(currentSettings());
+    ed.proposed = sections.length > 0;
+    ed.lastSent = JSON.stringify(ed.currentSettings());
     renderSections();
-    check();
+    ed.check();
   }
 
   // adopt makes that start the user's own: from here on it is kept like any edit, even when a change
   // leaves it as it was.
   function adopt() {
-    proposed = false;
-    lastSent = '';
+    ed.proposed = false;
+    ed.lastSent = '';
     syncSections();
   }
 
@@ -763,7 +747,7 @@ export async function editorView(view, slug, config) {
     }
     sectionHint.textContent = !sections.length
       ? t('Drag on the waveform to select the sermon, or set its start and end at the playhead (s, e).')
-      : proposed
+      : ed.proposed
         ? t('The sermon is set to the recording without the silence at its start and end. Move its edges, or set its start and end at the playhead (s, e).')
         : t('Drag on an empty part of the waveform to add another section. Parts between sections are left out.');
   }
@@ -965,204 +949,6 @@ export async function editorView(view, slug, config) {
     return length;
   }
 
-  // ---- keeping the selection, cuts and fades: sermon.json in the folder has the
-  // saved version and the adjustments, which are kept as the page changes ----
-
-  let restoring = false; // putting settings back is not a change
-  let sermon = info.sermon || { saved: null, adjusted: null };
-  let lastSent = JSON.stringify(sermon.adjusted || sermon.saved);
-
-  // spanOf is a section or cut as it is kept: its times and its label, if any.
-  const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.label ? { label: x.label } : {}), ...(x.pause > 0 ? { pause: x.pause } : {}) });
-
-  // currentSettings is what is on the page, or null while there is nothing (valid) to keep.
-  function currentSettings() {
-    if (!sections.length || restoring) return null;
-    const secs = sections.map(spanOf);
-    const list = cuts.map(spanOf);
-    if (secs.some((x) => x.end - x.start < 0.05)) return null;
-    if (list.some((c) => c.end - c.start < 0.05)) return null; // one outside the sermon is fine
-    if (!(opts.fadeIn >= 0) || !(opts.fadeOut >= 0)) return null;
-    if ([opts.noiseReduction, opts.roomSound, opts.targetLufs, opts.truePeak].some(Number.isNaN)) return null;
-    return { sections: secs, cuts: list, fadeIn: opts.fadeIn, fadeOut: opts.fadeOut, sound: Object.fromEntries(SOUND_KEYS.map((k) => [k, opts[k]])), ...clipChoices() };
-  }
-
-  // persistAdjusted keeps what is on the page as the adjustments.
-  async function persistAdjusted() {
-    const state = currentSettings();
-    if (!state || JSON.stringify(state) === lastSent) return;
-    saveNote.textContent = t('Keeping…');
-    try {
-      sermon = await api('PUT', 'api/sermon?path=' + q(path), state);
-      lastSent = JSON.stringify(state);
-      saveNote.textContent = t('Changes kept.');
-    } catch (e) {
-      saveNote.textContent = t('Not kept: {error}', { error: e.message });
-    }
-    renderVersion();
-  }
-  const saveSoon = debounce(() => { if (alive) persistAdjusted(); }, 700);
-
-  // applySettings puts settings on the page: the sections, the cuts and the fades.
-  function applySettings(set, { show = true } = {}) {
-    restoring = true;
-    try {
-      for (const x of [...sections, ...cuts]) x.region.remove();
-      sections.length = cuts.length = 0;
-      for (const x of set.sections) addSection(x.start, x.end, x.label, x.pause);
-      for (const c of set.cuts) addCut(c.start, c.end, c.label, c.pause);
-      if (sections.length && show) reveal(first());
-      for (const key of ['fadeIn', 'fadeOut']) opts[key] = set[key];
-      for (const key of CLIP_KEYS) opts[key] = set[key] || '';
-      drawClips();
-      if (set.sound) {
-        Object.assign(opts, set.sound);
-        redrawProcessing();
-      }
-    } finally {
-      restoring = false;
-    }
-    renderSections();
-    renderCuts();
-    check();
-  }
-
-  // ---- undo and redo: the edit on the waveform (sections, cuts, their labels and pauses, the fades) and the
-  // processing, not the tags; in a field, ctrl+z is the field's own ----
-
-  const undoStack = [], redoStack = [];
-  let present = null; // the edit as it was last recorded
-  let pointerHeld = false; // a drag is going on: it becomes one step when it ends
-
-  // snapshot is the edit on the page, also when there is no section.
-  const snapshot = () => JSON.stringify({ sections: sections.map(spanOf), cuts: cuts.map(spanOf), fadeIn: opts.fadeIn || 0, fadeOut: opts.fadeOut || 0,
-    sound: Object.fromEntries(SOUND_KEYS.map((k) => [k, opts[k]])), ...clipChoices() });
-
-  // record makes the edit as it is now a step that can be undone, if it changed.
-  function record() {
-    recordSoon.cancel();
-    if (pointerHeld || restoring || present === null) return;
-    const now = snapshot();
-    if (now === present) return;
-    undoStack.push(present);
-    if (undoStack.length > 200) undoStack.shift();
-    redoStack.length = 0;
-    present = now;
-    showHistory();
-  }
-  const recordSoon = debounce(() => { if (alive) record(); }, 400);
-  window.addEventListener('pointerdown', onPointerDown, true);
-  window.addEventListener('pointerup', onPointerUp, true);
-  cleanups.push(() => {
-    window.removeEventListener('pointerdown', onPointerDown, true);
-    window.removeEventListener('pointerup', onPointerUp, true);
-  });
-  function onPointerDown() { pointerHeld = true; }
-  function onPointerUp() { pointerHeld = false; recordSoon(); }
-
-  function step(from, to) {
-    record(); // a change not recorded yet comes first
-    if (!from.length) return;
-    to.push(present);
-    present = from.pop();
-    applySettings(JSON.parse(present), { show: false });
-    if (proposed) adopt();
-    showHistory();
-    persistAdjusted(); // putting settings back is not kept by itself
-  }
-  const undo = () => step(undoStack, redoStack);
-  const redo = () => step(redoStack, undoStack);
-
-  function showHistory() {
-    undoButton.disabled = !undoStack.length;
-    redoButton.disabled = !redoStack.length;
-    keepHistory();
-  }
-
-  // The steps are kept in this browser, so they outlive a reload: for the last recordings edited, and only
-  // while they lead to the edit the page opens with. Changed elsewhere (another browser or computer), they
-  // would undo into something else, and are dropped.
-  const historyKey = 'history:' + currentTenant() + ':' + path;
-  function loadHistory() {
-    try {
-      const kept = JSON.parse(localStorage.getItem(historyKey));
-      if (kept && kept.present === present) {
-        undoStack.push(...kept.undo);
-        redoStack.push(...kept.redo);
-        showHistory();
-      }
-      // Only the last 20 recordings' steps are kept.
-      const all = Object.keys(localStorage).filter((k) => k.startsWith('history:'))
-        .map((k) => [k, JSON.parse(localStorage.getItem(k))?.at || 0]).sort((a, b) => b[1] - a[1]);
-      for (const [k] of all.slice(20)) localStorage.removeItem(k);
-    } catch { /* none kept, or not readable: start without */ }
-  }
-  // keepHistory is called with every step (they come at most every 0.4 s), so a reload loses none.
-  function keepHistory() {
-    if (!alive || present === null) return;
-    try {
-      localStorage.setItem(historyKey, JSON.stringify({ present, undo: undoStack, redo: redoStack, at: Date.now() }));
-    } catch { /* the browser's storage is full: undo still works until the page is left */ }
-  }
-
-  // ctrl+z undoes, ctrl+shift+z and ctrl+y redo; in a field they are the field's own.
-  function onUndoKey(e) {
-    if (typing(e) || !(e.ctrlKey || e.metaKey) || e.altKey || document.querySelector('dialog[open]')) return;
-    const key = e.key.toLowerCase();
-    if (key === 'z' && !e.shiftKey) undo();
-    else if ((key === 'z' && e.shiftKey) || key === 'y') redo();
-    else return;
-    e.preventDefault();
-  }
-  document.addEventListener('keydown', onUndoKey);
-  cleanups.push(() => document.removeEventListener('keydown', onUndoKey));
-
-  const describe = (set) => [
-    set.sections.map((x) => t('{from} to {to}', { from: formatTime(x.start, 0), to: formatTime(x.end, 0) })).join(' ' + t('and') + ' '),
-    tn(set.cuts.length, '{n} cut', '{n} cuts'),
-    ...(set.sections.some((x) => x.pause > 0) || set.cuts.some((x) => x.pause > 0) ? [t('with pauses')] : []),
-    set.fadeIn || set.fadeOut ? t('fade {in} s in, {out} s out', { in: set.fadeIn, out: set.fadeOut }) : t('no fades'),
-  ].join(', ');
-
-  // renderVersion shows in the bar whether the edit is saved; the versions themselves are in its tooltip.
-  function renderVersion() {
-    const { saved, adjusted } = sermon;
-    const at = sermon.savedAt ? ' ' + formatDateTime(sermon.savedAt) : '';
-    versionOut.textContent = adjusted ? t('Adjusted, not saved') : saved ? t('Saved') + at : t('Nothing is saved yet.');
-    versionOut.className = adjusted ? 'unsaved' : '';
-    versionOut.title = [
-      saved ? t('Saved') + at + ': ' + describe(saved) : t('Nothing is saved yet.'),
-      adjusted ? t('Adjusted, not saved:') + ' ' + describe(adjusted) : '',
-    ].filter(Boolean).join('\n');
-    revertButton.disabled = !adjusted || !saved;
-    renderOutputs();
-  }
-
-  // revertVersion drops the adjustments and goes back to the saved version, after asking.
-  async function revertVersion() {
-    if (!sermon.adjusted || !sermon.saved) return;
-    const ok = await confirmDialog({
-      title: t('Go back to the saved version?'),
-      body: [
-        h('p', {}, t('Your adjustments are discarded:')), h('ul', {}, h('li', {}, describe(sermon.adjusted))),
-        h('p', {}, t('Back to the saved version:')), h('ul', {}, h('li', {}, describe(sermon.saved))),
-      ],
-      confirm: t('Revert'),
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      sermon = await api('POST', 'api/sermon/revert?path=' + q(path));
-      lastSent = JSON.stringify(sermon.saved);
-      applySettings(sermon.saved);
-      record();
-      saveNote.textContent = t('Back to the saved version.');
-    } catch (e) {
-      saveNote.textContent = t('Not reverted: {error}', { error: e.message });
-    }
-    renderVersion();
-  }
-
   function seek(t) {
     t = Math.max(0, Math.min(t, duration));
     ws.setTime(t);
@@ -1230,196 +1016,15 @@ export async function editorView(view, slug, config) {
     if (sections.length) playFor(Math.max(last() - 5, first()), Math.min(5, last() - first()), true);
   }
 
-  function request(force = false) {
-    return {
-      ...opts,
-      force,
-      ...(info.tags ? tags : {}),
-      noiseReduction: Math.round(opts.noiseReduction),
-      sections: sections.map(spanOf),
-      cuts: sections.length ? cuts.map(spanOf) : [],
-    };
-  }
-
-  // ---- check and run ----
-  const check = debounce(async () => {
-    if (!alive) return;
-    const req = request();
-    if ([req.fadeIn, req.fadeOut, req.noiseReduction, req.targetLufs, req.truePeak].some(Number.isNaN)) {
-      showCheck({ error: t('Fill in all numbers.') });
-      return;
-    }
-    try {
-      // All three are checked: whether each is there and up to date does not
-      // depend on which are chosen.
-      showCheck(await api('POST', 'api/check?path=' + q(path), { ...req, flac: true, mp3: true, opus: true }));
-    } catch (e) {
-      showCheck({ error: e.message });
-    }
-  }, 250);
-
   function changed() {
-    if (proposed && !restoring) adopt();
-    if (!restoring) recordSoon();
+    if (ed.proposed && !ed.restoring) adopt();
+    if (!ed.restoring) ed.recordSoon();
     showDefaults();
-    check();
-    saveSoon();
+    ed.check();
+    ed.saveSoon();
   }
 
-  function showCheck(res) {
-    lastCheck = res;
-    checkOut.replaceChildren(
-      res.error ? h('p', { class: 'error' }, tr(res.error)) : '',
-      ...(res.notices || []).map((n) => h('p', { class: 'notice' }, tr(n))));
-    renderOutputs();
-  }
-
-  function busy() { return job && (job.state === 'queued' || job.state === 'running'); }
-
-  // ---- output: the formats, what is there, and what Save makes ----
-  const FORMATS = [['flac', 'FLAC'], ['mp3', 'MP3'], ['opus', 'Opus']];
-
-  // outputState is a format's file: there or not, and whether Save would make
-  // it again (stale: made from other settings; unknown: no record).
-  function outputState(format) {
-    const file = info.outputs.find((o) => o.format === format) || null;
-    const st = (lastCheck.outputs || {})[format];
-    return { file, stale: Boolean(file && st && (st.stale || !st.known)), unknown: Boolean(file && st && !st.known) };
-  }
-
-  // toMake is what Save makes: the chosen formats that are missing or out
-  // of date; toDelete what it deletes: the files of the formats not chosen.
-  const toMake = () => FORMATS.map(([f]) => f).filter((f) => opts[f] && (!outputState(f).file || outputState(f).stale));
-  const toDelete = () => FORMATS.map(([f]) => f).filter((f) => !opts[f] && outputState(f).file);
-  const labels = (list) => list.map((f) => FORMATS.find(([x]) => x === f)[1]).join(', ');
-
-  function renderOutputs() {
-    pills.replaceChildren(...FORMATS.map(([format, label]) => {
-      const { file, stale, unknown } = outputState(format);
-      const chosen = Boolean(opts[format]);
-      const note = !file ? (chosen ? t('will be made') : t('not made'))
-        : !chosen ? t('will be deleted')
-          : stale ? t('out of date, will be made again') : t('up to date');
-      return h('div', { 'data-format': format, class: 'pill' + (file ? ' exists' : '') + (chosen ? ' chosen' : '') + (stale ? ' stale' : '') },
-        h('button', {
-          class: 'pick', 'aria-pressed': String(chosen), title: chosen ? t('Leave {format} out', { format: label }) : t('Make {format} too', { format: label }),
-          onclick: () => { opts[format] = !opts[format]; renderOutputs(); },
-        }, h('span', { class: 'box', 'aria-hidden': 'true' }, chosen ? '☑' : '☐'), ' ', label, file ? ' ✓' : ''),
-        h('span', { class: 'state' + (file && !chosen ? ' delete' : chosen && (stale || !file) ? ' will' : '') }, note));
-    }));
-    const make = toMake(), del = toDelete(), keep = unsaved();
-    const blocked = (make.length > 0 || keep) && Boolean(lastCheck.error); // deleting does not need a valid edit
-    outputNote.textContent = blocked ? ''
-      : make.length || del.length || keep
-        ? t('Save {what}.', { what: [keep ? t('keeps the edit') : '', make.length ? t('makes: {formats}', { formats: labels(make) }) : '', del.length ? t('deletes: {formats}', { formats: labels(del) }) : '']
-          .filter(Boolean).join(', ') })
-        : t('Saved, and everything chosen is up to date.');
-    saveButton.disabled = blocked || busy() || !(make.length || del.length || keep);
-  }
-
-  // unsaved: the edit on the page is not the saved version.
-  const unsaved = () => Boolean(sermon.adjusted) || (!sermon.saved && sections.length > 0);
-
-  // save makes the edit the saved version, then deletes the files of the
-  // formats not chosen (after asking) and makes the chosen ones that are
-  // missing or out of date. The edit is saved even when the files cannot be
-  // made now: the recordings page shows them as out of date.
-  async function save() {
-    if (proposed) adopt(); // the start the page made has not been kept yet
-    await persistAdjusted();
-    const make = toMake(), del = toDelete();
-    const replaced = make.map(outputState).filter((x) => x.file).map((x) => x.file.name);
-    const deleted = del.map((f) => outputState(f).file.name);
-    if (deleted.length) {
-      const ok = await confirmDialog({
-        title: t('Delete files?'),
-        body: [h('p', {}, t('These formats are not chosen any more, so their files are deleted:')),
-          h('ul', {}, deleted.map((n) => h('li', {}, n)))],
-        confirm: t('Save and delete'),
-        danger: true,
-      });
-      if (!ok) return;
-    }
-    saveButton.disabled = true;
-    try {
-      if (unsaved()) {
-        sermon = await api('POST', 'api/sermon/save?path=' + q(path));
-        saveNote.textContent = t('Saved.');
-        renderVersion();
-      }
-    } catch (e) {
-      saveNote.textContent = t('Not saved: {error}', { error: e.message });
-      renderOutputs();
-      return;
-    }
-    try {
-      if (del.length) {
-        const inf = await api('POST', 'api/outputs/remove?path=' + q(path) + del.map((f) => '&format=' + f).join(''));
-        info.outputs = inf.outputs;
-        renderOutputs();
-        check();
-      }
-      if (!make.length) return;
-      const req = request(replaced.length > 0);
-      for (const [f] of FORMATS) req[f] = make.includes(f);
-      job = await api('POST', 'api/run?path=' + q(path), req);
-      showJob(job);
-      follow(job.id);
-    } catch (e) {
-      showCheck({ ...lastCheck, error: t('Saved, but the files were not made: {error}', { error: e.message }) });
-    }
-  }
-
-  function follow(id) {
-    if (events) events.close();
-    events = new EventSource(forTenant('api/jobs/' + id + '/events'));
-    events.onmessage = (e) => {
-      job = JSON.parse(e.data);
-      showJob(job);
-      if (!busy()) {
-        events.close();
-        events = null;
-        refreshInfo().then(check).catch(() => {}); // the outputs changed
-      }
-    };
-  }
-
-  function showJob(j) {
-    const running = j.state === 'queued' || j.state === 'running';
-    const title = { queued: t('Waiting for another run to finish…'), running: t('Processing…'), done: t('Done'), failed: t('Failed'), cancelled: t('Cancelled') }[j.state];
-    const steps = j.steps.map((s, i) => {
-      const last = i === j.steps.length - 1;
-      const n = s.match(/^(\d+)\. (.*)$/s); // "2. Master (…)": the number stays, the rest is translated
-      return h('li', { class: last && running ? 'current' : last && j.state === 'failed' ? 'failed' : '' }, n ? `${n[1]}. ${tr(n[2])}` : tr(s));
-    });
-    const log = h('pre', { class: 'log' }, j.log.join('\n'));
-    jobPanel.replaceChildren(h('div', { class: 'panel' },
-      h('h2', {}, title),
-      h('ul', { class: 'steps' }, steps),
-      running ? h('progress', { max: 1, value: j.progress }) : '',
-      j.warnings.length ? h('div', {}, j.warnings.map((w) => h('p', { class: 'warn' }, '⚠ ' + tr(w)))) : '',
-      j.error ? h('p', { class: 'error' }, tr(j.error)) : '',
-      j.state === 'cancelled' ? h('p', {}, t('Cancelled. Nothing half-written was left behind.')) : '',
-      j.state === 'done' ? h('p', {}, t('Done. Listen to and download the files under Recordings.')) : '',
-      h('details', { open: running }, h('summary', {}, t('Log')), log),
-      running ? h('button', { onclick: cancel }, t('Cancel')) : ''));
-    log.scrollTop = log.scrollHeight;
-    renderOutputs();
-  }
-
-  async function cancel() {
-    try {
-      job = await api('POST', 'api/jobs/' + job.id + '/cancel');
-      showJob(job);
-    } catch (e) {
-      jobPanel.prepend(h('p', { class: 'error' }, tr(e.message)));
-    }
-  }
-
-  if (job) {
-    showJob(job);
-    if (busy()) follow(job.id);
-  }
+  output.showJobs();
   if (info.raw) {
     prepareWaveform().catch((e) => {
       if (alive) waveSection.replaceChildren(h('p', { class: 'error' }, e.message));
@@ -1434,10 +1039,10 @@ export async function editorView(view, slug, config) {
     for (const id of ['step-edit', 'step-metadata', 'step-processing', 'step-clips']) view.querySelector('#' + id).parentElement.remove();
     saveBar.remove();
   }
-  renderVersion();
-  renderOutputs();
+  ed.renderVersion();
+  ed.renderOutputs();
   if (!gone) {
-    check();
+    ed.check();
     loadClips();
   }
   return teardown;
