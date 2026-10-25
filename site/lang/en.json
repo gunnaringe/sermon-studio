@@ -6,6 +6,7 @@
   "nav.guide": "Guide",
   "nav.privacy": "Privacy",
   "nav.login": "Log in",
+  "nav.signup": "Sign up",
   "nav.home": "Sermon Studio, front page",
   "footer.source": "Source code on GitHub",
   "footer.licence": "Free and open source, under the Apache 2.0 licence.",
@@ -51,7 +52,8 @@
   "home.what.4": "<strong>On a phone too.</strong> In English, Norwegian bokmål and nynorsk, light or dark.",
 
   "home.churches.h2": "For churches",
-  "home.churches.p1": "Do you record your services and want the sermons online? Write to <a href=\"mailto:contact@sermon-studio.app\">contact@sermon-studio.app</a> with the name of your church. We set up the church in the studio and send you a link to log in. You then invite the others who will use it.",
+  "home.churches.p1": "Do you record your services and want the sermons online? Ask for an invite, with the name of your church: we set up the church in the studio, and you then invite the others who will use it. Have you been invited? Open the link you got; if you have no account yet, sign up first.",
+  "home.churches.invite": "Ask for an invite",
   "home.churches.p2": "Would you rather run it yourself? Sermon Studio is free and open source. Run it on your own server with Docker (<a href=\"https://github.com/gunnaringe/sermon-studio/blob/main/docs/running.md\">how</a>), or use the desktop app below on one computer.",
   "home.churches.p3": "Read how the studio is used in the <a href=\"guide.html\">guide</a>, and what is stored in <a href=\"privacy.html\">privacy</a>.",
 
