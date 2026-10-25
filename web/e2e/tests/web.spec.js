@@ -62,7 +62,7 @@ const selection = async (page) => {
 };
 
 test('the recordings page shows the years and the recordings with their status', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await expect(page.locator('button.year-head', { hasText: '2026' })).toHaveAttribute('aria-expanded', 'true'); // the newest year is open
   const row = page.locator('.year tr', { hasText: '2026-10-04' });
   await expect(row).toContainText('to do');
@@ -578,7 +578,7 @@ test('a format that is not chosen any more is deleted by Save, after asking', as
 });
 
 test('upload straight into a new date folder, in chunks', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await page.evaluate(() => localStorage.setItem('uploadChunk', String(64 * 1024))); // several chunks
   await page.locator('input[type=file]').setInputFiles({
     name: 'Gudstjeneste 2026-09-27.flac',
@@ -616,7 +616,7 @@ test('upload straight into a new date folder, in chunks', async ({ page }) => {
 });
 
 test('inbox: a recording lands in its date folder by itself', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await expect(page.getByRole('link', { name: 'Inbox' })).toHaveCount(0);
   fs.copyFileSync(path.join(DATA, 'upload.flac'), path.join(DATA, 'inbox', 'Gudstjeneste 2026-09-20.flac'));
   // The server takes it once it has been quiet for a while; the list is read on load.
@@ -670,7 +670,7 @@ test('a 90-minute recording stays responsive', async ({ page }) => {
 });
 
 test('churches: add one, folders are separate, the choice is remembered', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await expect(page.locator('#church')).toHaveValue('first-church');
   await expect(page.locator('button.year-head', { hasText: '2026' })).toBeVisible();
   await page.locator('#church').selectOption('+');
@@ -712,7 +712,7 @@ test('settings: default tags are saved and used on the sermon page', async ({ pa
 });
 
 test('two sermons the same day: upload with a name, then rename', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await page.screenshot({ path: path.join(shots, 'folders-upload.png') });
   await page.locator('input[type=file]').setInputFiles(path.join(DATA, 'upload.flac'));
   await page.locator('input[name=date]').fill('2026-11-01');
@@ -720,7 +720,7 @@ test('two sermons the same day: upload with a name, then rename', async ({ page 
   await page.getByRole('button', { name: 'Upload' }).click();
   await expect(page).toHaveURL(/\/c\/first-church\/recordings\/2026-11-01\/edit$/);
 
-  await page.goto('');
+  await page.goto('c/first-church/');
   await page.locator('input[type=file]').setInputFiles(path.join(DATA, 'upload.flac'));
   await page.locator('input[name=date]').fill('2026-11-01');
   await page.getByRole('button', { name: 'Upload' }).click();
@@ -739,7 +739,7 @@ test('two sermons the same day: upload with a name, then rename', async ({ page 
 });
 
 test('a sermon can be given a name on upload', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await page.locator('input[type=file]').setInputFiles(path.join(DATA, 'upload.flac'));
   await page.locator('input[name=date]').fill('2026-12-06');
   await page.locator('input[aria-label=Name]').fill('Engangs');
@@ -892,7 +892,7 @@ test('addresses: the church comes first; a recording has its name; old ones go t
 test('header: log out is an icon and asks first', async ({ page }) => {
   // With the login (--oidc-issuer), the session says where to log out.
   await page.route('**/api/session', (r) => r.fulfill({ json: { logoutUrl: 'auth/logout', user: 'Kari Nordmann' } }));
-  await page.goto('');
+  await page.goto('c/first-church/');
   let posted = false;
   await page.route('**/auth/logout', (r) => { posted = r.request().method() === 'POST'; r.fulfill({ body: 'logged out' }); });
   const out = page.locator('#logout button');
@@ -947,14 +947,14 @@ test('settings: a church logo replaces the app logo in the header', async ({ pag
 test('header: with one church there is no dropdown, only its name', async ({ page }) => {
   await page.route('**/api/tenants', (r) => r.fulfill({ json: {
     tenants: [{ id: 'first-church', name: 'Norkirken Melhus' }], default: 'first-church', canAdd: false, shares: false } }));
-  await page.goto('');
+  await page.goto('c/first-church/');
   await expect(page.locator('#church-name')).toHaveText('Norkirken Melhus');
   await expect(page.locator('#church')).toBeHidden();
   await page.locator('header').screenshot({ path: path.join(shots, 'header-one-church.png') });
 });
 
 test('header: several churches: a quiet dropdown', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await expect(page.locator('#church')).toBeVisible();
   await expect(page.locator('#church-name')).toBeHidden();
   await page.locator('#church').hover();
@@ -1149,7 +1149,7 @@ test('a recording being imported shows that, not what is left to do', async ({ p
     Object.assign(data.recordings[0], { converting: true, saved: false, outputs: [] });
     await route.fulfill({ response: res, json: data });
   });
-  await page.goto('');
+  await page.goto('c/first-church/');
   const row = page.locator('.year tr.row').first();
   await expect(row).toContainText('converting');
   await expect(row).not.toContainText('to do');
@@ -1166,7 +1166,7 @@ test('the recording keeps the name it arrived with: in the conversion note and i
   wavFile.write('data', 36); wavFile.writeUInt32LE(n * 2, 40);
   for (let i = 0; i < n; i++) wavFile.writeInt16LE(Math.round(8000 * Math.sin(i / 8)), 44 + i * 2);
 
-  await page.goto('');
+  await page.goto('c/first-church/');
   await page.locator('input[type=file]').setInputFiles({ name: 'R_20270101-101010.wav', mimeType: 'audio/wav', buffer: wavFile });
   await page.locator('input[name=date]').fill('2027-01-01');
   await page.getByRole('button', { name: 'Upload' }).click();

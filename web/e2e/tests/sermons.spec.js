@@ -27,7 +27,7 @@ test.beforeAll(async ({ request }) => {
 });
 
 test('a sermon opens its details in the list: play, download, make a missing format', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   const row = page.locator('.year tr.row', { hasText: '2026-07-05' });
   await expect(row).not.toContainText('to do');
   await expect(row).toContainText('done');
@@ -77,7 +77,7 @@ test('a sermon opens its details in the list: play, download, make a missing for
 });
 
 test('a recording that is not cut yet is "to do", has an edit button, and still opens the editor', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   const row = page.locator('.year tr.row', { hasText: '2026-08-30' });
   await expect(row).toContainText('to do');
   await row.click(); // anywhere on the row
@@ -93,7 +93,7 @@ test('a recording that is not cut yet is "to do", has an edit button, and still 
 test('sermon details fit a phone', async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, baseURL: process.env.BASE_URL || 'http://localhost:8080/' });
   const page = await ctx.newPage();
-  await page.goto('');
+  await page.goto('c/first-church/');
   await page.locator('.year tr.row', { hasText: '2026-07-05' }).click();
   await expect(page.locator('tr.detail-row audio')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
@@ -106,7 +106,7 @@ test('a recording with changes not saved in the editor says so in the list', asy
   const adjusted = { sections: [{ start: 3, end: 24 }], cuts: [], fadeIn: 0, fadeOut: 0 };
   expect((await request.put('api/sermon' + q, { data: adjusted })).ok()).toBe(true);
   try {
-    await page.goto('');
+    await page.goto('c/first-church/');
     const row = page.locator('.year tr.row', { hasText: '2026-07-05' });
     await expect(row).toContainText('not saved');
     await page.locator('.year').first().screenshot({ path: path.join(shots, 'recordings-not-saved.png') });

@@ -120,17 +120,14 @@ func (a *App) hostGate(next http.Handler) http.Handler {
 			if !a.hasChurch(id) && IsPage(r.URL.Path) {
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusNotFound)
-				fmt.Fprintf(w, "No such church: %s.\nYour churches: %s\n", id, a.auth.start())
+				fmt.Fprintf(w, "No such church: %s.\nYour churches: %s\n", id, a.auth.url(""))
 				return
 			}
 			next.ServeHTTP(w, r)
 			return
 		}
-		switch {
-		case r.URL.Path == "/":
-			r.URL.Path = "/churches" // the picker's own page, there under the start's address
-		case r.URL.Path == "/churches" || IsPage(r.URL.Path):
-			http.Redirect(w, r, a.auth.start(), http.StatusFound)
+		if r.URL.Path != "/" && IsPage(r.URL.Path) {
+			http.Redirect(w, r, a.auth.url(""), http.StatusFound)
 			return
 		}
 		next.ServeHTTP(w, r)

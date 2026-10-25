@@ -57,11 +57,11 @@ test('with signup, an invite without a login offers Log in and Create an account
 
 test('after a login that did not work, the start says so', async ({ page }) => {
   await page.route('**/api/tenants', (r) => r.fulfill({ status: 401, json: { error: 'log in first', login: true } }));
-  await page.goto('churches?failed');
+  await page.goto('?failed');
   await expect(page.getByText('The login did not work.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible();
   await page.screenshot({ path: path.join(shots, 'churches-failed.png') });
-  await page.goto('churches');
+  await page.goto('');
   await expect(page.getByRole('heading', { name: 'Welcome to Sermon Studio' })).toBeVisible();
   await expect(page.getByText('The login did not work.')).toHaveCount(0);
 });
@@ -131,32 +131,31 @@ test('a member sees no church settings, and can leave', async ({ page }) => {
   await expect.poll(() => left).toBe(true);
 });
 
-// With church hosts (--church-host), the login host's start is the church picker, and a church
-// is shown at its own address. The church list is answered here, as the studio would with them.
-test('the church picker lists the churches, and goes straight to the only one', async ({ page }) => {
+// With church hosts (--church-host), the start (/) goes to a church at its own address: the one last opened
+// (the server's default, from its cookie), or the one this browser used last. The church list is answered
+// here, as the studio would with them.
+test('the start goes straight to the church last opened', async ({ page }) => {
   const two = { tenants: [{ id: 'kirke-a', name: 'Kirke A', url: 'http://kirke-a.localhost:8080/' },
-    { id: 'kirke-b', name: 'Kirke B', url: 'http://kirke-b.localhost:8080/' }], default: 'kirke-a', login: true };
+    { id: 'kirke-b', name: 'Kirke B', url: 'http://kirke-b.localhost:8080/' }], default: 'kirke-b', login: true };
   await page.route('**/api/tenants', (r) => r.fulfill({ json: two }));
-  await page.goto('churches');
-  await expect(page.getByRole('heading', { name: 'Your churches' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Kirke B' })).toHaveAttribute('href', 'http://kirke-b.localhost:8080/');
-  await page.screenshot({ path: path.join(shots, 'churches.png') });
-
-  await page.route('**/api/tenants', (r) => r.fulfill({ json: { ...two, tenants: two.tenants.slice(0, 1) } }));
-  await page.route('http://kirke-a.localhost:8080/**', (r) => r.fulfill({ body: 'kirke a' }));
-  await page.goto('churches');
+  await page.route('http://kirke-*.localhost:8080/**', (r) => r.fulfill({ body: 'a church' }));
+  await page.goto('');
+  await expect(page).toHaveURL('http://kirke-b.localhost:8080/');
+  await page.goto('style.css'); // a page of this origin that goes nowhere
+  await page.evaluate(() => localStorage.setItem('tenant', 'kirke-a'));
+  await page.goto('');
   await expect(page).toHaveURL('http://kirke-a.localhost:8080/');
 });
 
-test('logged out, the church picker is the start: Log in, or Create an account', async ({ page }) => {
+test('logged out, the start offers Log in, or Create an account', async ({ page }) => {
   await page.route('**/api/tenants', (r) => r.fulfill({ status: 401, json: { error: 'log in first', login: true, signup: 'https://id.example.org/signup' } }));
-  await page.goto('churches');
+  await page.goto('');
   await expect(page.getByRole('heading', { name: 'Welcome to Sermon Studio' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Create an account' })).toHaveAttribute('href', 'https://id.example.org/signup');
   await expect(page.getByText('Invited? Open the invite link you got.')).toBeVisible();
   await page.screenshot({ path: path.join(shots, 'churches-welcome.png') });
   await page.getByRole('button', { name: 'Log in' }).click();
-  await expect(page).toHaveURL(/auth\/login\?next=%2Fchurches$/);
+  await expect(page).toHaveURL(/auth\/login\?next=%2F$/);
 });
 
 test('a church that has its own address is shown there', async ({ page }) => {

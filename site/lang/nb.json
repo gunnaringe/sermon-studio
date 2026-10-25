@@ -120,7 +120,7 @@
   "privacy.logs.h3": "Logger",
   "privacy.logs.p": "Studioet logger det det gjør: opptak som kommer inn, filer som lages, får nytt navn og slettes, og endringer i menigheter og medlemmer. For den offentlige delingssiden logger det IP-adressen ved opplastinger, nedlastinger og feil koder, for å stoppe misbruk. Det logger ikke hvilke sider du ser på.",
   "privacy.browser.h3": "I nettleseren din",
-  "privacy.browser.p": "Øktkapselen mens du er logget inn (30 dager), og en kortvarig kapsel mens du logger ut. Lokal lagring tar vare på språk, tema og noen visningsvalg, menigheten du brukte sist, og angrestegene for de siste 20 opptakene du har redigert. Ingenting i nettleseren brukes til sporing.",
+  "privacy.browser.p": "Øktkapselen mens du er logget inn (30 dager), og en kortvarig kapsel mens du logger ut, og en med menigheten du åpnet sist (ett år), så startsiden kan ta deg tilbake dit. Lokal lagring tar vare på språk, tema og noen visningsvalg, menigheten du brukte sist, og angrestegene for de siste 20 opptakene du har redigert. Ingenting i nettleseren brukes til sporing.",
   "privacy.where.h2": "Hvor det lagres",
   "privacy.where.p": "På en server i Norge, som vi drifter selv. Opptakene brukes ikke til noe annet enn å lage menighetens filer.",
   "privacy.who.h2": "Hvem som behandler det",

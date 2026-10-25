@@ -120,7 +120,7 @@
   "privacy.logs.h3": "Logs",
   "privacy.logs.p": "The studio logs what it does: recordings received, files made, renamed and deleted, and changes to churches and members. For the public share page, it logs the IP address of uploads, downloads and wrong codes, to stop abuse. It does not log which pages you look at.",
   "privacy.browser.h3": "In your browser",
-  "privacy.browser.p": "The session cookie while you are logged in (30 days), and a short-lived cookie while you log out. Local storage keeps your language, theme and a few view settings, the church you last used, and the undo steps of the last 20 recordings you edited. Nothing in your browser is used for tracking.",
+  "privacy.browser.p": "The session cookie while you are logged in (30 days), and a short-lived cookie while you log out, and one with the church you last opened (a year), so the start page can take you back to it. Local storage keeps your language, theme and a few view settings, the church you last used, and the undo steps of the last 20 recordings you edited. Nothing in your browser is used for tracking.",
   "privacy.where.h2": "Where it is stored",
   "privacy.where.p": "On a server in Norway, run by us. The recordings are not used for anything but making the church's files.",
   "privacy.who.h2": "Who processes it",

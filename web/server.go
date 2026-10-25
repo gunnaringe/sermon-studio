@@ -185,7 +185,7 @@ func (s *Server) Busy() bool {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	sub, _ := fs.Sub(static, "static")
-	mux.Handle("GET /", servePages(sub))
+	mux.Handle("GET /", servePages(sub, nil))
 	api := s.apiMux()
 	for _, method := range []string{"GET", "POST", "PUT"} {
 		mux.Handle(method+" /api/", api)
