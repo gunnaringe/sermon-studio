@@ -189,7 +189,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   (`site/media/`) come from `scripts/site-shots.sh` (`web/e2e/site-shots/`: the real studio, `--no-login`, the sample speech;
   the video has a drawn pointer and captions); its test is `web/e2e/site/` (`scripts/test.sh site`, also the PR screenshots
   `site-*.png`). It knows nothing of the studio's code: copy what it needs (the logo), never link into `web/static`.
-- `normalizer/`: the pipeline (`pipeline.go`; `Options.Cuts` = parts left out of
+- `normalizer/`: the pipeline (`pipeline.go` the steps, with `options.go`, `paths.go`, `cut.go`, `filters.go`, `render.go`; `Options.Cuts` = parts left out of
   Start..End, each kept part is its own ffmpeg input joined by `cutInput`'s filter graph; `Intro`/`Outro` clips are
   joined around the finished sermon by `join`, making the main files with them and `<date>_sermon.*` without, `versions`),
   ffmpeg wrapper (`ffmpeg.go`:
