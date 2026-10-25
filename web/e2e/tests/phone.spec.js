@@ -20,7 +20,7 @@ async function fits(page, name) {
 }
 
 test('phone: every page fits the screen', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await expect(page.getByRole('button', { name: '2026-10-04', exact: true }).first()).toBeVisible();
   await fits(page, 'recordings');
   await expect(page.locator('.upload .drop')).toBeVisible();
@@ -43,7 +43,7 @@ test('phone: the logo is a square, so a long church name has the room it can', a
     tenants: [{ id: 'first-church', name: 'Norkirken Melhus kirke', logo: '1' }], default: 'first-church', canAdd: false, shares: true } }));
   await page.route('**/api/logo*', (r) => r.fulfill({ contentType: 'image/svg+xml',
     body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><rect width="120" height="40" fill="#b00020"/></svg>' }));
-  await page.goto('');
+  await page.goto('c/first-church/');
   const logo = page.locator('header .brand img');
   await expect(logo).toBeVisible();
   const box = await logo.boundingBox();

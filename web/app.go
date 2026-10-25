@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gunnaringe/sermon-studio/normalizer"
 )
@@ -353,11 +354,17 @@ func (a *App) tenantFor(r *http.Request) (*tenant, bool) {
 	return nil, false
 }
 
+// isStart reports whether the request's / is the start (the church picker): everywhere but a church's own host.
+func (a *App) isStart(r *http.Request) bool {
+	_, church := a.hostChurch(r)
+	return !church
+}
+
 // Handler is the whole site: the front end and the API of every church.
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	sub, _ := fs.Sub(static, "static")
-	mux.Handle("GET /", servePages(sub))
+	mux.Handle("GET /", servePages(sub, a.isStart))
 	mux.HandleFunc("GET /api/session", a.handleSession)
 	// healthz is for the health checks (Kubernetes): open, also with the login.
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
@@ -397,6 +404,9 @@ func (a *App) Handler() http.Handler {
 			writeError(w, http.StatusNotFound, errors.New("no such church"))
 			return
 		}
+		if a.auth != nil && r.Method == http.MethodGet && r.URL.Path == "/api/config" { // the church is opened
+			http.SetCookie(w, a.auth.cookie(churchCookie, t.id, 365*24*time.Hour))
+		}
 		t.api.ServeHTTP(w, r)
 	}
 	for _, method := range []string{"GET", "POST", "PUT"} {
@@ -425,13 +435,18 @@ func (a *App) handleSession(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleTenants(w http.ResponseWriter, r *http.Request) {
 	u := a.userOf(r)
 	list := []TenantInfo{}
+	// default: the host's church; else the one last opened (studio_church), else the first.
 	def := ""
 	host, _ := a.hostChurch(r)
+	last := ""
+	if c, err := r.Cookie(churchCookie); err == nil && host == "" {
+		last = c.Value
+	}
 	for _, t := range a.visible(u) {
 		i := a.infoOf(t)
 		i.Role = a.roleOf(u, t)
 		list = append(list, i)
-		if def == "" || t.id == host {
+		if def == "" || t.id == host || t.id == last {
 			def = t.id
 		}
 	}

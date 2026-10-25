@@ -53,6 +53,7 @@ const (
 	sessionCookie = "studio_session"
 	loginCookie   = "studio_login"
 	logoutCookie  = "studio_logout"
+	churchCookie  = "studio_church" // the church last opened, for the start (/) on another host
 	sessionFor    = 30 * 24 * time.Hour
 	loginFor      = 10 * time.Minute
 	usersFile     = "users.json"
@@ -164,7 +165,7 @@ func (au *auth) url(path string) string {
 func (au *auth) cookie(name, value string, maxAge time.Duration) *http.Cookie {
 	c := &http.Cookie{Name: name, Value: value, Path: au.base.Path, HttpOnly: true, Secure: au.secure,
 		SameSite: http.SameSiteLaxMode, MaxAge: int(maxAge.Seconds())}
-	if name == sessionCookie || name == logoutCookie { // logout ends on the login host, wherever it started
+	if name == sessionCookie || name == logoutCookie || name == churchCookie { // logout ends on the login host, wherever it started; the start there needs the church last opened
 		c.Domain = au.opt.CookieDomain
 	}
 	if maxAge < 0 {
@@ -387,7 +388,7 @@ func cmpOr(a, b string) string {
 // first; then, when the provider has an end_session_endpoint (OpenID Connect
 // RP-Initiated Logout), the browser goes there to end the login at the
 // provider too, which sends it back to auth/logout/callback. Without one, or
-// when the provider cannot be reached, it goes straight to the start (churches).
+// when the provider cannot be reached, it goes straight to the start (/).
 func (au *auth) handleLogout(w http.ResponseWriter, r *http.Request) {
 	var idToken string
 	if c, err := r.Cookie(sessionCookie); err == nil {
@@ -406,7 +407,7 @@ func (au *auth) handleLogout(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, end, http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, au.url("churches"), http.StatusSeeOther)
+	http.Redirect(w, r, au.url(""), http.StatusSeeOther)
 }
 
 // endSession is the provider's address that ends the login there, or "" when
@@ -451,13 +452,13 @@ func (au *auth) handleLogoutCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil || c.Value == "" || r.URL.Query().Get("state") != c.Value {
 		au.log.Printf("login: the logout came back without its state")
 	}
-	http.Redirect(w, r, au.url("churches"), http.StatusSeeOther)
+	http.Redirect(w, r, au.url(""), http.StatusSeeOther)
 }
 
 // fail logs why a login did not work and goes to the start, which says so.
 func (au *auth) fail(w http.ResponseWriter, r *http.Request, err error) {
 	au.log.Printf("login: %v", err)
-	http.Redirect(w, r, au.url("churches")+"?failed", http.StatusSeeOther)
+	http.Redirect(w, r, au.url("")+"?failed", http.StatusSeeOther)
 }
 
 // publicPath reports the paths anyone may fetch without a session: the login
@@ -473,13 +474,22 @@ func publicPath(rel string) bool {
 	return true
 }
 
+// onChurchHost reports whether the request is to a church's own host.
+func (au *auth) onChurchHost(r *http.Request) bool {
+	if au.hosts == nil {
+		return false
+	}
+	_, ok := au.hosts.church(r.Host)
+	return ok
+}
+
 // require lets only requests with a session through, apart from publicPath:
 // a page goes to the login and comes back, the API answers 401.
 func (au *auth) require(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rel, ok := strings.CutPrefix(r.URL.Path, "/")
-		// The login host's start is public: it is the church picker, which offers Log in.
-		if !ok || publicPath(rel) || (au.hosts != nil && r.Host == au.base.Host && rel == "") {
+		// The start is public: it is the church picker, which offers Log in (a church's own host has its recordings there).
+		if !ok || publicPath(rel) || (rel == "" && !au.onChurchHost(r)) {
 			next.ServeHTTP(w, r)
 			return
 		}

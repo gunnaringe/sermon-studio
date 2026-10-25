@@ -120,7 +120,7 @@
   "privacy.logs.h3": "Loggar",
   "privacy.logs.p": "Studioet loggar det det gjer: opptak som kjem inn, filer som vert laga, får nytt namn og vert sletta, og endringar i kyrkjelydar og medlemmer. For den offentlege delingssida loggar det IP-adressa ved opplastingar, nedlastingar og feil kodar, for å stoppe misbruk. Det loggar ikkje kva sider du ser på.",
   "privacy.browser.h3": "I nettlesaren din",
-  "privacy.browser.p": "Øktkapselen medan du er logga inn (30 dagar), og ein kortvarig kapsel medan du loggar ut. Lokal lagring tek vare på språk, tema og nokre visingsval, kyrkjelyden du brukte sist, og angrestega for dei siste 20 opptaka du har redigert. Ingenting i nettlesaren vert brukt til sporing.",
+  "privacy.browser.p": "Øktkapselen medan du er logga inn (30 dagar), og ein kortvarig kapsel medan du loggar ut, og ein med kyrkjelyden du opna sist (eitt år), så startsida kan ta deg tilbake dit. Lokal lagring tek vare på språk, tema og nokre visingsval, kyrkjelyden du brukte sist, og angrestega for dei siste 20 opptaka du har redigert. Ingenting i nettlesaren vert brukt til sporing.",
   "privacy.where.h2": "Kvar det vert lagra",
   "privacy.where.p": "På ein tenar i Noreg, som vi driftar sjølve. Opptaka vert ikkje brukte til noko anna enn å lage filene til kyrkjelyden.",
   "privacy.who.h2": "Kven som handsamar det",

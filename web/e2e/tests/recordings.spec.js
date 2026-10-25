@@ -8,7 +8,7 @@ const year = (page, y) => page.locator('button.year-head', { hasText: String(y) 
 const rows = (page) => page.locator('tr.row');
 
 test('years fold: the newest is open, the others closed, and the browser remembers', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await expect(year(page, 2026)).toHaveAttribute('aria-expanded', 'true');
   await expect(year(page, 2025)).toHaveAttribute('aria-expanded', 'false');
   await expect(year(page, 2025)).toContainText('1 recording');
@@ -23,7 +23,7 @@ test('years fold: the newest is open, the others closed, and the browser remembe
 });
 
 test('search finds names, dates and labels in every year; labels are added and removed on a recording', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   const sermon = page.locator('.year tr.row', { hasText: '2026-10-04' });
   await sermon.click();
   const detail = page.locator('tr.detail-row');
@@ -75,7 +75,7 @@ test('search finds names, dates and labels in every year; labels are added and r
 });
 
 test('a label is added with the + button, a comma, by leaving the field, or from the suggestions', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await page.locator('.year tr.row', { hasText: '2026-10-04' }).locator('button.sermon-name').click();
   const detail = page.locator('tr.detail-row');
   const field = detail.getByLabel('Add a label');
@@ -129,7 +129,7 @@ test('labels added quickly, while the server is slow, are all kept', async ({ pa
     if (route.request().method() === 'PUT') await new Promise((r) => setTimeout(r, 400));
     await route.continue();
   });
-  await page.goto('');
+  await page.goto('c/first-church/');
   const sermon = page.locator('.year tr.row', { hasText: '2025-12-21' });
   await page.locator('button.year-head', { hasText: '2025' }).click();
   await sermon.locator('button.sermon-name').click();

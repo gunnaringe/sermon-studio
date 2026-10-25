@@ -171,7 +171,7 @@ test('recordings: made with the intro, the sermon only for download, and a share
   const { id } = await run.json();
   await expect.poll(async () => (await (await request.get('api/jobs/' + id)).json()).state, { timeout: 90_000 }).toBe('done');
 
-  await page.goto('');
+  await page.goto('c/first-church/');
   const year = page.locator('button.year-head', { hasText: '2027' });
   if ((await year.getAttribute('aria-expanded')) !== 'true') await year.click();
   await page.locator('tr.row', { hasText: '2027-07-07' }).click();

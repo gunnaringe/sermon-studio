@@ -57,7 +57,7 @@ sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-clien
 - **Log out** on any host ends the session everywhere and comes back through the login host, so the provider still
   has exactly two addresses: `<public-url>/auth/callback` and `<public-url>/auth/logout/callback`.
 - **The login host** serves the login, invite links (`<public-url>/invite#…`, which take you to the church's
-  host) and the church picker (`/churches`, also `/`, which goes straight to your church when you have one; logged
+  host) and the start (`/`, which goes straight to your church: the one you opened last, kept in the cookie `studio_church` on the cookie domain, else the first; logged
   out, it is the start, with Log in and, with `--oidc-signup-url`, Create an account).
 - The church is known from the host, so it is not in the page's address (`norkirken-melhus.sermon-studio.app/settings`);
   an address with `c/<church>/` in it goes to that church's host.

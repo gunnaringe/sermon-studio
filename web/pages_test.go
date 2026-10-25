@@ -35,13 +35,15 @@ func TestPages(t *testing.T) {
 			t.Errorf("%s: %d, want the app with base %s", path, rec.Code, base)
 		}
 	}
-	for path, file := range map[string]string{"/churches": "churches.js", "/invite": "invite.js"} {
+	for path, file := range map[string]string{"/invite": "invite.js"} {
 		if rec := ts.do(t, "GET", path, nil); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), file) {
 			t.Errorf("%s: %d", path, rec.Code)
 		}
 	}
-	if rec := ts.do(t, "GET", "/nope", nil); rec.Code != http.StatusNotFound {
-		t.Errorf("/nope: %d", rec.Code)
+	for _, path := range []string{"/nope", "/churches"} { // the start is at / (App), never at a name of its own
+		if rec := ts.do(t, "GET", path, nil); rec.Code != http.StatusNotFound {
+			t.Errorf("%s: %d", path, rec.Code)
+		}
 	}
 }
 

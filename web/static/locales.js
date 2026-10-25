@@ -798,7 +798,6 @@ export const nb = {
   "Welcome to Sermon Studio": "Velkommen til Sermon Studio",
   "Log in to open the recordings of your church.": "Logg inn for å åpne opptakene til menigheten din.",
   "Invited? Open the invite link you got.": "Invitert? Åpne invitasjonslenken du fikk.",
-  "Choose a church.": "Velg en menighet.",
 };
 
 export const nn = {
@@ -1597,5 +1596,4 @@ export const nn = {
   "Welcome to Sermon Studio": "Velkomen til Sermon Studio",
   "Log in to open the recordings of your church.": "Logg inn for å opne opptaka til kyrkjelyden din.",
   "Invited? Open the invite link you got.": "Invitert? Opne invitasjonslenkja du fekk.",
-  "Choose a church.": "Vel ein kyrkjelyd.",
 };

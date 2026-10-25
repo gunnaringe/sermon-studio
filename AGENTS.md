@@ -64,10 +64,10 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   go-oidc (+ nonce), then a session of its own (cookie `studio_session`, 30 days; `<data-dir>/sessions.json` keeps the cookie's hash and
   the ID token, for logging out;
   `users.json` = issuer + sub, with name/email for display only, never for access). `require` wraps the whole handler: no session
-  = a page goes to `auth/login?next=`, `api/…` answers 401 (`util.js` `toLogin`); only `auth/*`, `invite`, `churches` and the
+  = a page goes to `auth/login?next=`, `api/…` answers 401 (`util.js` `toLogin`); only `auth/*`, `invite`, the start (`/`, not on a church host) and the
   static files are public, not the app's pages (`IsPage`). Logout (`POST auth/logout`) ends the session, then, if the provider has an `end_session_endpoint`, sends
   the browser there (RP-initiated logout, with `id_token_hint` and a `state` in the cookie `studio_logout`), which comes back to
-  `auth/logout/callback`; then, or without one, `churches` (the start: logged out, it offers Log in; `?failed` after a login that did not work). The provider is found on the first login, so the studio starts
+  `auth/logout/callback`; then, or without one, the start (`/`; logged out, it offers Log in; `?failed` after a login that did not work). The provider is found on the first login, so the studio starts
   while it is down. Pocket ID, the recommended provider: docs/login-pocket-id.md, its styling assets in `docs/pocket-id/`
   (`scripts/make-pocket-id-assets.sh`).
 - `web/members.go`: with the login, a church is for its members (`<church>/members.json`: issuer, sub, role admin/member). They
@@ -81,7 +81,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `<data-dir>/.admin.sock` (`web.AdminSocket`, 0600; one that answers = another studio on the data dir, refused). `addChurch`
   and `renameChurch` are shared with the studio's API; `statusError`/`writeStatusError` carry an error's HTTP status.
 - `web/hosts.go`: church hosts (`--church-host '{church}.example.org'`, #82): `tenantFor` takes the church from the host (a
-  request naming another, or on the login host, gets none); `hostGate` sends the login host's pages to `churches` (the picker)
+  request naming another, or on the login host, gets none); `hostGate` sends the login host's other pages to its `/`. The start (`churches.html`, `servePages` with `App.isStart`) is `/` wherever the host is not a church's: logged out Log in, else straight to the church last opened (localStorage `tenant`, or the cookie `studio_church` that `api/config` sets on the cookie domain), else the first
   and answers an unknown church's host; `sameSiteURL`/`safeNext` let the login go back only to the login host or a church
   host; the session and logout cookies are on `--cookie-domain` (`checkHosts` at start). `TenantInfo.url` is a church's
   address; `app.js` and `invite.js` follow it. `hostReserved`: ids a church cannot have.
@@ -89,7 +89,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   the studio, `canAdd`). `default` is a reserved id. Every church request goes through `App.tenantFor`,
   which only picks churches the user sees.
 - `web/pages.go`: the page addresses (`IsPage`, served as `index.html` with a relative `<base>`, so the studio works under a
-  sub-path; `churches`, `invite` are their own files) and `slugOf`, a recording's name in its address
+  sub-path; the start (`/`) and `invite` are their own files) and `slugOf`, a recording's name in its address
   (`2026-10-19-morning-service`; `GET api/recording?slug=` finds it, also the old slug of the only recording of a date; a
   name with the slug of another recording is refused, `slugTaken`).
 - `web/server.go`: Config, routes, `resolve` (every path parameter: inside the

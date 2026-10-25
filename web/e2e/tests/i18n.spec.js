@@ -7,7 +7,7 @@ const REPO = 'https://github.com/gunnaringe/sermon-studio';
 const bg = (page) => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
 
 test('the language is chosen in Settings, kept, and changes the whole page', async ({ page }) => {
-  await page.goto('');
+  await page.goto('c/first-church/');
   await expect(page.getByRole('heading', { name: 'Recordings' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.getByRole('link', { name: 'Source code on GitHub' })).toHaveAttribute('href', REPO);
@@ -48,7 +48,7 @@ test('the language is chosen in Settings, kept, and changes the whole page', asy
 test.describe('the browser language', () => {
   test.use({ locale: 'nn-NO' });
   test('nynorsk is used when the browser asks for it', async ({ page }) => {
-    await page.goto('');
+    await page.goto('c/first-church/');
     await expect(page.getByRole('heading', { name: 'Opptak' })).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('lang', 'nn');
   });
@@ -57,7 +57,7 @@ test.describe('the browser language', () => {
 test.describe('the browser language: Norwegian', () => {
   test.use({ locale: 'no' });
   test('"no" is bokmål', async ({ page }) => {
-    await page.goto('');
+    await page.goto('c/first-church/');
     await expect(page.locator('html')).toHaveAttribute('lang', 'nb');
   });
 });
@@ -65,14 +65,14 @@ test.describe('the browser language: Norwegian', () => {
 test.describe('another language falls back to English', () => {
   test.use({ locale: 'de-DE' });
   test('English', async ({ page }) => {
-    await page.goto('');
+    await page.goto('c/first-church/');
     await expect(page.getByRole('heading', { name: 'Recordings' })).toBeVisible();
   });
 });
 
 test('the theme is automatic, or light, or dark', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.goto('');
+  await page.goto('c/first-church/');
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', /./);
   expect(await bg(page)).toBe('#f3f7f5');
   await page.emulateMedia({ colorScheme: 'dark' }); // automatic follows the device

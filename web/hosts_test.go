@@ -122,22 +122,25 @@ func TestChurchHostAccess(t *testing.T) {
 func TestChurchHostPages(t *testing.T) {
 	l := newHostsApp(t)
 	c := l.session()
-	// The login host's start is the church picker; an unknown church says so.
-	if w := l.do("GET", "/", "", c); w.Code != http.StatusFound || w.Header().Get("Location") != "https://app.example.org/churches" {
-		t.Errorf("login host: %d %s", w.Code, w.Header().Get("Location"))
+	// The login host's start is the church picker, at its own address; an unknown church says so.
+	if w := l.do("GET", "/", "", c); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "churches.js") {
+		t.Errorf("login host: %d", w.Code)
 	}
 	// ... also without a session: the picker then offers Log in (and Create an account); the list itself still needs the login.
-	if w := l.do("GET", "/", ""); w.Code != http.StatusFound || w.Header().Get("Location") != "https://app.example.org/churches" {
-		t.Errorf("login host without session: %d %s", w.Code, w.Header().Get("Location"))
+	if w := l.do("GET", "/?failed", ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "churches.js") {
+		t.Errorf("login host without session: %d", w.Code)
 	}
-	if w := l.do("GET", "/churches", ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "churches.js") {
-		t.Errorf("the picker without session: %d", w.Code)
+	// The studio's pages go to it.
+	if w := l.do("GET", "/churches", "", c); w.Code != http.StatusNotFound {
+		t.Errorf("/churches on the login host: %d", w.Code)
+	}
+	for _, p := range []string{"/settings", "/recordings/x"} {
+		if w := l.do("GET", p, "", c); w.Code != http.StatusFound || w.Header().Get("Location") != "https://app.example.org/" {
+			t.Errorf("%s on the login host: %d %s", p, w.Code, w.Header().Get("Location"))
+		}
 	}
 	if w := l.do("GET", "/api/tenants", ""); w.Code != http.StatusUnauthorized {
 		t.Errorf("the church list without session: %d", w.Code)
-	}
-	if w := l.do("GET", "/settings", ""); w.Code != http.StatusFound || !strings.Contains(w.Header().Get("Location"), "/auth/login") {
-		t.Errorf("another page of the login host without session: %d %s", w.Code, w.Header().Get("Location"))
 	}
 	if w := l.doOn("nowhere.example.org", "GET", "/", "", c); w.Code != http.StatusNotFound || !strings.Contains(w.Body.String(), "No such church") {
 		t.Errorf("unknown church: %d %s", w.Code, w.Body.String())
@@ -160,17 +163,17 @@ func TestChurchHostNext(t *testing.T) {
 	for next, want := range map[string]string{
 		"https://kirke-a.example.org/#/kirke-a/settings": "https://kirke-a.example.org/#/kirke-a/settings",
 		"https://app.example.org/invite#kirke-a.x":       "https://app.example.org/invite#kirke-a.x",
-		"/churches": "/churches",
-		"https://kirke-a.example.org@evil.example/": "/",
-		"https://app.example.org.evil.example/":     "/",
-		"https://a.b.example.org/":                  "/",
-		"http://kirke-a.example.org/":               "/",
-		"https://KIRKE-A.example.org/":              "/",
-		"https://kirke-a.example.org./":             "/",
-		"https://kirke-a.example.org:8443/":         "/",
-		"https://evil.example/":                     "/",
-		"//kirke-a.example.org/":                    "/",
-		"https://kirke-a.example.org/\t/x":          "/",
+		"/invite#kirke-a.x":                              "/invite#kirke-a.x",
+		"https://kirke-a.example.org@evil.example/":      "/",
+		"https://app.example.org.evil.example/":          "/",
+		"https://a.b.example.org/":                       "/",
+		"http://kirke-a.example.org/":                    "/",
+		"https://KIRKE-A.example.org/":                   "/",
+		"https://kirke-a.example.org./":                  "/",
+		"https://kirke-a.example.org:8443/":              "/",
+		"https://evil.example/":                          "/",
+		"//kirke-a.example.org/":                         "/",
+		"https://kirke-a.example.org/\t/x":               "/",
 	} {
 		if got := l.login(next, "good-code").Header().Get("Location"); got != want {
 			t.Errorf("next %q: went to %q, want %q", next, got, want)
@@ -198,7 +201,7 @@ func TestChurchHostLogout(t *testing.T) {
 		t.Errorf("session after logout: %d", w.Code)
 	}
 	w = l.do("GET", "/auth/logout/callback?state="+url.QueryEscape(to.Query().Get("state")), "", state)
-	if w.Header().Get("Location") != "https://app.example.org/churches" {
+	if w.Header().Get("Location") != "https://app.example.org/" {
 		t.Errorf("callback: %s", w.Header().Get("Location"))
 	}
 }
@@ -208,5 +211,34 @@ func TestChurchHostReserved(t *testing.T) {
 		if !reservedID(id) {
 			t.Errorf("%s is not reserved", id)
 		}
+	}
+}
+
+// The start on the login host goes to the church last opened: opening one sets studio_church on the cookie
+// domain, and the church list then gives it as the default; without it, the first.
+func TestChurchHostLastOpened(t *testing.T) {
+	l := newHostsApp(t)
+	c := l.session()
+	for _, id := range []string{"kirke-a", "kirke-b"} {
+		token, _ := CreateInvite(l.data, id, RoleMember, time.Hour, "admin cli")
+		l.do("POST", "/api/invite", `{"token":"`+token+`"}`, c)
+	}
+	def := func(cookies ...*http.Cookie) string {
+		return decode[struct{ Default string }](t, l.do("GET", "/api/tenants", "", cookies...)).Default
+	}
+	if d := def(c); d != "kirke-a" {
+		t.Errorf("default before any was opened: %q", d)
+	}
+	w := l.doOn("kirke-b.example.org", "GET", "/api/config", "", c)
+	last := cookieOf(w, churchCookie)
+	if w.Code != http.StatusOK || last == nil || last.Value != "kirke-b" || last.Domain != "example.org" {
+		t.Fatalf("opening kirke-b: %d %+v", w.Code, last)
+	}
+	if d := def(c, last); d != "kirke-b" {
+		t.Errorf("default after opening kirke-b: %q", d)
+	}
+	// A church the user is no longer in is passed over.
+	if d := def(c, &http.Cookie{Name: churchCookie, Value: "kirke-c"}); d != "kirke-a" {
+		t.Errorf("default with an unknown last church: %q", d)
 	}
 }
