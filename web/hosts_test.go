@@ -122,22 +122,22 @@ func TestChurchHostAccess(t *testing.T) {
 func TestChurchHostPages(t *testing.T) {
 	l := newHostsApp(t)
 	c := l.session()
-	// The login host's start is the church picker; an unknown church says so.
-	if w := l.do("GET", "/", "", c); w.Code != http.StatusFound || w.Header().Get("Location") != "https://app.example.org/churches" {
-		t.Errorf("login host: %d %s", w.Code, w.Header().Get("Location"))
+	// The login host's start is the church picker, at its own address; an unknown church says so.
+	if w := l.do("GET", "/", "", c); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "churches.js") {
+		t.Errorf("login host: %d", w.Code)
 	}
 	// ... also without a session: the picker then offers Log in (and Create an account); the list itself still needs the login.
-	if w := l.do("GET", "/", ""); w.Code != http.StatusFound || w.Header().Get("Location") != "https://app.example.org/churches" {
-		t.Errorf("login host without session: %d %s", w.Code, w.Header().Get("Location"))
+	if w := l.do("GET", "/?failed", ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "churches.js") {
+		t.Errorf("login host without session: %d", w.Code)
 	}
-	if w := l.do("GET", "/churches", ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "churches.js") {
-		t.Errorf("the picker without session: %d", w.Code)
+	// Its other address, and the studio's pages, go to it.
+	for _, p := range []string{"/churches", "/settings", "/recordings/x"} {
+		if w := l.do("GET", p, "", c); w.Code != http.StatusFound || w.Header().Get("Location") != "https://app.example.org/" {
+			t.Errorf("%s on the login host: %d %s", p, w.Code, w.Header().Get("Location"))
+		}
 	}
 	if w := l.do("GET", "/api/tenants", ""); w.Code != http.StatusUnauthorized {
 		t.Errorf("the church list without session: %d", w.Code)
-	}
-	if w := l.do("GET", "/settings", ""); w.Code != http.StatusFound || !strings.Contains(w.Header().Get("Location"), "/auth/login") {
-		t.Errorf("another page of the login host without session: %d %s", w.Code, w.Header().Get("Location"))
 	}
 	if w := l.doOn("nowhere.example.org", "GET", "/", "", c); w.Code != http.StatusNotFound || !strings.Contains(w.Body.String(), "No such church") {
 		t.Errorf("unknown church: %d %s", w.Code, w.Body.String())
@@ -198,7 +198,7 @@ func TestChurchHostLogout(t *testing.T) {
 		t.Errorf("session after logout: %d", w.Code)
 	}
 	w = l.do("GET", "/auth/logout/callback?state="+url.QueryEscape(to.Query().Get("state")), "", state)
-	if w.Header().Get("Location") != "https://app.example.org/churches" {
+	if w.Header().Get("Location") != "https://app.example.org/" {
 		t.Errorf("callback: %s", w.Header().Get("Location"))
 	}
 }

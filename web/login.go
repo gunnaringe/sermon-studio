@@ -161,6 +161,15 @@ func (au *auth) url(path string) string {
 	return au.base.ResolveReference(&url.URL{Path: path}).String()
 }
 
+// start is the church picker, the start for someone logged out: with church hosts the login host's own start
+// (/), else /churches (the studio's / is a church's recordings).
+func (au *auth) start() string {
+	if au.hosts != nil {
+		return au.url("")
+	}
+	return au.url("churches")
+}
+
 func (au *auth) cookie(name, value string, maxAge time.Duration) *http.Cookie {
 	c := &http.Cookie{Name: name, Value: value, Path: au.base.Path, HttpOnly: true, Secure: au.secure,
 		SameSite: http.SameSiteLaxMode, MaxAge: int(maxAge.Seconds())}
@@ -387,7 +396,7 @@ func cmpOr(a, b string) string {
 // first; then, when the provider has an end_session_endpoint (OpenID Connect
 // RP-Initiated Logout), the browser goes there to end the login at the
 // provider too, which sends it back to auth/logout/callback. Without one, or
-// when the provider cannot be reached, it goes straight to the start (churches).
+// when the provider cannot be reached, it goes straight to the start (au.start).
 func (au *auth) handleLogout(w http.ResponseWriter, r *http.Request) {
 	var idToken string
 	if c, err := r.Cookie(sessionCookie); err == nil {
@@ -406,7 +415,7 @@ func (au *auth) handleLogout(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, end, http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, au.url("churches"), http.StatusSeeOther)
+	http.Redirect(w, r, au.start(), http.StatusSeeOther)
 }
 
 // endSession is the provider's address that ends the login there, or "" when
@@ -451,13 +460,13 @@ func (au *auth) handleLogoutCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil || c.Value == "" || r.URL.Query().Get("state") != c.Value {
 		au.log.Printf("login: the logout came back without its state")
 	}
-	http.Redirect(w, r, au.url("churches"), http.StatusSeeOther)
+	http.Redirect(w, r, au.start(), http.StatusSeeOther)
 }
 
 // fail logs why a login did not work and goes to the start, which says so.
 func (au *auth) fail(w http.ResponseWriter, r *http.Request, err error) {
 	au.log.Printf("login: %v", err)
-	http.Redirect(w, r, au.url("churches")+"?failed", http.StatusSeeOther)
+	http.Redirect(w, r, au.start()+"?failed", http.StatusSeeOther)
 }
 
 // publicPath reports the paths anyone may fetch without a session: the login

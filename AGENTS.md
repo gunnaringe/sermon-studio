@@ -67,7 +67,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   = a page goes to `auth/login?next=`, `api/…` answers 401 (`util.js` `toLogin`); only `auth/*`, `invite`, `churches` and the
   static files are public, not the app's pages (`IsPage`). Logout (`POST auth/logout`) ends the session, then, if the provider has an `end_session_endpoint`, sends
   the browser there (RP-initiated logout, with `id_token_hint` and a `state` in the cookie `studio_logout`), which comes back to
-  `auth/logout/callback`; then, or without one, `churches` (the start: logged out, it offers Log in; `?failed` after a login that did not work). The provider is found on the first login, so the studio starts
+  `auth/logout/callback`; then, or without one, the start (`auth.start`: `/` on the login host with church hosts, else `churches`; logged out, it offers Log in; `?failed` after a login that did not work). The provider is found on the first login, so the studio starts
   while it is down. Pocket ID, the recommended provider: docs/login-pocket-id.md, its styling assets in `docs/pocket-id/`
   (`scripts/make-pocket-id-assets.sh`).
 - `web/members.go`: with the login, a church is for its members (`<church>/members.json`: issuer, sub, role admin/member). They
@@ -81,7 +81,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `<data-dir>/.admin.sock` (`web.AdminSocket`, 0600; one that answers = another studio on the data dir, refused). `addChurch`
   and `renameChurch` are shared with the studio's API; `statusError`/`writeStatusError` carry an error's HTTP status.
 - `web/hosts.go`: church hosts (`--church-host '{church}.example.org'`, #82): `tenantFor` takes the church from the host (a
-  request naming another, or on the login host, gets none); `hostGate` sends the login host's pages to `churches` (the picker)
+  request naming another, or on the login host, gets none); `hostGate` serves the picker (`churches.html`) at the login host's `/` and sends its other pages, `churches` too, there
   and answers an unknown church's host; `sameSiteURL`/`safeNext` let the login go back only to the login host or a church
   host; the session and logout cookies are on `--cookie-domain` (`checkHosts` at start). `TenantInfo.url` is a church's
   address; `app.js` and `invite.js` follow it. `hostReserved`: ids a church cannot have.

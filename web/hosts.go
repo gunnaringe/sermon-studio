@@ -107,9 +107,9 @@ func (au *auth) sameSiteURL(u *url.URL) bool {
 }
 
 // hostGate is the church hosts' part of every request (with church hosts on):
-// the login host serves the login, invites and the church picker, and sends
-// its start page to the picker; a church host serves its church, and an
-// unknown church gets a page that says so.
+// the login host serves the login, invites and, as its start (/), the church
+// picker, and sends the studio's other pages there; a church host serves its
+// church, and an unknown church gets a page that says so.
 func (a *App) hostGate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if a.hosts == nil {
@@ -120,14 +120,17 @@ func (a *App) hostGate(next http.Handler) http.Handler {
 			if !a.hasChurch(id) && IsPage(r.URL.Path) {
 				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusNotFound)
-				fmt.Fprintf(w, "No such church: %s.\nYour churches: %s\n", id, a.auth.url("churches"))
+				fmt.Fprintf(w, "No such church: %s.\nYour churches: %s\n", id, a.auth.start())
 				return
 			}
 			next.ServeHTTP(w, r)
 			return
 		}
-		if IsPage(r.URL.Path) {
-			http.Redirect(w, r, a.auth.url("churches"), http.StatusFound)
+		switch {
+		case r.URL.Path == "/":
+			r.URL.Path = "/churches" // the picker's own page, there under the start's address
+		case r.URL.Path == "/churches" || IsPage(r.URL.Path):
+			http.Redirect(w, r, a.auth.start(), http.StatusFound)
 			return
 		}
 		next.ServeHTTP(w, r)
