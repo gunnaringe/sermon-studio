@@ -3,6 +3,7 @@
 // run with scripts/site-shots.sh. run.sh turns the PNGs into WebP.
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { translator, openEditor, waitEditor, toEdit, clearProposed } from './lib.js';
 
@@ -12,11 +13,11 @@ const OUT = process.env.OUT;
 // What differs between the languages, besides the studio's own texts.
 const LANGS = {
   en: { church: 'grace-chapel', labels: [['Communion'], ['Guest speaker'], ['Easter', 'Baptism']], parts: ['Part one', 'Part two', 'Cough'],
-    clip: 'Welcome', share: 'For the homebound', speech: ['Inaugural', 'Speech'] },
+    clip: 'Welcome', share: 'For the homebound', desk: 'Sound desk', speech: ['Inaugural', 'Speech'] },
   nb: { church: 'bykirken', labels: [['Nattverd'], ['Gjestetaler'], ['Påske', 'Dåp']], parts: ['Del 1', 'Del 2', 'Hoste'],
-    clip: 'Velkommen', share: 'Til dem som ikke kom', speech: ['Innsettelse', 'Tale'] },
+    clip: 'Velkommen', share: 'Til dem som ikke kom', desk: 'Miksebordet', speech: ['Innsettelse', 'Tale'] },
   nn: { church: 'bykyrkja', labels: [['Nattverd'], ['Gjestetalar'], ['Påske', 'Dåp']], parts: ['Del 1', 'Del 2', 'Hoste'],
-    clip: 'Velkomen', share: 'Til dei som ikkje kom', speech: ['Innsetjing', 'Tale'] },
+    clip: 'Velkomen', share: 'Til dei som ikkje kom', desk: 'Miksebordet', speech: ['Innsetjing', 'Tale'] },
 };
 
 test.describe.configure({ mode: 'serial' });
@@ -136,6 +137,22 @@ for (const [lang, L] of Object.entries(LANGS)) {
     await page.goto(`c/${L.church}/`);
     await expect(page.locator('tr.row').first()).toBeVisible();
     await shot('recordings');
+
+    // An upload share for the sound technician, and its page on a phone at the mixing desk, a recording sent.
+    const desk = await api('POST', 'api/shares', { label: L.desk, allTypes: true, maxFileSize: 8 * 1024 ** 3 });
+    expect(desk.ok()).toBe(true);
+    const phone = await browser.newContext({ viewport: { width: 390, height: 760 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    await phone.addInitScript((l) => localStorage.setItem('lang', l), lang);
+    const up = await phone.newPage();
+    await up.goto('http://localhost:8081/#code=' + (await desk.json()).code);
+    await expect(up.getByRole('heading', { name: L.desk })).toBeVisible();
+    const desked = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'desk-')), 'R_20261025-104512.wav');
+    fs.copyFileSync(path.join(DATA, 'R_20261018-104506.wav'), desked);
+    await up.locator('input[type=file]').setInputFiles(desked);
+    await expect(up.getByText(T('✓ Received. Thank you!'))).toBeVisible({ timeout: 120_000 });
+    await up.waitForTimeout(400);
+    await up.screenshot({ path: path.join(dir, 'upload-page.png'), clip: { x: 0, y: 0, width: 390, height: 470 } });
+    await phone.close();
     await context.close();
   });
 }

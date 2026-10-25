@@ -16,16 +16,17 @@
   <header>
     <div class="bar">
       <a class="brand" href="./" data-t-aria-label="nav.home"><img src="img/logo.svg" alt="" width="30" height="30"><span>Sermon Studio</span></a>
-      <nav>
-        <a href="#how" data-t="nav.how"></a>
-        <a href="#churches" data-t="nav.churches"></a>
-        <a href="#download" data-t="nav.download"></a>
+      <nav id="nav">
         <a href="guide.html" data-t="nav.guide"></a>
         <a href="privacy.html" data-t="nav.privacy"></a>
       </nav>
       <div class="tools">
-        <select id="lang" data-t-aria-label="lang.label"></select>
-        <a class="button primary" href="https://my.sermon-studio.app/" data-t="nav.login"></a>
+        <details class="lang" id="lang">
+          <summary data-t-aria-label="lang.label"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span class="code"></span></summary>
+          <div class="menu"></div>
+        </details>
+        <a class="button primary login" href="https://my.sermon-studio.app/" data-t="nav.login"></a>
+        <button class="menu-button" type="button" aria-controls="nav" aria-expanded="false" data-t-aria-label="nav.menu"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       </div>
     </div>
   </header>
@@ -37,7 +38,7 @@
       <p class="lede" data-t="home.lede"></p>
       <p class="actions">
         <a class="button primary" href="#how" data-t="home.cta.how"></a>
-        <a class="button" href="#download" data-t="home.cta.download"></a>
+        <a class="button" href="#churches" data-t="nav.churches"></a>
       </p>
       <img class="shot" data-shot="editor" data-t-alt="home.hero.alt" alt="" width="1280" height="800">
     </section>
@@ -86,6 +87,17 @@
       </ol>
     </section>
 
+    <section id="mixer">
+      <div class="step">
+        <div>
+          <h2 data-t="home.mixer.h2"></h2>
+          <p data-t="home.mixer.p1"></p>
+          <p data-t="home.mixer.p2"></p>
+        </div>
+        <div class="pictures"><img class="shot phone" data-shot="upload-page" data-t-alt="home.mixer.alt" alt="" width="390" height="470" loading="lazy"></div>
+      </div>
+    </section>
+
     <section id="what">
       <h2 data-t="home.what.h2"></h2>
       <ul class="features">
@@ -104,16 +116,26 @@
           <a class="button primary" href="mailto:contact@sermon-studio.app?subject=Sermon%20Studio" data-t="home.churches.invite"></a>
           <a class="button" href="https://my.sermon-studio.app/" data-t="nav.login"></a>
         </p>
-        <p data-t="home.churches.p2"></p>
         <p data-t="home.churches.p3"></p>
       </div>
     </section>
 
-    <section id="download">
-      <h2 data-t="home.download.h2"></h2>
-      <p data-t="home.download.p1"></p>
-      <p><a class="button primary" href="https://github.com/gunnaringe/sermon-studio/releases" data-t="home.download.button"></a></p>
-      <p class="note" data-t="home.download.unsigned"></p>
+    <section id="self">
+      <h2 data-t="home.self.h2"></h2>
+      <p data-t="home.self.p"></p>
+      <div class="cards">
+        <div class="panel" id="download">
+          <h3 data-t="home.download.h3"></h3>
+          <p data-t="home.download.p1"></p>
+          <p><a class="button primary" href="https://github.com/gunnaringe/sermon-studio/releases" data-t="home.download.button"></a></p>
+          <p class="note" data-t="home.download.unsigned"></p>
+        </div>
+        <div class="panel" id="server">
+          <h3 data-t="home.server.h3"></h3>
+          <p data-t="home.server.p"></p>
+          <p><a class="button" href="https://github.com/gunnaringe/sermon-studio/blob/main/docs/running.md" data-t="home.server.button"></a></p>
+        </div>
+      </div>
     </section>
   </main>
   <footer>

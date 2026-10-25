@@ -1,5 +1,5 @@
 // The website (site/), served as Cloudflare serves it (serve.js): every page in every language, the language
-// selector, the same keys in every language, every internal link and picture, the video, and Log in hidden.
+// menu, the phone's menu, the same keys in every language, every internal link and picture, and the video.
 // Saves screenshots of the pages (web/e2e/screenshots/site-*.png) for the PR. Run with scripts/test.sh site.
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
@@ -22,6 +22,12 @@ function watch(page) {
   return problems;
 }
 const ready = (page) => expect(page.locator('html.ready')).toHaveCount(1);
+// choose picks a language in the header's menu (the globe).
+async function choose(page, lang) {
+  await page.locator('#lang summary').click();
+  await page.locator(`#lang button[lang=${lang}]`).click();
+  await expect(page.locator('#lang')).not.toHaveAttribute('open');
+}
 // eager loads the lazy pictures, so the page is whole.
 async function eager(page) {
   await page.evaluate(() => document.querySelectorAll('img[loading=lazy]').forEach((i) => { i.loading = 'eager'; }));
@@ -52,7 +58,8 @@ for (const lang of LANGS) {
       await page.goto(p + '?lang=' + lang);
       await ready(page);
       await expect(page.locator('html')).toHaveAttribute('lang', lang);
-      await expect(page.locator('#lang')).toHaveValue(lang);
+      await expect(page.locator('#lang .code')).toHaveText(lang.toUpperCase());
+      await expect(page.locator(`#lang button[lang=${lang}]`)).toHaveAttribute('aria-pressed', 'true');
       const h1 = page.locator('h1');
       await expect(h1).toBeVisible();
       expect((await h1.textContent()).trim()).not.toBe('');
@@ -83,12 +90,12 @@ for (const lang of LANGS) {
   }
 }
 
-test('the language selector switches the page and is remembered', async ({ page }) => {
+test('the language menu switches the page and is remembered', async ({ page }) => {
   const problems = watch(page);
   await page.goto('/');
   await ready(page);
   await expect(page.locator('h1')).toHaveText(dicts.en['home.h1']);
-  await page.locator('#lang').selectOption('nn');
+  await choose(page, 'nn');
   await expect(page.locator('h1')).toHaveText(dicts.nn['home.h1']);
   await expect(page.locator('html')).toHaveAttribute('lang', 'nn');
   await expect(page.locator('img[data-shot=editor]').first()).toHaveAttribute('src', 'img/shots/nn/editor.webp');
@@ -98,11 +105,11 @@ test('the language selector switches the page and is remembered', async ({ page 
   await page.locator('nav a[href="guide.html"]').click();
   await ready(page);
   await expect(page.locator('h1')).toHaveText(dicts.nn['guide.h1']);
-  // ?lang= is a choice too; the selector then takes it out of the address.
+  // ?lang= is a choice too; the menu then takes it out of the address.
   await page.goto('/privacy.html?lang=nb');
   await ready(page);
   await expect(page.locator('h1')).toHaveText(dicts.nb['privacy.h1']);
-  await page.locator('#lang').selectOption('en');
+  await choose(page, 'en');
   await expect(page).toHaveURL(/\/privacy\.html$/);
   await page.goto('/');
   await ready(page);
@@ -146,6 +153,32 @@ test('the video has its sources and poster, and they are small', async ({ page, 
   expect(await video.evaluate((v) => Math.round(v.duration))).toBeGreaterThanOrEqual(60);
 });
 
+test('on a phone the header is one line, with the pages behind the menu button', async ({ browser }) => {
+  const phone = await browser.newContext({ viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true });
+  const page = await phone.newPage();
+  const problems = watch(page);
+  await page.goto(ORIGIN + '/?lang=nb');
+  await ready(page);
+  const bar = await page.locator('header').boundingBox();
+  expect(bar.height).toBeLessThan(64);
+  const nav = page.locator('header nav');
+  await expect(nav).toBeHidden();
+  const button = page.getByRole('button', { name: dicts.nb['nav.menu'] });
+  await button.click();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  await expect(nav.getByRole('link', { name: dicts.nb['nav.privacy'] })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(nav).toBeHidden();
+  // Nothing is wider than the screen.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  await button.click();
+  await nav.getByRole('link', { name: dicts.nb['nav.guide'] }).click();
+  await ready(page);
+  await expect(page.locator('h1')).toHaveText(dicts.nb['guide.h1']);
+  expect(problems).toEqual([]);
+  await phone.close();
+});
+
 test('an unknown address is the not-found page, and the Worker files are not served', async ({ page, request }) => {
   const r = await page.goto('/no/such/page');
   expect(r.status()).toBe(404);
@@ -165,6 +198,14 @@ test('screenshots for the PR', async ({ browser }) => {
     await eager(page);
     await page.screenshot({ path: path.join(shots, `site-home-${lang}.png`) });
     await page.locator('#churches').screenshot({ path: path.join(shots, `site-churches-${lang}.png`) });
+    await page.locator('#mixer').screenshot({ path: path.join(shots, `site-mixer-${lang}.png`) });
+    await page.locator('#self').screenshot({ path: path.join(shots, `site-self-${lang}.png`) });
+    if (lang === 'nb') {
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+      await page.locator('#lang summary').click();
+      await page.screenshot({ path: path.join(shots, 'site-lang-menu.png'), clip: { x: 0, y: 0, width: 1280, height: 320 } });
+      await page.keyboard.press('Escape');
+    }
     if (lang === 'en') {
       await page.screenshot({ path: path.join(shots, 'site-home-full.png'), fullPage: true });
       for (const [p, name] of [['guide.html', 'site-guide'], ['privacy.html', 'site-privacy']]) {
@@ -183,6 +224,13 @@ test('screenshots for the PR', async ({ browser }) => {
     await ready(page);
     await eager(page);
     await page.screenshot({ path: path.join(shots, `site-phone-${scheme}.png`) });
+    if (scheme === 'light') {
+      await page.locator('.menu-button').click();
+      await page.screenshot({ path: path.join(shots, 'site-phone-menu.png') });
+      await page.goto(`${ORIGIN}/privacy.html?lang=nb`);
+      await ready(page);
+      await page.screenshot({ path: path.join(shots, 'site-phone-privacy.png'), fullPage: true });
+    }
     await phone.close();
   }
 });
