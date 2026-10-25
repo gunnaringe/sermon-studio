@@ -1,0 +1,29 @@
+<!doctype html>
+<!-- The picture link previews show (Signal, Slack, Facebook…): site/img/og.png, made by scripts/make-og-image.sh. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: system-ui, "Segoe UI", Roboto, sans-serif; color: #fff;
+    background: radial-gradient(circle at 20% 30%, #0b4d3a, #063326 70%);
+    display: grid; grid-template-columns: 520px 1fr; align-items: center;
+  }
+  .text { padding: 0 0 0 72px; }
+  .brand { display: flex; align-items: center; gap: 22px; font-size: 52px; font-weight: 700; letter-spacing: -0.5px; }
+  .brand img { width: 104px; height: 104px; }
+  h1 { font-size: 40px; line-height: 1.2; font-weight: 600; margin: 40px 0 0; color: #d6f5e7; }
+  .shot { justify-self: end; width: 640px; height: 470px; margin-right: -60px;
+    border-radius: 18px 0 0 18px; overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+  .shot img { width: 760px; display: block; }
+</style>
+</head>
+<body>
+  <div class="text">
+    <div class="brand"><img src="../site/img/logo.svg" alt=""><span>Sermon Studio</span></div>
+    <h1>From the recording of a service to sermon files</h1>
+  </div>
+  <div class="shot"><img src="../site/img/shots/en/editor.webp" alt=""></div>
+</body>
+</html>

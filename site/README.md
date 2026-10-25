@@ -12,6 +12,7 @@ from other hosts (`_headers` sets a Content-Security-Policy that keeps it so).
 | `style.css` | the studio's look: its green, its gradient, light and dark as the device is |
 | `fonts/signature.woff2` | the signature in About, a copy of `web/static/fonts/signature.woff2` (not under the licence: see `NOTICE`) |
 | `img/logo.svg`, `img/*.png` | the studio's logo and icons, copied from `web/static/icons/` |
+| `img/og.png` | the picture of a link preview (Signal, Slack…; `og:image` in each page's head, with the English title and description, since previews run no script), made by `scripts/make-og-image.sh` from `scripts/og-card.html` |
 | `img/shots/<lang>/*.webp` | the studio in each language, made by `scripts/site-shots.sh shots` |
 | `media/demo.mp4`, `demo.webm`, `demo-poster.webp` | the video, in English, made by `scripts/site-shots.sh video` |
 
