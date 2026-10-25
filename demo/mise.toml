@@ -1,0 +1,6 @@
+# The tools of the demo's scripts (make-recording.sh, make-jingles.sh): `mise install` here, then run them.
+[tools]
+python = "3.12"
+uv = "0.13.5" # pipx: installs Piper with it
+"pipx:piper-tts" = "1.8.0"
+"conda:ffmpeg" = "9.0.2"
