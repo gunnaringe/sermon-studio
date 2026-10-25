@@ -9,5 +9,5 @@
     "lib": ["es2023", "dom", "dom.iterable"],
     "paths": { "wavesurfer.js": ["./web/e2e/node_modules/wavesurfer.js"], "wavesurfer.js/*": ["./web/e2e/node_modules/wavesurfer.js/*"] }
   },
-  "include": ["web/static/*.js", "site/*.js", "web/js.d.ts"]
+  "include": ["web/static/*.js", "web/static/editor/*.js", "site/*.js", "web/js.d.ts"]
 }
