@@ -7,7 +7,8 @@ import (
 	"testing"
 )
 
-// The Go version is named in several places: mise.toml (the host), go.mod, the images (scripts/lib.sh, the Dockerfile)
+// The Go version is named in several places: mise.toml (the host), go.mod, the images (scripts/lib.sh, the Dockerfile,
+// scripts/build-desktop.sh)
 // and CI. They name the same minor version, so a test on the host means what it means in CI and in the image.
 func TestToolVersions(t *testing.T) {
 	root := filepath.Join("..", "..")
@@ -30,6 +31,7 @@ func TestToolVersions(t *testing.T) {
 	for _, c := range []struct{ file, pattern string }{
 		{"go.mod", `(?m)^go (\d+\.\d+)\.\d+$`},
 		{"scripts/lib.sh", `golang:(\d+\.\d+)-alpine`},
+		{"scripts/build-desktop.sh", `golang:(\d+\.\d+)-alpine`},
 		{"Dockerfile", `golang:(\d+\.\d+)-alpine`},
 		{".github/workflows/test.yml", `go-version: '(\d+\.\d+)\.x'`},
 		{".github/workflows/release.yml", `go-version: '(\d+\.\d+)\.x'`},

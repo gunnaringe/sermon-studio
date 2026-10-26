@@ -30,5 +30,5 @@ if command -v go >/dev/null; then
 else
 	run=$(command -v podman || command -v docker) || { echo "needs Go, podman or docker" >&2; exit 1; }
 	"$run" run --rm -v "$PWD":/src:Z -w /src -v gomod:/go/pkg/mod -v gocache:/root/.cache/go-build \
-		docker.io/library/golang:1.25-alpine3.22 sh -c "$build" sh "$version"
+		docker.io/library/golang:1.27-alpine3.24 sh -c "$build" sh "$version"
 fi

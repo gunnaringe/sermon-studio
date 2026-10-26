@@ -1,7 +1,7 @@
 # Shared by scripts/test.sh and scripts/dev.sh (sourced, from the repository's top folder): the container
 # runner, the images, and the test images with ffmpeg.
 run=$(command -v podman || command -v docker) || { echo "needs podman or docker" >&2; exit 1; }
-golang=docker.io/library/golang:1.25-alpine3.22
+golang=docker.io/library/golang:1.27-alpine3.24
 playwright=mcr.microsoft.com/playwright:v1.64.1-noble # keep equal to web/e2e/package.json
 quiet_npm="-e NPM_CONFIG_UPDATE_NOTIFIER=false" # no "new version of npm" notice in the output
 # testimage <name> <base>: the image scripts/test-images/<name>.Containerfile makes from base (ffmpeg added),

@@ -5,7 +5,7 @@ The full reference: build, Docker, the data folder, flags. The short version is 
 ## Requirements
 
 - `ffmpeg` in PATH (Linux: `sudo apt install ffmpeg`), or use the Docker image
-- Go 1.25+ to build
+- Go 1.27+ to build
 
 ## Build
 
