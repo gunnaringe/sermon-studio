@@ -1,0 +1,7 @@
+# The tools for working on the studio on the host: `mise install` here (once: `mise trust`). The checks themselves run
+# in containers (scripts/test.sh, scripts/lib.sh), and use the host's Go only for the unit tests; demo/ has its own.
+# Go follows go.mod, the images (scripts/lib.sh, Dockerfile) and CI: TestToolVersions checks they agree.
+[tools]
+go = "1.25.14"
+gh = "2.103.2"  # scripts/ci-wait.sh, pr-land.sh, pr-shots.sh
+oxipng = "10.2.1" # scripts/make-icons.sh, make-og-image.sh (optional there)

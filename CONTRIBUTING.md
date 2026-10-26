@@ -5,6 +5,8 @@ plain-JS frontend: no build step, no framework.
 
 ## Checks
 
+The tools for the host (Go, `gh`) are in `mise.toml`: run `mise install`. Everything else runs in containers.
+
 ```bash
 scripts/test.sh            # unit tests, seconds: run after every change
 scripts/test.sh changed    # the checks for what your branch changes

@@ -31,6 +31,10 @@ ffmpeg (no login, one church with the JFK speech in its inbox, fresh data each s
 runs it as demo.sermon-studio.app does (`--visitor-role demo`, and the intro and outro from `demo/` when made).
 `scripts/dev.sh logs`, `scripts/dev.sh stop`. Use it for curl checks and one-off screenshots; don't start the binary by hand.
 
+**Tools on the host:** `mise install` (`mise.toml`: Go as CI and the images have it, `gh`, `oxipng`; `mise trust` once in a
+new checkout). `TestToolVersions` checks that `mise.toml`, `go.mod`, `scripts/lib.sh`, the Dockerfile and CI name the same Go;
+change them together. `demo/` has its own `mise.toml`.
+
 ffmpeg is not on the dev host; `all`/`e2e` run in podman, in images with ffmpeg that `test.sh` builds
 once (`scripts/test-images/`, retagged when the file or the base image changes). The browser tests keep
 `node_modules` until the lock file changes, and the test recordings in `web/e2e/fixtures/made/` (delete the
