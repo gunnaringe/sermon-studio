@@ -6,7 +6,7 @@
 #
 #   scripts/test.sh e2e [-g name]        # makes web/e2e/screenshots/*.png
 #   scripts/pr-shots.sh editor phone-editor /tmp/other.png
-#   scripts/pr-shots.sh --pr editor      # also appends the Markdown to this branch's PR
+#   scripts/pr-shots.sh --pr editor      # also adds the Markdown to this branch's PR (above its 🤖 line)
 #
 # A name without a slash or .png is web/e2e/screenshots/<name>.png. Images are
 # made smaller with pngquant if it is installed. Narrow images (phones) are
@@ -62,7 +62,17 @@ done
 printf '%s' "$out"
 
 if $pr; then
+  # The screenshots go at the end, but above a closing "🤖 Generated with" line, which stays last.
   body="$(gh pr view --json body -q .body)"
-  gh pr edit --body "$body"$'\n\n'"## Screenshots"$'\n\n'"$out" >/dev/null
-  echo "(appended to the PR)" >&2
+  footer=""
+  last="${body##*$'\n'}"
+  if [[ "$last" == "🤖 Generated with"* ]]; then
+    footer="$last"
+    body="${body%"$last"}"
+    body="${body%"${body##*[!$'\n']}"}" # the blank lines above it
+  fi
+  body+=$'\n\n'"## Screenshots"$'\n\n'"${out%$'\n\n'}"
+  [ -n "$footer" ] && body+=$'\n\n'"$footer"
+  gh pr edit --body "$body" >/dev/null
+  echo "(added to the PR)" >&2
 fi
