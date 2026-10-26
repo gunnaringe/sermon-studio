@@ -91,8 +91,8 @@ changed)
 	has '^(normalizer/|go\.(mod|sum)$)' && plan="$plan normalizer"
 	has '^cmd/sermon-studio-desktop/' && plan="$plan desktop"
 	# The browser tests: the page, the tests, or the server code behind them.
-	if has '^(web/static/|web/e2e/(tests/|run\.sh$|package)|cmd/sermon-studio/)' ||
-		printf '%s\n' "$files" | grep -E '^web/[^/]+\.go$' | grep -vq '_test\.go$'; then
+	if has '^(web/static/|web/e2e/(tests/|run\.sh$|package))' ||
+		printf '%s\n' "$files" | grep -E '^(web|cmd/sermon-studio)/[^/]+\.go$' | grep -vq '_test\.go$'; then
 		plan="$plan e2e"
 	fi
 	echo "$(printf '%s\n' "$files" | grep -c .) files changed since origin/main; running: $plan"
