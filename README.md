@@ -97,7 +97,7 @@ public share page is a separate listener that reaches nothing but itself and the
 
 ## Run it yourself
 
-You need Docker (or Go 1.25 and ffmpeg). The image includes ffmpeg.
+You need Docker (or Go 1.27 and ffmpeg). The image includes ffmpeg.
 
 ```bash
 git clone https://github.com/gunnaringe/sermon-studio && cd sermon-studio
