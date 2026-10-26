@@ -24,6 +24,7 @@ cd "$(dirname "$0")/.."
 run=$(command -v podman || command -v docker) || { echo "needs podman or docker" >&2; exit 1; }
 golang=docker.io/library/golang:1.25-alpine3.22
 playwright=mcr.microsoft.com/playwright:v1.64.1-noble # keep equal to web/e2e/package.json
+quiet_npm="-e NPM_CONFIG_UPDATE_NOTIFIER=false" # no "new version of npm" notice in the output
 # testimage <name> <base>: the image scripts/test-images/<name>.Containerfile makes from base (ffmpeg added),
 # built the first time and kept; its tag changes with the file and the base, so either changing builds it anew.
 testimage() {
@@ -63,7 +64,7 @@ desktop)
 	;;
 js)
 	image=$(testimage e2e "$playwright")
-	"$run" run --rm -v "$PWD":/src:Z -w /src/web/e2e "$image" sh -c \
+	"$run" run --rm $quiet_npm -v "$PWD":/src:Z -w /src/web/e2e "$image" sh -c \
 		'lock=$(sha256sum package-lock.json | cut -c1-64)
 		[ "$(cat node_modules/.lock-sha 2>/dev/null)" = "$lock" ] || { npm ci --silent --no-audit --no-fund && echo "$lock" >node_modules/.lock-sha; }
 		npx tsc -p ../../jsconfig.json && echo "js ok"'
@@ -71,26 +72,26 @@ js)
 e2e)
 	incontainer 'go build -o web/e2e/bin/sermon-studio ./cmd/sermon-studio'
 	image=$(testimage e2e "$playwright")
-	"$run" run --rm --ipc=host -v "$PWD/web/e2e":/work:Z -w /work "$image" sh run.sh "$@" 2>&1 |
+	"$run" run --rm $quiet_npm --ipc=host -v "$PWD/web/e2e":/work:Z -w /work "$image" sh run.sh "$@" 2>&1 |
 		grep -v -e '^debconf' -e '^$'
 	;;
 guide)
 	mkdir -p docs/img
 	incontainer 'go build -o web/e2e/bin/sermon-studio ./cmd/sermon-studio'
 	image=$(testimage e2e "$playwright")
-	"$run" run --rm --ipc=host -v "$PWD/web/e2e":/work:Z -v "$PWD/docs/img":/out:Z -w /work "$image" sh guide.sh "$@" 2>&1 |
+	"$run" run --rm $quiet_npm --ipc=host -v "$PWD/web/e2e":/work:Z -v "$PWD/docs/img":/out:Z -w /work "$image" sh guide.sh "$@" 2>&1 |
 		grep -v -e '^debconf' -e '^$'
 	;;
 site)
 	image=$(testimage e2e "$playwright")
 	mkdir -p web/e2e/screenshots
-	"$run" run --rm --ipc=host -v "$PWD/web/e2e":/work:Z -v "$PWD/site":/site:ro,z -w /work "$image" sh site/run.sh "$@"
+	"$run" run --rm $quiet_npm --ipc=host -v "$PWD/web/e2e":/work:Z -v "$PWD/site":/site:ro,z -w /work "$image" sh site/run.sh "$@"
 	;;
 site-shots)
 	incontainer 'go build -o web/e2e/bin/sermon-studio ./cmd/sermon-studio'
 	image=$(testimage e2e "$playwright")
 	mkdir -p site/img/shots site/media
-	"$run" run --rm --ipc=host -v "$PWD/web/e2e":/work:Z -v "$PWD/site":/site:z -v "$PWD/web/static":/static:ro,z -w /work \
+	"$run" run --rm $quiet_npm --ipc=host -v "$PWD/web/e2e":/work:Z -v "$PWD/site":/site:z -v "$PWD/web/static":/static:ro,z -w /work \
 		"$image" sh site-shots/run.sh "$@"
 	;;
 image)

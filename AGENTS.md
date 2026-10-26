@@ -14,7 +14,7 @@ scripts/test.sh                       # unit tests, seconds — run after every 
 scripts/test.sh all ./web/ -run X     # with real ffmpeg, one package/test (container)
 scripts/test.sh all                   # everything (~3 min, normalizer integration is slow)
 scripts/test.sh js                    # the check of the JavaScript (~5 s); after changing web/static or site/*.js
-scripts/test.sh e2e [-g name]         # browser tests (~1.5 min); after changing web/static
+scripts/test.sh e2e [-g name]         # browser tests (~4.5 min, one test ~20 s); after changing web/static
 scripts/test.sh desktop               # the desktop program as released, from the outside (~15 s); after
                                       # changing cmd/sermon-studio-desktop or what it uses of web
 scripts/test.sh image                 # Docker build; before release changes
@@ -258,7 +258,7 @@ Don't hand-roll waiting loops around `gh run watch`/`gh run view`: they have sta
 
 ```bash
 scripts/test.sh e2e [-g name]                 # saves web/e2e/screenshots/<name>.png
-scripts/pr-shots.sh --pr <name|png>...        # adds them to this branch's PR
+scripts/pr-shots.sh --pr <name|png>...        # adds them to this branch's PR, above its closing 🤖 line
 ```
 
 `pr-shots.sh` shrinks the images and keeps them on the orphan `pr-shots` branch (nothing

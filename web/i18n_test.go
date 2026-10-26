@@ -42,6 +42,9 @@ func localeDict(t *testing.T, src, name string) map[string]string {
 		if json.Unmarshal([]byte(m[1]), &k) != nil || json.Unmarshal([]byte(m[2]), &v) != nil {
 			t.Fatalf("locales.js: bad line %s", m[0])
 		}
+		if _, dup := out[k]; dup { // JavaScript would keep the last silently; tsc refuses it
+			t.Fatalf("locales.js: %q is in %s twice", k, name)
+		}
 		out[k] = v
 	}
 	return out
