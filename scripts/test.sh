@@ -15,33 +15,16 @@
 #   scripts/test.sh site [args] the website in site/ (Playwright, served as files): pages, languages, links
 #   scripts/test.sh site-shots [shots|video]  the website's pictures and video (use scripts/site-shots.sh)
 #   scripts/test.sh image      the Docker image (vet + all tests inside)
+#   scripts/test.sh changed    the checks for what this branch changes (since it left origin/main, uncommitted too),
+#                              cheapest first, stopping at the first that fails; prints which it runs
+#                              (PLAN_ONLY=1: only that)
 #
 # ffmpeg comes in images built once from scripts/test-images/ (kept, retagged when they change).
 #
 # Go modules and build cache live in named volumes, so repeat runs are fast.
 set -eu
 cd "$(dirname "$0")/.."
-run=$(command -v podman || command -v docker) || { echo "needs podman or docker" >&2; exit 1; }
-golang=docker.io/library/golang:1.25-alpine3.22
-playwright=mcr.microsoft.com/playwright:v1.64.1-noble # keep equal to web/e2e/package.json
-quiet_npm="-e NPM_CONFIG_UPDATE_NOTIFIER=false" # no "new version of npm" notice in the output
-# testimage <name> <base>: the image scripts/test-images/<name>.Containerfile makes from base (ffmpeg added),
-# built the first time and kept; its tag changes with the file and the base, so either changing builds it anew.
-testimage() {
-	file=scripts/test-images/$1.Containerfile
-	tag="localhost/sermon-studio-test-$1:$( (cat "$file"; echo "$2") | sha256sum | cut -c1-12)"
-	if ! "$run" image inspect "$tag" >/dev/null 2>&1; then
-		echo "building $tag (once)" >&2
-		"$run" build -q -t "$tag" --build-arg BASE="$2" -f "$file" scripts/test-images >/dev/null || exit 1
-	fi
-	echo "$tag"
-}
-incontainer() { # incontainer <script> [args for the script's "$@"]; IMAGE overrides the Go image
-	script=$1
-	shift
-	"$run" run --rm -v "$PWD":/src:Z -w /src -v gomod:/go/pkg/mod -v gocache:/root/.cache/go-build \
-		-e CGO_ENABLED=0 "${IMAGE:-$golang}" sh -c "$script" sh "$@"
-}
+. scripts/lib.sh
 
 mode=${1:-unit}
 [ $# -gt 0 ] && shift
@@ -97,8 +80,34 @@ site-shots)
 image)
 	"$run" build -q -t sermon-studio .
 	;;
+changed)
+	base=$(git merge-base origin/main HEAD)
+	files=$( (git diff --name-only "$base"; git ls-files --others --exclude-standard) | sort -u)
+	has() { printf '%s\n' "$files" | grep -Eq "$1"; }
+	plan=unit
+	has '\.md$' && plan="$plan links"
+	has '^(web/static/|site/.*\.js$|jsconfig\.json$|web/js\.d\.ts$)' && plan="$plan js"
+	has '^(site/|web/e2e/site/)' && plan="$plan site"
+	has '^(normalizer/|go\.(mod|sum)$)' && plan="$plan normalizer"
+	has '^cmd/sermon-studio-desktop/' && plan="$plan desktop"
+	# The browser tests: the page, the tests, or the server code behind them.
+	if has '^(web/static/|web/e2e/(tests/|run\.sh$|package)|cmd/sermon-studio/)' ||
+		printf '%s\n' "$files" | grep -E '^web/[^/]+\.go$' | grep -vq '_test\.go$'; then
+		plan="$plan e2e"
+	fi
+	echo "$(printf '%s\n' "$files" | grep -c .) files changed since origin/main; running: $plan"
+	[ -n "${PLAN_ONLY:-}" ] && exit 0
+	for step in $plan; do
+		echo "== $step"
+		case $step in
+		links) scripts/check-links.sh && echo "links ok" ;;
+		normalizer) "$0" all ./normalizer/ ;;
+		*) "$0" "$step" ;;
+		esac
+	done
+	;;
 *)
-	sed -n '2,18p' "$0"
+	sed -n '2,21p' "$0"
 	exit 2
 	;;
 esac

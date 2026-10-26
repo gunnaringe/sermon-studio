@@ -7,6 +7,7 @@ plain-JS frontend: no build step, no framework.
 
 ```bash
 scripts/test.sh            # unit tests, seconds: run after every change
+scripts/test.sh changed    # the checks for what your branch changes
 scripts/test.sh all        # vet + all tests with real ffmpeg (container)
 scripts/test.sh e2e        # browser tests (Playwright, container); after changing web/static
 scripts/test.sh image      # the Docker build; before release changes
@@ -14,6 +15,7 @@ scripts/test.sh image      # the Docker build; before release changes
 
 The integration tests run the whole pipeline with real ffmpeg on synthetic recordings;
 `docker build .` runs them too. `ffmpeg` is not needed on the host: `all` and `e2e` use podman or docker.
+`scripts/dev.sh` runs the studio from your checkout at http://127.0.0.1:8090/, with a sample recording.
 
 ## Pull requests
 

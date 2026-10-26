@@ -11,6 +11,8 @@ The standard library, `golang.org/x/sys` (for Windows), `coreos/go-oidc` + `gola
 
 ```bash
 scripts/test.sh                       # unit tests, seconds — run after every change
+scripts/test.sh changed               # before a PR: the checks for what the branch changes, cheapest first
+                                      # (PLAN_ONLY=1 prints which without running them)
 scripts/test.sh all ./web/ -run X     # with real ffmpeg, one package/test (container)
 scripts/test.sh all                   # everything (~3 min, normalizer integration is slow)
 scripts/test.sh js                    # the check of the JavaScript (~5 s); after changing web/static or site/*.js
@@ -23,6 +25,11 @@ scripts/check-links.sh                # relative links and pictures in the Markd
 scripts/test.sh site                  # the website (site/): pages, languages, links, video (~30 s); after changing site/
 scripts/site-shots.sh [shots|video]   # redo the website's pictures and video (~10 min) when the UI changes
 ```
+
+**Trying the studio:** `scripts/dev.sh [--demo] [--port 8090]` builds this checkout and runs it in a container with
+ffmpeg (no login, one church with the JFK speech in its inbox, fresh data each start), and prints its address; `--demo`
+runs it as demo.sermon-studio.app does (`--visitor-role demo`, and the intro and outro from `demo/` when made).
+`scripts/dev.sh logs`, `scripts/dev.sh stop`. Use it for curl checks and one-off screenshots; don't start the binary by hand.
 
 ffmpeg is not on the dev host; `all`/`e2e` run in podman, in images with ffmpeg that `test.sh` builds
 once (`scripts/test-images/`, retagged when the file or the base image changes). The browser tests keep
@@ -231,7 +238,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - The public share page is on the internet without a login: add nothing to `ShareHandler`
   that reads files or reaches the studio (the two exceptions: `api/share/logo` sends the church's logo to a valid code, and a download
   share's ticket sends its recording's finished files, by format, never by a path); `TestSharePublicIsSeparate` checks this.
-- Keep the Playwright image tag (`scripts/test.sh`) equal to `@playwright/test`
+- Keep the Playwright image tag (`scripts/lib.sh`) equal to `@playwright/test`
   in `web/e2e/package.json`.
 - The JavaScript stays plain, with no build; `tsc` only checks it (`jsconfig.json`, not strict). Elements and events
   take any property (`web/js.d.ts`); give a JSDoc type where the check needs one (`/** @type {WaveSurfer} */`).
