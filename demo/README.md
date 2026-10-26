@@ -12,6 +12,7 @@ repository. The tools come from `mise.toml` here: run `mise install` in this fol
 
 They write to `~/.cache/sermon-studio-samples/` (`OUT=<folder>` for another), where the speech and the voice are
 downloaded once too.
+`scripts/dev.sh --demo` runs the studio from the checkout as the demo, with what they made there.
 
 ## How they are made
 
