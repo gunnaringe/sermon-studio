@@ -14,7 +14,8 @@ test('an invite link says what it is for, and accepting opens the studio', async
       accepted = route.request().postDataJSON();
       return route.fulfill({ json: { church } });
     }
-    expect(new URL(route.request().url()).searchParams.get('token')).toBe('norkirken-melhus.secret');
+    expect(route.request().headers()['invite-token']).toBe('norkirken-melhus.secret');
+    expect(route.request().url()).not.toContain('secret'); // never in the address: proxies log it
     return route.fulfill({ json: { church, role: 'admin', member: false } });
   });
   await page.goto('invite#norkirken-melhus.secret');

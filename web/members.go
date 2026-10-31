@@ -136,9 +136,14 @@ func (a *App) findInvite(token string, take bool) (*tenant, invite, error) {
 	return nil, invite{}, errBad
 }
 
-// handleInvite tells the logged-in user what an invite is for: GET api/invite?token=.
+// handleInvite tells the logged-in user what an invite is for: GET api/invite with the token in the
+// Invite-Token header, not the address, which proxies log. ?token= is still taken from a page loaded before.
 func (a *App) handleInvite(w http.ResponseWriter, r *http.Request) {
-	t, iv, err := a.findInvite(r.URL.Query().Get("token"), false)
+	token := r.Header.Get("Invite-Token")
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
+	t, iv, err := a.findInvite(token, false)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err)
 		return

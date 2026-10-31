@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -686,5 +687,20 @@ func TestParallelRuns(t *testing.T) {
 	}
 	if rec := ts.do(t, "POST", "/api/sample?path=2026-10-11&at=0", defaultRequest()); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "being made") {
 		t.Errorf("sample during its run: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// Errors from the os package reach the page without the server's paths, only the file's name.
+func TestErrorsWithoutPaths(t *testing.T) {
+	_, err := os.Open("/data/kirke-a/Taler/2026/2026-10-04/none.flac")
+	if got := withoutPaths(fmt.Errorf("reading: %w", err)); got != "reading: open none.flac: no such file or directory" {
+		t.Errorf("path error: %q", got)
+	}
+	err = os.Rename("/data/kirke-a/x.partial", "/data/kirke-a/x.flac")
+	if got := withoutPaths(err); strings.Contains(got, "/data") {
+		t.Errorf("link error: %q", got)
+	}
+	if got := withoutPaths(errors.New("the date 2026/13/01 is not valid")); got != "the date 2026/13/01 is not valid" {
+		t.Errorf("other error: %q", got)
 	}
 }

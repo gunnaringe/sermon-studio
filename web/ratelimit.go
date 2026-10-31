@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/netip"
 	"sync"
 	"time"
 )
@@ -91,6 +92,16 @@ func newLimiter(cfg RateLimits) *limiter {
 	return &limiter{cfg: cfg.withDefaults(), now: time.Now, ips: map[string]*ipState{}}
 }
 
+// limitKey is what an address counts as: itself, or for IPv6 its /64, which one home or phone is given
+// whole (so it cannot step around the limits by changing the rest).
+func limitKey(addr string) string {
+	ip, err := netip.ParseAddr(addr)
+	if err != nil || !ip.Is6() || ip.Is4In6() {
+		return addr
+	}
+	return netip.PrefixFrom(ip, 64).Masked().String()
+}
+
 func (l *limiter) ip(addr string, now time.Time) *ipState {
 	st := l.ips[addr]
 	if st == nil {
@@ -103,6 +114,7 @@ func (l *limiter) ip(addr string, now time.Time) *ipState {
 
 // request counts a request and reports how long to wait if over the limit.
 func (l *limiter) request(addr string) (time.Duration, bool) {
+	addr = limitKey(addr)
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
@@ -119,6 +131,7 @@ func (l *limiter) request(addr string) (time.Duration, bool) {
 // blocked reports how long codes are refused from addr (0 = not blocked):
 // after too many wrong codes from it, or from everyone.
 func (l *limiter) blocked(addr string) time.Duration {
+	addr = limitKey(addr)
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
@@ -131,6 +144,7 @@ func (l *limiter) blocked(addr string) time.Duration {
 
 // failed counts a wrong code from addr.
 func (l *limiter) failed(addr string) {
+	addr = limitKey(addr)
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
@@ -144,6 +158,7 @@ func (l *limiter) failed(addr string) {
 
 // acquire takes an upload slot for addr; release gives it back.
 func (l *limiter) acquire(addr string) bool {
+	addr = limitKey(addr)
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	st := l.ip(addr, l.now())
@@ -156,6 +171,7 @@ func (l *limiter) acquire(addr string) bool {
 }
 
 func (l *limiter) release(addr string) {
+	addr = limitKey(addr)
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if st := l.ips[addr]; st != nil && st.uploads > 0 {
