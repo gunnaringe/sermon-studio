@@ -132,8 +132,8 @@ export function waveformPart(ed) {
     const setTime = ws.setTime.bind(ws);
     ws.setTime = (time) => {
       setTime(time);
-      const media = ws.getMediaElement();
-      if (media && media.readyState >= HTMLMediaElement.HAVE_METADATA) media.currentTime = ws.getCurrentTime();
+      const media = ws.getMediaElement(), now = ws.getCurrentTime(); // the pending time, if it kept one
+      if (media && media.readyState >= HTMLMediaElement.HAVE_METADATA && Math.abs(media.currentTime - now) > 0.01) media.currentTime = now;
     };
     // Peaks and ed.duration up front: the browser never downloads or decodes
     // the whole recording, it only streams the preview while playing.
