@@ -692,12 +692,13 @@ func TestParallelRuns(t *testing.T) {
 
 // Errors from the os package reach the page without the server's paths, only the file's name.
 func TestErrorsWithoutPaths(t *testing.T) {
-	_, err := os.Open("/data/kirke-a/Taler/2026/2026-10-04/none.flac")
-	if got := withoutPaths(fmt.Errorf("reading: %w", err)); got != "reading: open none.flac: no such file or directory" {
+	dir := t.TempDir()
+	_, err := os.Open(filepath.Join(dir, "2026-10-04", "none.flac"))
+	if got := withoutPaths(fmt.Errorf("reading: %w", err)); strings.Contains(got, dir) || !strings.HasPrefix(got, "reading: open none.flac: ") {
 		t.Errorf("path error: %q", got)
 	}
-	err = os.Rename("/data/kirke-a/x.partial", "/data/kirke-a/x.flac")
-	if got := withoutPaths(err); strings.Contains(got, "/data") {
+	err = os.Rename(filepath.Join(dir, "x.partial"), filepath.Join(dir, "x.flac"))
+	if got := withoutPaths(err); strings.Contains(got, dir) || !strings.Contains(got, "x.partial x.flac") {
 		t.Errorf("link error: %q", got)
 	}
 	if got := withoutPaths(errors.New("the date 2026/13/01 is not valid")); got != "the date 2026/13/01 is not valid" {
