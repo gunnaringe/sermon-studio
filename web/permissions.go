@@ -104,6 +104,7 @@ var routeActions = map[string]action{
 	"GET /api/jobs/{id}":        actView,
 	"GET /api/jobs/{id}/events": actView,
 	"GET /api/trash":            actView,
+	"GET /api/storage":          actChurchSettings, // Settings → Storage is the admins'
 
 	"POST /api/upload":                     actUpload,
 	"PUT /api/labels":                      actEdit,

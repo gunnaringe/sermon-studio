@@ -127,6 +127,7 @@ func (a *App) AdminHandler() http.Handler {
 	handle("GET /churches", a.adminChurches)
 	handle("POST /churches", a.adminChurchCreate)
 	handle("POST /churches/{church}/rename", a.adminChurchRename)
+	handle("POST /churches/{church}/quota", a.adminChurchQuota)
 	handle("GET /churches/{church}/members", a.adminMembers)
 	handle("POST /churches/{church}/invites", a.adminInvite)
 	handle("POST /churches/{church}/members/{member}/remove", a.adminMemberRemove)
@@ -139,22 +140,32 @@ type AdminChurch struct {
 	Name    string `json:"name"`
 	Members int    `json:"members"`
 	Admins  int    `json:"admins"`
+	Used    int64  `json:"used"`            // bytes it keeps (storage.go)
+	Quota   int64  `json:"quota,omitempty"` // bytes; 0 = no limit
 }
 
 func (a *App) adminChurches(r *http.Request) (int, any, error) {
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	tenants := append([]*tenant(nil), a.tenants...)
+	a.mu.Unlock()
 	out := []AdminChurch{}
-	for _, t := range a.tenants {
-		c := AdminChurch{ID: t.id, Name: t.info().Name, Members: len(t.members)}
-		for _, m := range t.members {
-			if m.Role == RoleAdmin {
-				c.Admins++
-			}
-		}
-		out = append(out, c)
+	for _, t := range tenants {
+		out = append(out, a.adminChurch(t))
 	}
 	return http.StatusOK, out, nil
+}
+
+func (a *App) adminChurch(t *tenant) AdminChurch {
+	use, _ := t.srv.storageNow()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	c := AdminChurch{ID: t.id, Name: t.info().Name, Members: len(t.members), Used: use.total(), Quota: t.srv.quota()}
+	for _, m := range t.members {
+		if m.Role == RoleAdmin {
+			c.Admins++
+		}
+	}
+	return c
 }
 
 // AdminInvite is a new invite link.

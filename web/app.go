@@ -192,6 +192,9 @@ func NewApp(cfg AppConfig) (*App, error) {
 			}
 		}
 	}
+	if err := a.loadQuotas(); err != nil {
+		return fail(err)
+	}
 	if len(a.tenants) == 0 {
 		return nil, errors.New("no churches: set --root, or --data-dir with a folder per church (<id>/Taler)")
 	}
@@ -286,7 +289,7 @@ func (a *App) start(id, dir string, cc churchConfig) (*tenant, error) {
 	if err != nil {
 		return nil, err
 	}
-	t.srv, t.api = srv, srv.apiMux()
+	t.srv, t.api = srv, srv.changesStorage(srv.apiMux())
 	a.mu.Lock()
 	a.tenants = append(a.tenants, t)
 	a.mu.Unlock()

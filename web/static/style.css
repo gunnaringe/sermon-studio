@@ -545,6 +545,12 @@ details.metadata dl.facts { margin-top: 0.5rem; font-size: 0.9em; }
 button.delete:hover:not(:disabled) { border-color: var(--error); background: color-mix(in srgb, var(--error) 8%, var(--panel)); }
 .trash-item, .member-item { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; padding: 0.45rem 0; border-top: 1px solid var(--line); }
 .trash-item:first-child, .member-item:first-child { border-top: 0; }
+/* Settings → Storage: the total against the quota, then by kind. */
+.storage .storage-total { margin: 0 0 0.4rem; font-weight: 600; }
+.storage meter { width: 100%; height: 0.8rem; }
+.storage-kinds { display: grid; grid-template-columns: 1fr auto; gap: 0.3rem 1rem; margin: 0.6rem 0 0; }
+.storage-kinds dt { margin: 0; }
+.storage-kinds dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .trash-actions { margin-left: auto; display: inline-flex; gap: 0.4rem; }
 
 /* the church's intro and outro clips */

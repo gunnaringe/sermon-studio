@@ -94,13 +94,19 @@ with the same checks as in the studio. `--json` prints JSON for scripts.
 
 ```bash
 sermon-studio admin church create norkirken-melhus --name "Norkirken Melhus"   # prints an invite for its first admin
-sermon-studio admin church list
+sermon-studio admin church list                                          # with what each keeps, and its quota
 sermon-studio admin church rename norkirken-melhus "Norkirken"
+sermon-studio admin church quota norkirken-melhus 50GB                    # how much it may keep; none = no limit
 sermon-studio admin members norkirken-melhus
 sermon-studio admin invite norkirken-melhus --role admin --expires 7d   # also how to get back in when a church has lost its admins
 sermon-studio admin remove norkirken-melhus <id or email>               # the id is in `admin members`
 # on Kubernetes: kubectl exec deploy/sermon-studio -- sermon-studio admin church list
 ```
+
+A church's quota is the site administrator's: it is kept in `<data-dir>/churches.json`, and the church's own admins see
+it, and what the church keeps by kind (recordings with their waveform, made files, intro and outro clips, the trash), in
+Settings → Church → Storage, with a warning from 90 %. Sizes are in binary units, as the studio shows them (1 GB =
+1024 MB). Files in the inbox count once they are taken in.
 
 A church always keeps an admin: removing its last one is refused (invite a new admin first). Only one studio runs on a
 data dir: a second one finds the first's socket and refuses to start. Without the login there are no members or
