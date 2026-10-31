@@ -9,6 +9,7 @@ export async function storageView(box) {
   const { use, total, quota } = data;
   const share = quota ? total / quota : 0;
   const size = (n) => n ? formatSize(n) : '0 kB';
+  window.dispatchEvent(new CustomEvent('storage-full', { detail: quota > 0 && total >= quota }));
   const kinds = [
     [t('Recordings'), use.recordings, t('as they came, with their waveform')],
     [t('Made files'), use.files, t('FLAC, MP3 and Opus')],

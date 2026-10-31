@@ -97,6 +97,10 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   when background work ends (`Server.background`) and hourly; `storageNow` waits for a measuring that is running.
   `GET api/storage` is the admins' (Settings → Church → Storage, `storage.js`). `web/quota.go`: the quotas, the site
   administrator's, in `<data-dir>/churches.json` (`sermon-studio admin church quota`, `Server.SetQuota`; 0 = no limit).
+  Keeping within it: an upload holds its size (`reserve`/`release`, per chunk; 507 `errFull`, the share page only
+  `errStorageFull`), `check` refuses a run whose files (`runNeeds`) do not fit, `ingest` leaves a file that does not fit in
+  the inbox (`waiting`, listed by `api/recordings`), clips are checked by their size, and `TenantInfo.Full` gives admins
+  the banner. `fits`/`reserve`/`over` wait for a measuring that is running.
 - `web/admin.go`: the site administrator's API (`AdminHandler`), served by `serve` only on the Unix socket
   `<data-dir>/.admin.sock` (`web.AdminSocket`, 0600; one that answers = another studio on the data dir, refused). `addChurch`
   and `renameChurch` are shared with the studio's API; `statusError`/`writeStatusError` carry an error's HTTP status.

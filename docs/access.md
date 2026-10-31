@@ -108,6 +108,15 @@ it, and what the church keeps by kind (recordings with their waveform, made file
 Settings → Church → Storage, with a warning from 90 %. Sizes are in binary units, as the studio shows them (1 GB =
 1024 MB). Files in the inbox count once they are taken in.
 
+The studio keeps within it:
+- an upload (in the studio or on the share page) holds its whole size while it comes, and is refused at the start when
+  it does not fit; the share page says only that the church's storage is full;
+- a run (Save, or making a missing format) checks about how much its files take first, less what it writes over, and
+  is refused with how much they take and how much is left. One that writes no more than it replaces always goes;
+- a file in the inbox that does not fit stays there, named on the recordings page, and goes in once there is room;
+- a church that keeps its whole quota shows its admins a banner on every page, with links to the storage and the trash.
+  Removing from the trash frees the room at once.
+
 A church always keeps an admin: removing its last one is refused (invite a new admin first). Only one studio runs on a
 data dir: a second one finds the first's socket and refuses to start. Without the login there are no members or
 invites, and churches are also added in the studio.

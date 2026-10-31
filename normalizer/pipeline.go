@@ -312,12 +312,18 @@ func (p *Pipeline) sermonLength(ctx context.Context) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
+	return p.Opt.Length(end), nil
+}
+
+// Length is how long the sermon is, in seconds, cut from a recording of duration seconds: the parts kept
+// and the pauses put in, without the clips.
+func (o Options) Length(duration float64) float64 {
 	var length float64
-	kept, after := p.Opt.parts(end) // an end past the end of the recording just runs to the end
+	kept, after := o.parts(duration) // an end past the end of the recording just runs to the end
 	for _, k := range kept {
 		length += k.End - k.Start
 	}
-	return length + pauseTotal(after), nil
+	return length + pauseTotal(after)
 }
 
 // --- mp3 + opus --------------------------------------------------------

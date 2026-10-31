@@ -115,7 +115,8 @@ func (s *Server) allRecordings() []folderEntry {
 }
 
 func (s *Server) handleRecordings(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"recordings": s.allRecordings(), "newFor": int(newFor.Seconds()), "trashDays": s.trashDays()})
+	writeJSON(w, http.StatusOK, map[string]any{"recordings": s.allRecordings(), "newFor": int(newFor.Seconds()), "trashDays": s.trashDays(),
+		"waiting": s.waitingFiles(nil)}) // inbox files that do not fit in the quota
 }
 
 // handleRecording finds a recording by its slug (GET api/recording?slug=), for a page's address. A slug no
@@ -528,6 +529,11 @@ func (s *Server) check(abs string, q runRequest) plan {
 		return fail(errors.New("the recording is still being converted"))
 	}
 	pl.Outputs = s.outputStatus(paths, pl.opt, pl.Clips)
+	// A run that writes no more than it replaces always goes, also when the church is over its quota.
+	var full errFull
+	if need := s.runNeeds(pl); need > 0 && errors.As(s.fits(need), &full) {
+		return fail(fmt.Errorf("the files do not fit in the church's storage: they take about %s, and %s is left", sizeText(full.need), sizeText(full.left)))
+	}
 	return pl
 }
 

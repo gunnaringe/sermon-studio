@@ -169,7 +169,10 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
   }
   const note = h('p', { class: 'muted', role: 'status' });
 
-  view.replaceChildren(h('h1', {}, t('Recordings')), top, h('div', { class: 'searchbar' }, input), note, list);
+  // Inbox files that do not fit in the church's quota wait there until there is room.
+  const waiting = data.waiting?.length ? h('p', { class: 'cut-warn inbox-full', role: 'status' },
+    tn(data.waiting.length, '{names} stays in the inbox: the church\'s storage is full.', '{names} stay in the inbox: the church\'s storage is full.', { names: data.waiting.join(', ') })) : '';
+  view.replaceChildren(h('h1', {}, t('Recordings')), top, waiting, h('div', { class: 'searchbar' }, input), note, list);
   render();
 
   return {

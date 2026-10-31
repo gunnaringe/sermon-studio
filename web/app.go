@@ -80,6 +80,7 @@ type TenantInfo struct {
 	Role    string   `json:"role,omitempty"`    // the user's: admin or member (in the church list)
 	Actions []string `json:"actions,omitempty"` // what the user may do in it (permissions.go)
 	URL     string   `json:"url,omitempty"`     // the church's own address, with church hosts (hosts.go)
+	Full    bool     `json:"full,omitempty"`    // it keeps its whole quota (storage.go); told only to its admins
 }
 
 type tenant struct {
@@ -471,6 +472,7 @@ func (a *App) handleTenants(w http.ResponseWriter, r *http.Request) {
 		i := a.infoOf(t)
 		i.Role = a.roleOf(u, t)
 		i.Actions = actionsOf(i.Role)
+		i.Full = can(i.Role, actChurchSettings) && t.srv.over() // the banner is for those who can make room and see the storage
 		list = append(list, i)
 		if def == "" || t.id == host || t.id == last {
 			def = t.id

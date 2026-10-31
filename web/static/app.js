@@ -483,6 +483,13 @@ const demoBanner = h('p', { class: 'demo-banner', role: 'note', hidden: true },
   t('This is a demo. Anyone can see your changes, and everything is reset every night.'), ' ',
   h('a', { href: 'https://sermon-studio.app/' }, t('About Sermon Studio')));
 document.querySelector('header').after(demoBanner);
+// A church that keeps its whole quota is told to its admins on every page, with where to make room.
+const fullBanner = h('p', { class: 'demo-banner full-banner', role: 'alert', hidden: true },
+  t('The church has used all its storage: new recordings and files are refused.'), ' ',
+  h('a', { 'data-nav': 'storage' }, t('See the storage')), ' · ', h('a', { 'data-nav': 'trash' }, t('Empty the trash')));
+demoBanner.after(fullBanner);
+// Settings → Storage tells whether the church is full now (after the trash changed), without a new church list.
+window.addEventListener('storage-full', (e) => { fullBanner.hidden = !e.detail; });
 
 function fillPicker() {
   const cur = currentTenant();
@@ -493,6 +500,9 @@ function fillPicker() {
   sharesIcon.href = href('shares');
   sharesIcon.hidden = !churches.shares || !can('shares.manage');
   demoBanner.hidden = role() !== 'demo';
+  fullBanner.hidden = !mine?.full;
+  fullBanner.querySelector('[data-nav=storage]').href = href('settings', 'storage');
+  fullBanner.querySelector('[data-nav=trash]').href = href('settings', 'trash');
   aboutLink.href = href('about');
   const single = churches.tenants.length === 1 && !churches.canAdd;
   select.hidden = single;
