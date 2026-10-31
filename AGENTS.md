@@ -92,6 +92,11 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   which adds no churches, and the page shows a banner; `web/e2e/tests/demo.spec.js` runs one at :8082, set up as in docs/access.md). `changeMembers` keeps an admin. The church list carries the user's `role` and `actions`; `util.js` `can(action)` hides
   what they may not do (Settings' admin parts, `members.js` the Members section, the trash, the shares icon, the upload, the
   editor's Delete, its Upload for this sermon only and Add to the church's clips).
+- `web/storage.go`: what a church keeps (`storageUse`: recordings with their analysis cache, made files, clips, trash; not the
+  inbox or half-written files), in memory only: measured at start, after every request that is not a GET (`changesStorage`),
+  when background work ends (`Server.background`) and hourly; `storageNow` waits for a measuring that is running.
+  `GET api/storage` is the admins' (Settings → Church → Storage, `storage.js`). `web/quota.go`: the quotas, the site
+  administrator's, in `<data-dir>/churches.json` (`sermon-studio admin church quota`, `Server.SetQuota`; 0 = no limit).
 - `web/admin.go`: the site administrator's API (`AdminHandler`), served by `serve` only on the Unix socket
   `<data-dir>/.admin.sock` (`web.AdminSocket`, 0600; one that answers = another studio on the data dir, refused). `addChurch`
   and `renameChurch` are shared with the studio's API; `statusError`/`writeStatusError` carry an error's HTTP status.

@@ -92,6 +92,8 @@ type Server struct {
 
 	tagsMu   sync.Mutex
 	tagDates map[string]string // recording date from tags, by cacheKey ("" = none)
+
+	storage storage // what the church keeps, and its quota (storage.go)
 }
 
 // New prepares a server. Close it to stop background work.
@@ -164,13 +166,15 @@ func (s *Server) Close() {
 	s.wg.Wait()
 }
 
-// background runs fn in its own goroutine as background work: Close waits for it, and Busy reports it.
+// background runs fn in its own goroutine as background work: Close waits for it, Busy reports it, and the
+// church's storage is measured again when it ends.
 func (s *Server) background(fn func()) {
 	s.wg.Add(1)
 	s.working.Add(1)
 	go func() {
 		defer s.wg.Done()
 		defer s.working.Add(-1)
+		defer s.storageChanged() // it may have written or removed files
 		fn()
 	}()
 }
@@ -186,7 +190,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	sub, _ := fs.Sub(static, "static")
 	mux.Handle("GET /", servePages(sub, nil))
-	api := s.apiMux()
+	api := s.changesStorage(s.apiMux())
 	for _, method := range []string{"GET", "POST", "PUT"} {
 		mux.Handle(method+" /api/", api)
 	}
@@ -238,6 +242,7 @@ func (s *Server) apiMux() *http.ServeMux {
 	handle(mux, "POST /api/recordings/delete", s.handleDelete)
 	handle(mux, "POST /api/recordings/delete-original", s.handleDeleteOriginal)
 	handle(mux, "GET /api/trash", s.handleTrash)
+	handle(mux, "GET /api/storage", s.handleStorage)
 	handle(mux, "POST /api/trash/restore", s.handleRestore)
 	handle(mux, "POST /api/trash/remove", s.handleTrashRemove)
 	handle(mux, "POST /api/sample", s.handleSample)

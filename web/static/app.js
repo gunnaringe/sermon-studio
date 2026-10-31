@@ -8,6 +8,7 @@ import { editorView } from './editor.js';
 import { alertDialog, promptDialog } from './dialog.js';
 import { sharesView } from './shares.js';
 import { trashView } from './trash.js';
+import { storageView } from './storage.js';
 import { clipsView } from './clips.js';
 import { processingView } from './processing.js';
 import { membersView } from './members.js';
@@ -386,9 +387,20 @@ async function settingsView(box, part) {
   const clips = h('section', { id: 'clips' });
   await clipsView(clips);
 
+  // The church's storage (the admins'), drawn again when the trash changes.
+  const storageBox = h('div');
+  const storage = h('section', { id: 'storage' }, h('h3', {}, t('Storage')), storageBox);
+  const showStorage = () => can('church.settings') ? storageView(storageBox).catch(() => {}) : null;
+
   const trash = h('section', { id: 'trash' });
   const trashCount = h('span', { class: 'muted' });
-  await trashView(trash, (n) => { trashCount.textContent = n ? tn(n, '{n} recording', '{n} recordings') : t('Empty'); });
+  let trashDrawn = false;
+  await trashView(trash, (n) => {
+    trashCount.textContent = n ? tn(n, '{n} recording', '{n} recordings') : t('Empty');
+    if (trashDrawn) showStorage();
+    trashDrawn = true;
+  });
+  await showStorage();
 
   const processing = h('section', { id: 'processing' });
   await processingView(processing, async () => { config = await api('GET', 'api/config'); });
@@ -423,11 +435,12 @@ async function settingsView(box, part) {
             data.placeholders.flatMap((p, i) => [h('code', {}, '{' + p.name + '}'), ' ' + tr(p.help) + (i < data.placeholders.length - 1 ? ' · ' : '.')])),
           h('div', { class: 'panel tags' }, rows, h('div', {}, save, ' ', status))) : '') : '',
     settings ? group('sound', t('Processing'), note(t('Noise reduction, loudness and formats')), processing) : '',
-    settings || withMembers ? group('church', t('Church'), note(settings ? (withMembers ? t('Name, logo and members') : t('Name and logo')) : t('Members')),
+    settings || withMembers ? group('church', t('Church'), note(settings ? (withMembers ? t('Name, logo, members and storage') : t('Name, logo and storage')) : t('Members')),
       settings ? h('section', { id: 'name-logo' },
         h('div', { class: 'panel tags' }, h('label', {}, h('span', { class: 'name' }, t('Name')), nameInput), h('div', {}, saveName, ' ', nameStatus),
           h('p', { class: 'muted' }, t('Logo, shown in a square in the header: use a square one, like an app icon; other shapes are shrunk to fit. PNG, JPEG, WebP or SVG, up to 1 MB.')), logoBox)) : '',
-      withMembers ? members : '') : '',
+      withMembers ? members : '',
+      settings ? storage : '') : '',
     can('recording.delete') ? group('trash', t('Trash'), trashCount, trash) : '',
     group('browser', t('This browser'), note(t('Language, theme and waveform')),
       h('section', { id: 'appearance' }, h('h3', {}, t('Appearance')), appearance()),

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -25,7 +26,7 @@ type adminCmd struct {
 	DataDir string `required:"" help:"The studio's --data-dir (where its admin socket is)."`
 	JSON    bool   `name:"json" help:"Print JSON, for scripts."`
 
-	Church  churchCmd  `cmd:"" help:"Add, list and rename churches."`
+	Church  churchCmd  `cmd:"" help:"Add, list and rename churches, and set their storage quota."`
 	Members membersCmd `cmd:"" help:"List a church's members."`
 	Invite  inviteCmd  `cmd:"" help:"Print an invite link to a church (single use)."`
 	Remove  removeCmd  `cmd:"" help:"Take a member out of a church."`
@@ -37,6 +38,7 @@ type churchCmd struct {
 	Create churchCreateCmd `cmd:"" help:"Add a church; prints an invite link for its first admin."`
 	List   churchListCmd   `cmd:"" help:"List the churches."`
 	Rename churchRenameCmd `cmd:"" help:"Change a church's name."`
+	Quota  churchQuotaCmd  `cmd:"" help:"Set how much a church may keep: 50GB, 500MB, 1.5TB, or none."`
 }
 
 type churchCreateCmd struct {
@@ -49,6 +51,11 @@ type churchListCmd struct{}
 type churchRenameCmd struct {
 	ID   string `arg:"" help:"The church's id."`
 	Name string `arg:"" help:"Its new name."`
+}
+
+type churchQuotaCmd struct {
+	ID    string `arg:"" help:"The church's id."`
+	Quota string `arg:"" help:"50GB, 500MB, 1.5TB (1 GB = 1024 MB, as the studio shows sizes), or none for no limit."`
 }
 
 type membersCmd struct {
@@ -148,9 +155,9 @@ func (c *churchListCmd) Run(a *adminCmd) error {
 		return err
 	}
 	return a.print(out, func(w io.Writer) {
-		fmt.Fprintln(w, "ID\tNAME\tMEMBERS\tADMINS")
+		fmt.Fprintln(w, "ID\tNAME\tMEMBERS\tADMINS\tUSED\tQUOTA")
 		for _, c := range out {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%d\n", c.ID, c.Name, c.Members, c.Admins)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\t%s\n", c.ID, c.Name, c.Members, c.Admins, sizeText(c.Used), quotaText(c.Quota))
 		}
 	})
 }
@@ -161,6 +168,56 @@ func (c *churchRenameCmd) Run(a *adminCmd) error {
 		return err
 	}
 	return a.print(out, func(w io.Writer) { fmt.Fprintf(w, "%s is now called %s.\n", out.ID, out.Name) })
+}
+
+func (c *churchQuotaCmd) Run(a *adminCmd) error {
+	quota, err := parseSize(c.Quota)
+	if err != nil {
+		return err
+	}
+	var out web.AdminChurch
+	if err := a.call("POST", "/churches/"+url.PathEscape(c.ID)+"/quota", map[string]int64{"quota": quota}, &out); err != nil {
+		return err
+	}
+	return a.print(out, func(w io.Writer) {
+		fmt.Fprintf(w, "%s keeps %s; its quota is %s.\n", out.ID, sizeText(out.Used), quotaText(out.Quota))
+	})
+}
+
+// parseSize reads a quota: a number with MB, GB or TB (binary, as the studio shows sizes), or none (0).
+func parseSize(s string) (int64, error) {
+	t := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(s), " ", ""))
+	if t == "NONE" || t == "0" {
+		return 0, nil
+	}
+	for _, u := range []struct {
+		suffix string
+		shift  uint
+	}{{"TB", 40}, {"GB", 30}, {"MB", 20}} {
+		if n, ok := strings.CutSuffix(t, u.suffix); ok {
+			f, err := strconv.ParseFloat(n, 64)
+			if err != nil || f <= 0 {
+				break
+			}
+			return int64(f * float64(int64(1)<<u.shift)), nil
+		}
+	}
+	return 0, fmt.Errorf("%q is not a size: write 50GB, 500MB, 1.5TB or none", s)
+}
+
+// sizeText is a size as the studio shows it.
+func sizeText(n int64) string {
+	if n >= 1<<30 {
+		return fmt.Sprintf("%.1f GB", float64(n)/(1<<30))
+	}
+	return fmt.Sprintf("%d MB", n>>20)
+}
+
+func quotaText(n int64) string {
+	if n == 0 {
+		return "none"
+	}
+	return sizeText(n)
 }
 
 // adminMember is a member as the admin socket lists them.

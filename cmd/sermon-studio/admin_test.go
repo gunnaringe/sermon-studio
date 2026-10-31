@@ -90,6 +90,44 @@ func TestAdminChurches(t *testing.T) {
 	}
 }
 
+func TestAdminChurchQuota(t *testing.T) {
+	data := adminStudio(t)
+	os.WriteFile(filepath.Join(data, "kirke-a", "Taler", "x_raw.flac"), make([]byte, 3<<20), 0o644)
+	out, err := admin(t, data, "church", "quota", "kirke-a", "1.5GB")
+	if err != nil || out != "kirke-a keeps 3 MB; its quota is 1.5 GB.\n" {
+		t.Fatalf("quota: %v %q", err, out)
+	}
+	b, _ := os.ReadFile(filepath.Join(data, "churches.json"))
+	if !strings.Contains(string(b), `"quota": 1610612736`) {
+		t.Errorf("churches.json: %s", b)
+	}
+	if out, _ := admin(t, data, "church", "list"); !strings.Contains(out, "3 MB  1.5 GB") {
+		t.Errorf("list: %q", out)
+	}
+	if out, err := admin(t, data, "church", "quota", "kirke-a", "none"); err != nil || !strings.Contains(out, "its quota is none") {
+		t.Errorf("none: %v %q", err, out)
+	}
+	if b, _ := os.ReadFile(filepath.Join(data, "churches.json")); strings.TrimSpace(string(b)) != "{}" {
+		t.Errorf("churches.json after none: %s", b)
+	}
+	for _, bad := range []string{"50", "GB", "-1GB", "1.5x GB", "lots"} {
+		if _, err := admin(t, data, "church", "quota", "kirke-a", bad); err == nil {
+			t.Errorf("%q: no error", bad)
+		}
+	}
+	if _, err := admin(t, data, "church", "quota", "nope", "1GB"); err == nil || !strings.Contains(err.Error(), `no church "nope"`) {
+		t.Errorf("no church: %v", err)
+	}
+}
+
+func TestParseSize(t *testing.T) {
+	for in, want := range map[string]int64{"500MB": 500 << 20, "50 GB": 50 << 30, "1.5tb": 3 << 39, "none": 0, "0": 0} {
+		if got, err := parseSize(in); err != nil || got != want {
+			t.Errorf("%q: %d %v, want %d", in, got, err, want)
+		}
+	}
+}
+
 // A second studio on the same data dir is refused; a socket left behind is not in the way.
 func TestAdminSocketOnePerDataDir(t *testing.T) {
 	data := adminStudio(t)

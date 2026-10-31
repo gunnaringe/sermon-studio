@@ -54,8 +54,8 @@ func (s *Server) sweepLeftovers(now time.Time) {
 	}
 }
 
-// keepSweeping runs sweepLeftovers (and empties what has been in the trash long enough) at start and then every hour, until the
-// server closes.
+// keepSweeping runs sweepLeftovers (and empties what has been in the trash long enough, and measures the storage) at start and
+// then every hour, until the server closes.
 func (s *Server) keepSweeping() {
 	defer s.wg.Done()
 	tick := time.NewTicker(time.Hour)
@@ -63,6 +63,7 @@ func (s *Server) keepSweeping() {
 	for now := time.Now(); ; {
 		s.sweepLeftovers(now)
 		s.purgeTrash(now)
+		s.storageChanged() // also the first measuring, and one that corrects what a change outside the studio did
 		select {
 		case <-s.ctx.Done():
 			return
