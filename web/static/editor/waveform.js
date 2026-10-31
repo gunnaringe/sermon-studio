@@ -127,6 +127,14 @@ export function waveformPart(ed) {
       ],
     });
     cleanups.push(() => ws.destroy());
+    // wavesurfer 8 keeps a seek made while the browser is still seeking for later, and the earlier seek's
+    // 'seeking' event then drops it, so quick key presses were lost. Seek the media element as well.
+    const setTime = ws.setTime.bind(ws);
+    ws.setTime = (time) => {
+      setTime(time);
+      const media = ws.getMediaElement(), now = ws.getCurrentTime(); // the pending time, if it kept one
+      if (media && media.readyState >= HTMLMediaElement.HAVE_METADATA && Math.abs(media.currentTime - now) > 0.01) media.currentTime = now;
+    };
     // Peaks and ed.duration up front: the browser never downloads or decodes
     // the whole recording, it only streams the preview while playing.
     ws.load(previewURL, [data.peaks], data.duration).catch((e) => {
