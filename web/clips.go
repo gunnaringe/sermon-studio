@@ -284,6 +284,10 @@ func (s *Server) receiveClip(w http.ResponseWriter, r *http.Request, up clipUplo
 		writeError(w, http.StatusBadRequest, fmt.Errorf("a clip must be one of these types: %s", strings.Join(normalizer.InputTypes(), " ")))
 		return false
 	}
+	if err := s.fits(max(r.ContentLength, 0)); err != nil {
+		writeError(w, http.StatusInsufficientStorage, err)
+		return false
+	}
 	s.clips.mu.Lock()
 	busy := s.clips.pending[up.key] != nil && s.clips.pending[up.key].Error == ""
 	if !busy {

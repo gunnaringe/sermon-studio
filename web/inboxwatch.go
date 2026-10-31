@@ -82,6 +82,11 @@ func (w *inboxWatcher) scan() {
 		}
 	}
 	w.seen = now
+	keep := map[string]bool{}
+	for name := range now {
+		keep[name] = true
+	}
+	w.s.waitingFiles(keep) // forgets those that left the inbox
 }
 
 // ingest moves a recording from the inbox into its date folder as
@@ -100,6 +105,15 @@ func (s *Server) ingest(name string) error {
 	if err != nil {
 		return nil // taken meanwhile
 	}
+	// A file that does not fit in the church's quota stays in the inbox, and is tried again on every look:
+	// it goes in once there is room. The recordings page says so.
+	if err := s.fits(info.Size()); err != nil {
+		if s.wait(name, info.Size(), false) {
+			s.cfg.Logger.Printf("inbox: %s stays in the inbox: %v", name, err)
+		}
+		return nil
+	}
+	s.wait(name, 0, true)
 	date, _ := s.suggestDate(s.ctx, src, info.ModTime())
 	var folder string
 	for n := 1; ; n++ {

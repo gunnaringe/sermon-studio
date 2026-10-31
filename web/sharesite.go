@@ -238,12 +238,18 @@ func (a *App) handleShareStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := randomID(16)
+	if err := t.srv.reserve(shareReservation(id), q.Size); err != nil {
+		a.cfg.Base.Logger.Printf("share: no room in the quota for %s (%s) from %s: %v", name, sizeText(q.Size), ip, err)
+		writeError(w, http.StatusInsufficientStorage, errStorageFull) // no numbers on the public page
+		return
+	}
 	if sh.Pending == nil {
 		sh.Pending = map[string]*pendingUpload{}
 	}
 	sh.Pending[id] = &pendingUpload{Name: name, Size: q.Size, Modified: q.Modified, IP: ip, Started: time.Now().UTC()}
 	if err := a.saveShares(t); err != nil {
 		delete(sh.Pending, id)
+		t.srv.release(shareReservation(id))
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -259,6 +265,9 @@ func containsExt(types []string, name string) bool {
 	}
 	return false
 }
+
+// shareReservation is the key of a share upload's room in the church's quota (Server.reserve).
+func shareReservation(id string) string { return "share:" + id }
 
 func partialPath(t *tenant, id string) string {
 	return filepath.Join(t.srv.cfg.Inbox, ".share-"+id+".partial")
@@ -368,6 +377,10 @@ func (a *App) handleShareChunk(w http.ResponseWriter, r *http.Request) {
 		a.shareMu.Unlock()
 	}()
 
+	if err := t.srv.reserve(shareReservation(id), p.Size); err != nil {
+		writeError(w, http.StatusInsufficientStorage, errStorageFull)
+		return
+	}
 	tmp := partialPath(t, id)
 	if have := partialSize(tmp); have != offset {
 		writeJSON(w, http.StatusConflict, map[string]any{"error": fmt.Sprintf("expected the chunk at %d", have), "offset": have})
@@ -426,6 +439,7 @@ func (a *App) dropUpload(t *tenant, sh *Share, id string) {
 		return
 	}
 	delete(sh.Pending, id)
+	t.srv.release(shareReservation(id))
 	normalizer.Remove(partialPath(t, id))
 	if err := a.saveShares(t); err != nil {
 		a.cfg.Base.Logger.Printf("share: saving %s: %v", sharesFile, err)
@@ -479,6 +493,7 @@ func (a *App) finishShareUpload(t *tenant, sh *Share, id string, p pendingUpload
 			return "", err
 		}
 	}
+	t.srv.release(shareReservation(id)) // the file is in the inbox: taking it in checks it fits
 	a.shareMu.Lock()
 	delete(sh.Pending, id)
 	sh.Count++

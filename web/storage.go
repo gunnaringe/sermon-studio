@@ -1,9 +1,14 @@
 package web
 
 import (
+	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +40,122 @@ type storage struct {
 	dirty    bool          // something changed since the measuring that is running started
 	running  chan struct{} // closed when the measuring that is running ends; nil = none is
 	quota    int64         // bytes; 0 = no limit
+	// reserved is held by uploads in progress, by upload (their declared size); one not heard from for
+	// uploadStale no longer holds anything.
+	reserved map[string]reservation
+	// waiting are the inbox files that do not fit, by name: left in the inbox (their size).
+	waiting map[string]int64
+}
+
+type reservation struct {
+	bytes int64
+	at    time.Time
+}
+
+// errFull is what does not fit in the church's quota. Its message has the sizes, for the studio; the public
+// share page says only that the storage is full (errStorageFull).
+type errFull struct{ need, left int64 }
+
+func (e errFull) Error() string {
+	return fmt.Sprintf("the church's storage is full: %s does not fit, %s is left", sizeText(e.need), sizeText(e.left))
+}
+
+var errStorageFull = errors.New("the church's storage is full")
+
+// room checks that need more bytes fit in the quota, besides what the uploads in progress (but key's own)
+// hold; with st.mu held. Before the first measuring, everything fits: nothing is known yet.
+func (st *storage) room(key string, need int64, now time.Time) error {
+	if st.quota == 0 || !st.measured {
+		return nil
+	}
+	used := st.use.total()
+	for k, r := range st.reserved {
+		if now.Sub(r.at) > uploadStale {
+			delete(st.reserved, k)
+		} else if k != key {
+			used += r.bytes
+		}
+	}
+	if used+need > st.quota {
+		return errFull{need: need, left: max(st.quota-used, 0)}
+	}
+	return nil
+}
+
+// fits checks that need more bytes fit in the church's quota.
+func (s *Server) fits(need int64) error {
+	s.settled()
+	s.storage.mu.Lock()
+	defer s.storage.mu.Unlock()
+	return s.storage.room("", need, time.Now())
+}
+
+// reserve holds bytes for an upload in progress, if they fit. Every chunk calls it again: that keeps the
+// reservation, and stops an upload when what it holds no longer fits (the quota was lowered).
+func (s *Server) reserve(key string, bytes int64) error {
+	s.settled()
+	st := &s.storage
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	now := time.Now()
+	if err := st.room(key, bytes, now); err != nil {
+		return err
+	}
+	if st.reserved == nil {
+		st.reserved = map[string]reservation{}
+	}
+	st.reserved[key] = reservation{bytes, now}
+	return nil
+}
+
+// release ends an upload's reservation: it is done (its file now counts) or gone.
+func (s *Server) release(key string) {
+	s.storage.mu.Lock()
+	delete(s.storage.reserved, key)
+	s.storage.mu.Unlock()
+}
+
+// over reports whether the church keeps more than its quota.
+func (s *Server) over() bool {
+	s.settled()
+	st := &s.storage
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return st.quota > 0 && st.measured && st.use.total() >= st.quota
+}
+
+// wait notes that an inbox file does not fit (true the first time), or that it went in or is gone (fit).
+func (s *Server) wait(name string, size int64, fit bool) (first bool) {
+	st := &s.storage
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if fit {
+		delete(st.waiting, name)
+		return false
+	}
+	if st.waiting == nil {
+		st.waiting = map[string]int64{}
+	}
+	_, had := st.waiting[name]
+	st.waiting[name] = size
+	return !had
+}
+
+// waitingFiles are the inbox files that do not fit, by name.
+func (s *Server) waitingFiles(keep map[string]bool) []string {
+	st := &s.storage
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	names := []string{}
+	for name := range st.waiting {
+		if keep != nil && !keep[name] {
+			delete(st.waiting, name) // no longer in the inbox
+			continue
+		}
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 // measureStorage walks the church's files. Half-written files (hidden) and the inbox do not count: an inbox
@@ -122,19 +243,24 @@ func (s *Server) storageChanged() {
 // storageNow is the church's use, waiting (a little) for a measuring that is running, so a page that asks
 // right after a change sees it.
 func (s *Server) storageNow() (storageUse, bool) {
+	s.settled()
 	st := &s.storage
 	st.mu.Lock()
-	running := st.running
-	st.mu.Unlock()
+	defer st.mu.Unlock()
+	return st.use, st.measured
+}
+
+// settled waits (a little) for a measuring that is running: a change just made is then counted.
+func (s *Server) settled() {
+	s.storage.mu.Lock()
+	running := s.storage.running
+	s.storage.mu.Unlock()
 	if running != nil {
 		select {
 		case <-running:
 		case <-time.After(5 * time.Second):
 		}
 	}
-	st.mu.Lock()
-	defer st.mu.Unlock()
-	return st.use, st.measured
 }
 
 // SetQuota sets the church's quota in bytes; 0 = no limit.
@@ -164,4 +290,67 @@ func (s *Server) changesStorage(next http.Handler) http.Handler {
 			s.storageChanged()
 		}
 	})
+}
+
+// flacBytesPerSecond is about what a second of the made FLAC takes per channel (48 kHz, 16 bit, compressed to
+// about 60 %).
+const flacBytesPerSecond = 48000 * 2 * 6 / 10
+
+// runNeeds is about how many more bytes a run's files take: what it writes, less what it writes over. 0 when
+// the recording's length is not known yet.
+func (s *Server) runNeeds(pl plan) int64 {
+	st := readState(pl.paths.Folder)
+	if st.Recording == nil || st.Recording.Format.Duration <= 0 {
+		return 0
+	}
+	sermon := pl.opt.Length(st.Recording.Format.Duration)
+	withClips := sermon
+	for _, c := range []*clipRef{pl.Clips.Intro, pl.Clips.Outro} {
+		if c != nil {
+			withClips += c.Seconds + pl.Clips.Pause
+		}
+	}
+	channels := 1.0
+	if pl.opt.Stereo {
+		channels = 2
+	}
+	perSecond := map[string]float64{
+		"flac": flacBytesPerSecond * channels,
+		"mp3":  bitsPerSecond(pl.opt.Mp3Bitrate) / 8,
+		"opus": bitsPerSecond(pl.opt.OpusBitrate) / 8,
+	}
+	on := map[string]bool{"flac": pl.opt.Outputs.Flac, "mp3": pl.opt.Outputs.Mp3, "opus": pl.opt.Outputs.Opus}
+	var need int64
+	for _, x := range runOutputs(pl.paths, pl.Clips) {
+		f := baseFormat(x.format)
+		if !on[f] {
+			continue
+		}
+		length := withClips
+		if x.format != f { // the sermon only
+			length = sermon
+		}
+		bytes := int64(perSecond[f] * length)
+		if info, err := os.Stat(x.path); err == nil {
+			if !pl.opt.Force {
+				continue // kept as it is
+			}
+			bytes -= info.Size()
+		}
+		need += max(bytes, 0)
+	}
+	return need
+}
+
+// bitsPerSecond reads a bitrate as ffmpeg takes it: "96k", "128000".
+func bitsPerSecond(rate string) float64 {
+	n, k := strings.CutSuffix(strings.ToLower(rate), "k")
+	f, err := strconv.ParseFloat(n, 64)
+	if err != nil {
+		return 0
+	}
+	if k {
+		f *= 1000
+	}
+	return f
 }

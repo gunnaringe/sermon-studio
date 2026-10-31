@@ -29,7 +29,8 @@ test('settings: intro and outro clips, the defaults, archive and delete', async 
   const clip = (name) => box.locator('.clip[data-clip]', { hasText: name });
 
   await upload('Jingle.wav', wav(4));
-  await expect(clip('Jingle')).toContainText('0:04');
+  // The first test of a run: the clip waits for the one decode while the test recordings are prepared.
+  await expect(clip('Jingle')).toContainText('0:04', { timeout: 30_000 });
   await upload('Takk for at du lyttet.wav', wav(2));
   await expect(clip('Takk for at du lyttet')).toContainText('not used');
   await upload('Stille.wav', wav(2, 0));

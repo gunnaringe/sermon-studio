@@ -86,6 +86,11 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The whole file is held in the church's quota while it comes, so two uploads cannot both take the last room.
+	if err := s.reserve(tmp, size); err != nil {
+		writeError(w, http.StatusInsufficientStorage, err)
+		return
+	}
 	f, err := os.OpenFile(tmp, flag, 0o644)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
@@ -115,6 +120,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer s.release(tmp) // the file counts from now on (measured from here), or is gone
 	if fileExists(final) {
 		normalizer.Remove(tmp)
 		writeError(w, http.StatusConflict, fmt.Errorf("%s appeared meanwhile", filepath.Base(final)))
@@ -124,6 +130,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	s.storageChanged() // before its reservation ends, so it is never in neither
 	// The file's own time, once it is no longer a half-written one the sweep could take.
 	if ms, err := strconv.ParseInt(q.Get("modified"), 10, 64); err == nil && ms > 0 {
 		t := time.UnixMilli(ms)
