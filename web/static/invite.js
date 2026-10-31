@@ -11,8 +11,8 @@ langSelect.addEventListener('change', () => { setLang(langSelect.value); locatio
 const view = document.getElementById('view');
 const token = decodeURIComponent(location.hash.slice(1));
 
-async function call(method, url, body) {
-  const opts = { method, headers: {} };
+async function call(method, url, body, headers = {}) {
+  const opts = { method, headers };
   if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
@@ -53,7 +53,7 @@ async function start() {
     show(h('p', { class: 'error' }, t('This link has no invite in it. Copy the whole link, and try again.')));
     return;
   }
-  const inv = await call('GET', 'api/invite?token=' + encodeURIComponent(token));
+  const inv = await call('GET', 'api/invite', undefined, { 'Invite-Token': token }); // not in the address: proxies log it
   const name = inv.church.name;
   if (inv.member && inv.role !== 'admin') {
     show(h('p', {}, t('You are already a member of {church}.', { church: name })),

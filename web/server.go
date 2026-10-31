@@ -325,7 +325,28 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
-	writeJSON(w, status, map[string]string{"error": err.Error()})
+	writeJSON(w, status, map[string]string{"error": withoutPaths(err)})
+}
+
+// withoutPaths is an error's message with the file paths the os package puts in it shortened to their
+// names: the page has no use for where the server keeps its files.
+func withoutPaths(err error) string {
+	msg := err.Error()
+	var paths []string
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		paths = append(paths, pe.Path)
+	}
+	var le *os.LinkError
+	if errors.As(err, &le) {
+		paths = append(paths, le.Old, le.New)
+	}
+	for _, p := range paths {
+		if filepath.IsAbs(p) {
+			msg = strings.ReplaceAll(msg, p, filepath.Base(p))
+		}
+	}
+	return msg
 }
 
 // pathParam resolves the "path" query parameter, writing an error if bad.

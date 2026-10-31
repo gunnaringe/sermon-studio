@@ -85,7 +85,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - `web/members.go`: with the login, a church is for its members (`<church>/members.json`: issuer, sub, role admin/member). They
   join by an invite link `invite#<church>.<secret>` (`addInvite`: from Settings → Members, `POST api/invites`, or
   `sermon-studio admin invite`; `<church>/invites.json` keeps hashes, single use, an expiry; revoke by `id`, the
-  hash's start). `api/invite` (GET what it is for, POST accept) needs a session but no church; without one, `invite.js` offers Log in and, with `--oidc-signup-url` (the 401 carries it as `signup`), Create an account in a new tab (Pocket ID's app sign-in has no Sign Up). What a role may do is in `web/permissions.go`:
+  hash's start). `api/invite` (GET what it is for, the token in the `Invite-Token` header so proxies do not log it; POST accept) needs a session but no church; without one, `invite.js` offers Log in and, with `--oidc-signup-url` (the 401 carries it as `signup`), Create an account in a new tab (Pocket ID's app sign-in has no Sign Up). What a role may do is in `web/permissions.go`:
   every route has an action in `routeActions` (`handle` will not register one without; under `/api/` a request no route has
   gets 404), `roleActions` gives each role (admin, member, demo) its actions, and `permit` checks them before any handler
   (403). Without the login every visitor has `--visitor-role` (`AppConfig.VisitorRole`, admin by default; a demo is `demo`,
@@ -178,7 +178,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - `web/share.go`: shares (codes for the public share page: upload shares, and download shares, `sharedownload.go`), `<church>/shares.json`, the studio's
   `api/shares` (only with `--share-listen`; its own overlay from the share icon in the header, `shares`, `shares.js`; the icon's number is `api/shares/active`). Pause/resume (the same code works again), remove a paused or ended one (`removeShares`; an open share is never removed; remove-ended leaves the paused). `web/sharesite.go`: the public listener
   (`App.ShareHandler`: `share.html` + `api/share/*`, nothing else), chunked upload to
-  `Innboks/.share-<id>.partial`. `web/ratelimit.go`: its limits per address and in all.
+  `Innboks/.share-<id>.partial`. `web/ratelimit.go`: its limits per address (an IPv6 address counts as its /64) and in all.
 - `web/sharedownload.go`: a download share gives one recording's finished files (`kind: "download"`, made with Share for download… in
   `sermons.js`). It finds its recording by `id` in `recording.json` (given when the share is made; the path is a hint that follows a
   rename, a recording in the trash is not found). `POST api/share/downloads` counts one and hands out a ticket (`GET api/share/downloads/{id}`,
@@ -245,6 +245,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   again for a few seconds while a file is in use (a preview playing, a virus scan). A sermon folder's path
   must fit Windows' 259 characters with its longest file (`folderFits`); names cannot end in a dot, and
   Windows' device names (`nul`, `com1` ...) are not churches or kept file names (`windowsDevice`).
+- Every answer of the studio carries `securityHeaders` (`app.go`: no frames, `nosniff`, `Referrer-Policy: same-origin`, HSTS with the
+  login on HTTPS); the share page has its own (`shareGuard`). Errors reach the page without server paths (`withoutPaths`).
 - Measure with `ebur128` (`FFmpeg.Measure`), not `loudnorm`.
 - Messages from `normalizer` show in the web UI: use the form's names
   (Start, Save, mono), not flags. English everywhere.

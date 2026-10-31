@@ -381,6 +381,27 @@ func TestShareLimiterUploadsAndPrune(t *testing.T) {
 	}
 }
 
+// IPv6 addresses count per /64: one client cannot step around the limits by changing the rest of its address.
+func TestShareLimiterIPv6Prefix(t *testing.T) {
+	l := newLimiter(RateLimits{UploadsPerIP: 1, UploadsTotal: 10})
+	if !l.acquire("2001:db8:1:2::1") || l.acquire("2001:db8:1:2:aaaa::7") {
+		t.Error("two addresses of one /64 got a slot each")
+	}
+	if !l.acquire("2001:db8:1:3::1") || !l.acquire("192.0.2.1") || !l.acquire("192.0.2.2") {
+		t.Error("another /64, or IPv4 addresses, were refused")
+	}
+	l.release("2001:db8:1:2:ffff::1")
+	if !l.acquire("2001:db8:1:2::9") {
+		t.Error("the /64's slot was not given back")
+	}
+	for i := range DefaultRateLimits.FailsPerIP {
+		l.failed(fmt.Sprintf("2001:db8:5:6::%x", i+1))
+	}
+	if l.blocked("2001:db8:5:6::1") == 0 || l.blocked("2001:db8:5:7::1") != 0 {
+		t.Error("wrong codes are not counted per /64")
+	}
+}
+
 // The public listener serves the upload page and nothing of the studio.
 func TestSharePublicIsSeparate(t *testing.T) {
 	st := newShareTest(t, RateLimits{RequestsPerIP: 1000, RequestsTotal: 1000})

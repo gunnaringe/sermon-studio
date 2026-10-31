@@ -374,7 +374,8 @@ func (au *auth) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, au.cookie(sessionCookie, value, sessionFor))
-	http.Redirect(w, r, st.Next, http.StatusFound)
+	// Checked again: the login cookie is not signed, and another host of the cookie domain could set one.
+	http.Redirect(w, r, au.safeNext(st.Next), http.StatusFound)
 }
 
 func cmpOr(a, b string) string {

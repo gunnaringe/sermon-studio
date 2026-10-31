@@ -430,6 +430,22 @@ func TestLoginNextStaysHere(t *testing.T) {
 			t.Errorf("next %q: went to %q, want %q", next, got, want)
 		}
 	}
+
+	// A login cookie set elsewhere (another host of the cookie domain can) is checked again at the callback.
+	w := l.do("GET", "/auth/login?next=/", "")
+	to, _ := url.Parse(w.Header().Get("Location"))
+	l.prov.nonce, l.prov.verifier = to.Query().Get("nonce"), to.Query().Get("code_challenge")
+	c := cookieOf(w, loginCookie)
+	var st loginState
+	b, _ := base64.RawURLEncoding.DecodeString(c.Value)
+	json.Unmarshal(b, &st)
+	st.Next = "https://evil.example/"
+	b, _ = json.Marshal(st)
+	c.Value = base64.RawURLEncoding.EncodeToString(b)
+	w = l.do("GET", "/auth/callback?code=good-code&state="+url.QueryEscape(st.State), "", c)
+	if got := w.Header().Get("Location"); w.Code != http.StatusFound || got != "/" {
+		t.Errorf("a planted next: %d, went to %q", w.Code, got)
+	}
 }
 
 func TestInvite(t *testing.T) {
@@ -448,9 +464,17 @@ func TestInvite(t *testing.T) {
 	if w := l.do("GET", "/api/invite?token="+url.QueryEscape(token), ""); w.Code != http.StatusUnauthorized {
 		t.Errorf("invite without session: %d", w.Code)
 	}
-	info := decode[map[string]any](t, l.do("GET", "/api/invite?token="+url.QueryEscape(token), "", c))
-	if info["role"] != RoleMember || info["member"] != false || info["church"].(map[string]any)["id"] != "kirke-a" {
-		t.Errorf("invite info: %v", info)
+	// The token comes in a header (invite.js), or in the address from a page loaded before that.
+	r := httptest.NewRequest("GET", "https://"+l.host+"/api/invite", nil)
+	r.Header.Set("Invite-Token", token)
+	r.AddCookie(c)
+	w := httptest.NewRecorder()
+	l.h.ServeHTTP(w, r)
+	for _, w := range []*httptest.ResponseRecorder{w, l.do("GET", "/api/invite?token="+url.QueryEscape(token), "", c)} {
+		info := decode[map[string]any](t, w)
+		if info["role"] != RoleMember || info["member"] != false || info["church"].(map[string]any)["id"] != "kirke-a" {
+			t.Errorf("invite info: %v", info)
+		}
 	}
 	if w := l.do("POST", "/api/invite", `{"token":"`+token+`"}`, c); w.Code != http.StatusOK {
 		t.Fatalf("accept: %d %s", w.Code, w.Body.String())
@@ -585,5 +609,25 @@ func TestNoIndex(t *testing.T) {
 		if got := w.Header().Get("X-Robots-Tag"); got != "noindex, nofollow" {
 			t.Errorf("%s (%d): X-Robots-Tag %q", name, w.Code, got)
 		}
+	}
+}
+
+// The studio's answers keep it out of frames, stop type guessing, keep its addresses out of other sites'
+// Referer and, on HTTPS, keep the browser on it; the logo keeps its own, stricter policy.
+func TestSecurityHeaders(t *testing.T) {
+	l := newLoginApp(t)
+	c := l.session()
+	for _, u := range []string{"/", "/c/kirke-a/settings", "/api/tenants", "/auth/login?next=/", "/style.css"} {
+		h := l.do("GET", u, "", c).Header()
+		if h.Get("Content-Security-Policy") != "frame-ancestors 'none'" || h.Get("X-Frame-Options") != "DENY" ||
+			h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Referrer-Policy") != "same-origin" ||
+			h.Get("Strict-Transport-Security") != "max-age=31536000" {
+			t.Errorf("%s: %v", u, h)
+		}
+	}
+	// Without the login (the desktop app, on plain HTTP): no HSTS.
+	_, open, _, _ := newTestApp(t)
+	if h := do(open, "GET", "/api/tenants", "").Header(); h.Get("X-Frame-Options") != "DENY" || h.Get("Strict-Transport-Security") != "" {
+		t.Errorf("without the login: %v", h)
 	}
 }

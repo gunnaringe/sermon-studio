@@ -434,7 +434,24 @@ func (a *App) Handler() http.Handler {
 	}
 	// Once there is a login cookie, other sites must not be able to
 	// start runs, uploads or imports on the user's behalf.
-	return noIndex(http.NewCrossOriginProtection().Handler(h))
+	return noIndex(securityHeaders(a.auth != nil && a.auth.secure, http.NewCrossOriginProtection().Handler(h)))
+}
+
+// securityHeaders keep the studio out of frames (a page elsewhere, or on another host of the cookie domain,
+// must not get the user's clicks on it), stop the browser guessing a file's type, keep the studio's addresses
+// out of the Referer of links that leave it, and, with the login on HTTPS, keep the browser on HTTPS.
+func securityHeaders(https bool, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", "frame-ancestors 'none'")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "same-origin")
+		if https {
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // noIndex keeps the studio out of search engines: its pages are a login, a
