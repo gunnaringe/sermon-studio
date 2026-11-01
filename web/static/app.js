@@ -11,6 +11,7 @@ import { trashView } from './trash.js';
 import { storageView } from './storage.js';
 import { clipsView } from './clips.js';
 import { processingView } from './processing.js';
+import { transcriptSettings } from './transcripts.js';
 import { membersView } from './members.js';
 import { recordingsView } from './recordings.js';
 import { t, tn, tr, lang, LANGS, setLang, getTheme, setTheme } from './i18n.js';
@@ -404,6 +405,8 @@ async function settingsView(box, part) {
 
   const processing = h('section', { id: 'processing' });
   await processingView(processing, async () => { config = await api('GET', 'api/config'); });
+  const transcripts = h('section', { id: 'transcripts' });
+  if (can('church.settings')) await transcriptSettings(transcripts);
 
   // Members, with the login. Only those who may (admins) see the church's own settings (name, logo, tags,
   // processing; its clips) and change its members; the trash is for those who may delete.
@@ -434,7 +437,7 @@ async function settingsView(box, part) {
           h('p', { class: 'muted' }, t('Written into all generated recordings. You can change them for one recording in the editor. Placeholders:'), ' ',
             data.placeholders.flatMap((p, i) => [h('code', {}, '{' + p.name + '}'), ' ' + tr(p.help) + (i < data.placeholders.length - 1 ? ' · ' : '.')])),
           h('div', { class: 'panel tags' }, rows, h('div', {}, save, ' ', status))) : '') : '',
-    settings ? group('sound', t('Processing'), note(t('Noise reduction, loudness and formats')), processing) : '',
+    settings ? group('sound', t('Processing'), note(transcripts.childElementCount ? t('Noise reduction, loudness, formats and transcripts') : t('Noise reduction, loudness and formats')), processing, transcripts) : '',
     settings || withMembers ? group('church', t('Church'), note(settings ? (withMembers ? t('Name, logo, members and storage') : t('Name, logo and storage')) : t('Members')),
       settings ? h('section', { id: 'name-logo' },
         h('div', { class: 'panel tags' }, h('label', {}, h('span', { class: 'name' }, t('Name')), nameInput), h('div', {}, saveName, ' ', nameStatus),

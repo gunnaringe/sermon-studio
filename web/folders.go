@@ -259,6 +259,8 @@ type folderInfo struct {
 	MadeWith *madeWith `json:"madeWith,omitempty"`
 	// OriginalDeleted is when the original was deleted, keeping the files (handleDeleteOriginal).
 	OriginalDeleted *time.Time `json:"originalDeleted,omitempty"`
+	// Transcript is the sermon's transcript (transcribe.go); nil when the studio makes none.
+	Transcript *transcriptInfo `json:"transcript,omitempty"`
 }
 
 type outputFileInfo struct {
@@ -287,6 +289,9 @@ func (s *Server) folderInfo(abs string) (folderInfo, error) {
 		}
 	}
 	info.MadeWith = s.madeWithOf(paths, st)
+	if s.cfg.transcriber != nil {
+		info.Transcript = s.transcript(paths, st)
+	}
 	if j := s.jobs.latest(info.Path); j != nil {
 		snap := j.snapshot()
 		info.Job = &snap

@@ -628,3 +628,7 @@ input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(-
 @media (max-width: 640px) {
   .group-body { padding-left: 0; }
 }
+
+/* A sermon's transcript (transcripts.js). */
+.transcript summary .badge { margin-left: 0.5em; }
+.transcript-text { max-width: 70ch; }

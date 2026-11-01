@@ -55,6 +55,12 @@ type Config struct {
 	ClipsDir  string
 	Clips     *clipLibrary
 	SaveClips func(clipLibrary) error
+	// Transcript is the language of the church's transcripts ("" = none; transcribe.go), SaveTranscript
+	// stores a change (nil = kept in memory only).
+	Transcript     string
+	SaveTranscript func(string) error
+
+	transcriber *transcriber // set by App: the speech models and the turn, shared; nil = no transcripts
 }
 
 // limits keeps the heavy work in check, across all churches: runs and samples (encode) up to runs at a time,
@@ -79,6 +85,11 @@ type Server struct {
 	// Busy; lastChunk is when the last upload chunk arrived (Unix nanoseconds).
 	working   atomic.Int32
 	lastChunk atomic.Int64
+
+	// transcriptMu guards the church's transcript language and the transcripts being made, by folder.
+	transcriptMu   sync.Mutex
+	transcriptLang string
+	transcripts    map[string]*transcriptWork
 
 	limits   *limits // shared by all churches: AppConfig.ParallelRuns encodes, one decode at a time
 	jobs     *jobs
@@ -133,6 +144,7 @@ func New(cfg Config) (*Server, error) {
 	if cfg.ClipsDir != "" {
 		s.clips.sweep()
 	}
+	s.transcriptLang, s.transcripts = cfg.Transcript, map[string]*transcriptWork{}
 	s.jobs = newJobs(s)
 	s.analyses = newAnalyses(s)
 	if cfg.Inbox != "" {
@@ -206,6 +218,11 @@ func (s *Server) apiMux() *http.ServeMux {
 	handle(mux, "GET /api/settings", s.handleSettings)
 	handle(mux, "PUT /api/settings", s.handleSettingsPut)
 	handle(mux, "PUT /api/processing", s.handleProcessingPut)
+	handle(mux, "GET /api/transcription", s.handleTranscription)
+	handle(mux, "PUT /api/transcription", s.handleTranscriptionPut)
+	handle(mux, "POST /api/transcript", s.handleTranscript)
+	handle(mux, "POST /api/transcript/cancel", s.handleTranscriptCancel)
+	handle(mux, "POST /api/transcript/remove", s.handleTranscriptRemove)
 	handle(mux, "GET /api/clips", s.handleClips)
 	handle(mux, "POST /api/clips", s.handleClipAdd)
 	handle(mux, "PUT /api/clips/defaults", s.handleClipDefaults)
@@ -400,7 +417,7 @@ func (s *Server) fileInfo(abs string) *fileInfo {
 	return &fileInfo{Name: filepath.Base(abs), Path: s.relPath(abs), Size: st.Size(), Modified: st.ModTime()}
 }
 
-// handleFile serves audio files under the root: outputs to listen to or download.
+// handleFile serves audio files under the root: outputs to listen to or download, and transcripts.
 func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 	abs, ok := s.pathParam(w, r)
 	if !ok {
@@ -412,6 +429,9 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 		".ogg": "audio/ogg", ".wma": "audio/x-ms-wma", ".caf": "audio/x-caf", ".mp4": "video/mp4", ".mov": "video/quicktime",
 		".mkv": "video/x-matroska", ".webm": "video/webm"}
 	ctype, known := types[strings.ToLower(filepath.Ext(abs))]
+	if !known && isTranscript(abs) {
+		ctype, known = map[string]string{".txt": "text/plain; charset=utf-8", ".vtt": "text/vtt; charset=utf-8"}[filepath.Ext(abs)], true
+	}
 	if !known {
 		writeError(w, http.StatusNotFound, errors.New("not an audio file"))
 		return

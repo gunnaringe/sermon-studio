@@ -13,6 +13,7 @@ The pictures show a real speech: President Kennedy's inaugural address (1961), 1
 5. [Shares: sending recordings, downloading sermons](#shares)
 6. [Settings, tags, language and theme](#tags)
 7. [Intro and outro clips](#intro-and-outro-clips)
+8. [Transcripts](#transcripts)
 
 ## The recordings page
 
@@ -287,6 +288,14 @@ archived or deleted; choose another default (or none) first.
 
 On the recordings page, a sermon made with clips says which (**Made with: intro …**), whether the intro or outro has changed
 since, and **Download** offers the files **with intro and outro** or the **sermon only**.
+
+## Transcripts
+
+With speech models on the server, **Settings → Processing → Transcripts** sets the language of the church's sermons; the
+transcript is then made after the files of each sermon, and the sermon's details on the recordings page show it, with
+**Download text** and **Download captions (WebVTT)**. Read it before you publish it: names and Bible references can come
+out wrong. A transcript made from an earlier cut, or with an older model, says so and offers **Make again**; it is never
+made again by itself. Setting up the models: [transcripts](transcripts.md).
 
 ## Inbox
 

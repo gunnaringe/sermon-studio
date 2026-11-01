@@ -47,6 +47,9 @@
   channel is silent or 20 dB or more quieter than the other: stereo output would have the
   sermon on one side only, while mono mixes both channels. It only warns.
 
+With transcripts on, the date folder also gets `<date>.transcript.json`, `<date>.txt` and `<date>.vtt`
+([transcripts](transcripts.md)).
+
 ## The original recording
 
 A run moves the whole recording into `original/` in the date folder, as FLAC, so the date folder

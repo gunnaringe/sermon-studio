@@ -13,8 +13,11 @@ Licensed under the Apache License 2.0 (LICENSE), except:
 - normalizer/models/speech.rnnn is a model from github.com/GregorR/rnnoise-models
   (somnolent-hogwash), whose README says the models are not subject to copyright
   (see normalizer/models/README.md).
+- normalizer/models/silero-vad.bin is Silero VAD (github.com/snakers4/silero-vad),
+  under the MIT licence in normalizer/models/LICENSE-silero-vad.
 - The desktop app has ffmpeg built in (github.com/gunnaringe/ffmpeg-lgpl): FFmpeg under the LGPL
-  2.1 or later, with LAME (LGPL), Opus (BSD) and zlib (zlib licence). Their
+  2.1 or later, with LAME (LGPL), Opus (BSD), zlib (zlib licence) and
+  whisper.cpp (MIT). Their
   licences come with it (sermon-studio-desktop --licenses, and LICENSES.txt next
   to the unpacked ffmpeg); the exact sources are in the release named in
   packaging/ffmpeg-release.

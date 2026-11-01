@@ -34,6 +34,7 @@ type cli struct {
 	Version kong.VersionFlag `help:"Print the version and exit."`
 	Serve   serveCmd         `cmd:"" default:"withargs" help:"Run the studio (the default command)."`
 	Admin   adminCmd         `cmd:"" help:"The site administrator's tools, run where the studio runs."`
+	Models  modelsCmd        `cmd:"" help:"Download the speech models for transcripts into the models folder."`
 }
 
 type serveCmd struct {
@@ -62,6 +63,9 @@ type serveCmd struct {
 	Layout       string `default:"${layout}" help:"Where imported recordings go under --root, as a Go time layout."`
 	FFmpeg       string `name:"ffmpeg" default:"ffmpeg" help:"Path to ffmpeg."`
 	ParallelRuns int    `default:"1" help:"How many runs (making the files) can work at once, across all churches; each uses about one core."`
+
+	Transcripts bool   `default:"true" negatable:"" group:"Transcripts" help:"Let churches have transcripts of their sermons (Settings → Processing), made after the files by ffmpeg's whisper filter with the models in --models-dir (off without the filter). One at a time, on all cores."`
+	ModelsDir   string `group:"Transcripts" help:"The speech models: models.json and the files it names (sermon-studio models pull fills it). Read each time, so a model that arrives is used at once. Default: <data-dir>/.models."`
 
 	ShareListen        string `group:"Share page" help:"Address for the public share page, where recordings are sent and finished sermons downloaded with a code made in the studio (Shares, in the header); empty = off."`
 	ShareURL           string `name:"share-url" group:"Share page" help:"The share page's public address (e.g. https://upload-sermons.example.org/), for share links."`
@@ -226,11 +230,19 @@ func (s *serveCmd) Run() error {
 			RequestsTotal: s.ShareRequestsTotal, UploadsPerIP: s.ShareUploadsPerIP, UploadsTotal: s.ShareUploadsTotal}
 		share = &web.ShareOptions{URL: s.ShareURL, IPHeader: s.ShareIPHeader, Limits: limits}
 	}
+	ff := normalizer.FFmpeg{Bin: bin}
+	var transcription *web.TranscriptionConfig
+	if s.Transcripts {
+		transcription, err = s.transcription(ff, logger)
+		if err != nil {
+			return err
+		}
+	}
 	srv, err := web.NewApp(web.AppConfig{
 		Base: web.Config{Root: s.Root, Inbox: s.Inbox, CacheDir: s.CacheDir,
-			Layout: s.Layout, TrashDays: s.TrashDays, FFmpeg: normalizer.FFmpeg{Bin: bin}, Logger: logger},
+			Layout: s.Layout, TrashDays: s.TrashDays, FFmpeg: ff, Logger: logger},
 		DataDir: s.DataDir, OIDC: oidc, ChurchHost: s.ChurchHost,
-		Share: share, ParallelRuns: s.ParallelRuns, VisitorRole: s.VisitorRole,
+		Share: share, ParallelRuns: s.ParallelRuns, VisitorRole: s.VisitorRole, Transcription: transcription,
 	})
 	if err != nil {
 		return err
@@ -302,6 +314,28 @@ func listenAdmin(path string) (net.Listener, error) {
 	}
 	os.Chmod(path, 0o600) // the data dir is the studio's own anyway
 	return l, nil
+}
+
+// transcription is the setup of transcripts, or nil (said in the log) when this ffmpeg has no whisper filter
+// or there is nowhere to keep the models.
+func (s *serveCmd) transcription(ff normalizer.FFmpeg, logger *log.Logger) (*web.TranscriptionConfig, error) {
+	dir := s.ModelsDir
+	if dir == "" && s.DataDir != "" {
+		dir = filepath.Join(s.DataDir, ".models")
+	}
+	if dir == "" {
+		logger.Printf("no transcripts: --root without --models-dir")
+		return nil, nil
+	}
+	if !ff.HasFilter(context.Background(), "whisper") {
+		logger.Printf("no transcripts: this ffmpeg has no whisper filter")
+		return nil, nil
+	}
+	if !normalizer.CanTranscribe() {
+		logger.Printf("no transcripts: the processor has no AVX and F16C, which the whisper filter needs")
+		return nil, nil
+	}
+	return &web.TranscriptionConfig{ModelsDir: dir}, nil
 }
 
 func defaultCacheDir() string {
