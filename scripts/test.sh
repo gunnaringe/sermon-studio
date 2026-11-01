@@ -31,15 +31,15 @@ mode=${1:-unit}
 case $mode in
 unit)
 	if command -v go >/dev/null; then
-		test -z "$(gofmt -l cmd normalizer web)" || { gofmt -l cmd normalizer web; echo "gofmt needed" >&2; exit 1; }
+		test -z "$(gofmt -l cmd models normalizer web)" || { gofmt -l cmd models normalizer web; echo "gofmt needed" >&2; exit 1; }
 		go vet ./... && go test -short ./...
 	else
-		incontainer 'test -z "$(gofmt -l cmd normalizer web)" || { gofmt -l cmd normalizer web; exit 1; }; go vet ./... && go test -short ./...'
+		incontainer 'test -z "$(gofmt -l cmd models normalizer web)" || { gofmt -l cmd models normalizer web; exit 1; }; go vet ./... && go test -short ./...'
 	fi
 	;;
 all)
 	[ $# -eq 0 ] && set -- ./...
-	IMAGE=$(testimage go "$golang") incontainer 'test -z "$(gofmt -l cmd normalizer web)" && go vet ./... && FFMPEG_REQUIRED=1 go test "$@"' "$@"
+	IMAGE=$(testimage go "$golang") incontainer 'test -z "$(gofmt -l cmd models normalizer web)" && go vet ./... && FFMPEG_REQUIRED=1 go test "$@"' "$@"
 	;;
 desktop)
 	TARGETS=linux-amd64 scripts/build-desktop.sh test >/dev/null

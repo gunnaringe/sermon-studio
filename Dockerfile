@@ -22,6 +22,7 @@ RUN . packaging/ffmpeg-release && mkdir /ffmpeg && cd /ffmpeg \
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
+COPY models ./models
 COPY normalizer ./normalizer
 COPY web ./web
 RUN go vet ./... && FFMPEG_REQUIRED=1 go test ./...
