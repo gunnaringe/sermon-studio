@@ -72,9 +72,10 @@ func TestBackgroundNice(t *testing.T) {
 	if _, err := exec.LookPath("nice"); err != nil {
 		t.Skip("no nice here")
 	}
-	// An ffmpeg that says its priority (nice without arguments prints it).
+	// An ffmpeg that says its priority (macOS has no /proc).
 	bin := filepath.Join(t.TempDir(), "ffmpeg")
-	if err := os.WriteFile(bin, []byte("#!/bin/sh\nnice\n"), 0o755); err != nil {
+	script := "#!/bin/sh\nif [ -r /proc/$$/stat ]; then cut -d' ' -f19 /proc/$$/stat; else ps -o nice= -p $$; fi\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	niceness := func(f FFmpeg) string {
