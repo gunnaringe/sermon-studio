@@ -1,6 +1,11 @@
 package normalizer
 
 import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -56,5 +61,33 @@ func TestValidLanguage(t *testing.T) {
 		if ValidLanguage(code) != ok {
 			t.Errorf("%q: %v", code, !ok)
 		}
+	}
+}
+
+// A transcript's ffmpeg runs at the lowest priority, and only that one.
+func TestBackgroundNice(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no nice on Windows")
+	}
+	if _, err := exec.LookPath("nice"); err != nil {
+		t.Skip("no nice here")
+	}
+	// An ffmpeg that says its priority (nice without arguments prints it).
+	bin := filepath.Join(t.TempDir(), "ffmpeg")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\nnice\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	niceness := func(f FFmpeg) string {
+		res, err := f.run(context.Background(), nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(res.Stdout)
+	}
+	if got := niceness(FFmpeg{Bin: bin, background: true}); got != "19" {
+		t.Errorf("background: nice %s, want 19", got)
+	}
+	if got := niceness(FFmpeg{Bin: bin}); got == "19" {
+		t.Errorf("a run: nice %s, want the studio's own", got)
 	}
 }
