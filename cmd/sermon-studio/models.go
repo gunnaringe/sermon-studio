@@ -26,7 +26,7 @@ type modelsCmd struct {
 
 type modelsPullCmd struct {
 	Dir   string        `required:"" help:"The models folder (the studio's --models-dir)."`
-	Model []string      `required:"" placeholder:"LANGS=MODEL" help:"A model and its languages: nb,nn=NbAiLab/nb-whisper-medium/ggml-model-q5_0.bin (owner/name/file, at main), or the file's URL on Hugging Face (…/resolve/<revision>/<file>). * as the language: any (whisper finds it). Again for more; the first for a language is used."`
+	Model []string      `required:"" sep:"none" placeholder:"LANGS=MODEL" help:"A model and its languages: nb,nn=NbAiLab/nb-whisper-medium/ggml-model-q5_0.bin (owner/name/file, at main), or the file's URL on Hugging Face (…/resolve/<revision>/<file>). * as the language: any (whisper finds it). Again for more; the first for a language is used."`
 	Every time.Duration `help:"Look again this often (e.g. 24h) and keep running; a model that has changed is downloaded and used from the next transcript."`
 
 	out io.Writer // os.Stderr; tests set it
