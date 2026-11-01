@@ -9,7 +9,8 @@ out wrong: read it before you publish it.
 
 The studio only reads a models folder, `--models-dir` (default `<data-dir>/.models`): `models.json`, which lists the
 models and their languages, and the files it names. It reads it each time it needs it, so a model that arrives is used
-from the next transcript, with no restart. Without the folder, without a whisper filter in ffmpeg, or on an x86 processor
+from the next transcript, with no restart. Without the folder, without a whisper filter in ffmpeg (use ffmpeg-lgpl's build, as the image and the desktop app do: FFmpeg's own filter
+crashes near the end of some recordings and is several times slower, see ffmpeg-lgpl's build.sh), or on an x86 processor
 without AVX and F16C (before 2012), the studio makes no transcripts and says why in its log; `--no-transcripts` turns
 them off.
 
