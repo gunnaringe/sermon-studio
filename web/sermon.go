@@ -30,6 +30,7 @@ type sermonSettings struct {
 type soundSettings struct {
 	Stereo         bool    `json:"stereo"`
 	NoiseReduction int     `json:"noiseReduction"`
+	NoiseMethod    string  `json:"noiseMethod,omitempty"` // "" = standard
 	RoomSound      int     `json:"roomSound"`
 	Leveling       string  `json:"leveling"`
 	Compression    string  `json:"compression"`
@@ -44,7 +45,7 @@ func (s *soundSettings) applyTo(q *runRequest) {
 	if s == nil {
 		return
 	}
-	q.Stereo, q.NoiseReduction, q.RoomSound, q.Leveling, q.Compression = s.Stereo, s.NoiseReduction, s.RoomSound, s.Leveling, s.Compression
+	q.Stereo, q.NoiseReduction, q.NoiseMethod, q.RoomSound, q.Leveling, q.Compression = s.Stereo, s.NoiseReduction, s.NoiseMethod, s.RoomSound, s.Leveling, s.Compression
 	q.TargetLUFS, q.TruePeak, q.Mp3Bitrate, q.OpusBitrate = s.TargetLUFS, s.TruePeak, s.Mp3Bitrate, s.OpusBitrate
 }
 
@@ -53,7 +54,7 @@ func (s *soundSettings) applyTo(q *runRequest) {
 func (c sermonSettings) withSound(p processing) sermonSettings {
 	if c.Sound == nil {
 		q := p.start()
-		c.Sound = &soundSettings{Stereo: q.Stereo, NoiseReduction: q.NoiseReduction, RoomSound: q.RoomSound, Leveling: q.Leveling,
+		c.Sound = &soundSettings{Stereo: q.Stereo, NoiseReduction: q.NoiseReduction, NoiseMethod: q.NoiseMethod, RoomSound: q.RoomSound, Leveling: q.Leveling,
 			Compression: q.Compression, TargetLUFS: q.TargetLUFS, TruePeak: q.TruePeak, Mp3Bitrate: q.Mp3Bitrate, OpusBitrate: q.OpusBitrate}
 	}
 	return c

@@ -581,6 +581,7 @@ input.pause { width: 4.5em; }
 .processing { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1.2rem 2.5rem; }
 .pgroup > strong { display: block; margin-bottom: 0.4rem; }
 .pgroup label { display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; }
+.pgroup label[hidden], .processing-defaults label[hidden] { display: none; }
 .pgroup label > .name { min-width: 11em; }
 .pgroup input[type=number] { width: 6.5em; }
 .pgroup input[type=text] { width: 9em; }

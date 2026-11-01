@@ -29,6 +29,8 @@ func (o Options) Validate() error {
 		return errors.New("max true peak must be from -20 to 0 dBTP")
 	case o.RoomSound < 0 || o.RoomSound > 100:
 		return errors.New("room sound must be from 0 to 100")
+	case !slices.Contains(NoiseMethods, o.NoiseMethodName()):
+		return fmt.Errorf("noise reduction must be one of %s", strings.Join(NoiseMethods, ", "))
 	case !slices.Contains(LevelingNames, o.LevelingName()):
 		return fmt.Errorf("leveling must be one of %s", strings.Join(LevelingNames, ", "))
 	case !slices.Contains(CompressionNames, o.CompressionName()):

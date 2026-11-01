@@ -1528,6 +1528,39 @@ test('processing: the choices are kept with the sermon, and a sample can be hear
   await page.locator('input[name=noiseReduction]').fill('6');
 });
 
+test('processing: speech noise reduction hides the dB, is kept with the sermon, and makes a sample', async ({ page }) => {
+  await openEditor(page, '2026/2026-10-04');
+  await editor(page, () => window.__editor.addSection(10, 90));
+  const sound = () => {
+    const st = sermonOf('2026/2026-10-04');
+    return (st.adjusted || st.saved)?.sound;
+  };
+  await expect(page.locator('input[name=noiseReduction]')).toBeVisible();
+  await page.locator('select[name=noiseMethod]').selectOption('speech');
+  await expect(page.locator('input[name=noiseReduction]')).toBeHidden();
+  await page.locator('input[name=roomSound]').fill('20');
+  await expect.poll(sound, { timeout: 15_000 }).toMatchObject({ noiseMethod: 'speech', roomSound: 20 });
+
+  await page.reload();
+  await page.waitForFunction(() => window.__editor && window.__editor.ws.getDuration() > 0, null, { timeout: 60_000 });
+  await expect(page.locator('select[name=noiseMethod]')).toHaveValue('speech');
+  await expect(page.locator('input[name=noiseReduction]')).toBeHidden();
+
+  // The sample runs the speech model through ffmpeg.
+  await editor(page, () => window.__editor.ws.setTime(30));
+  await page.getByRole('button', { name: 'Hear a sample' }).click();
+  const player = page.getByLabel('The sample');
+  await expect(player).toBeVisible({ timeout: 60_000 });
+  await expect.poll(() => player.evaluate((a) => a.duration), { timeout: 15_000 }).toBeGreaterThan(20);
+  await page.locator('section.step').nth(3).screenshot({ path: path.join(shots, 'edit-noise-speech.png') });
+
+  // Back to the standard one: the dB again, and nothing of the method kept.
+  await page.locator('select[name=noiseMethod]').selectOption('');
+  await expect(page.locator('input[name=noiseReduction]')).toBeVisible();
+  await page.locator('input[name=roomSound]').fill('0');
+  await expect.poll(() => sound()?.noiseMethod ?? null, { timeout: 15_000 }).toBeNull();
+});
+
 test('one player at a time: one that starts pauses the others, the waveform too', async ({ page }) => {
   await openEditor(page, '2026/2026-06-14');
   // Two more players in the page, with the same sound.

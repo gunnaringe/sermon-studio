@@ -121,7 +121,7 @@ func TestFirstExisting(t *testing.T) {
 
 func TestTidyFilter(t *testing.T) {
 	p := &Pipeline{Opt: DefaultOptions()}
-	f := p.tidyFilter()
+	f := tidy(t, p)
 	for _, want := range []string{"aformat=channel_layouts=mono", "afftdn=nr=6", "dynaudnorm"} {
 		if !strings.Contains(f, want) {
 			t.Errorf("%q missing from %q", want, f)
@@ -133,26 +133,73 @@ func TestTidyFilter(t *testing.T) {
 		}
 	}
 	p.Opt.NoiseReduction = 0
-	if strings.Contains(p.tidyFilter(), "afftdn") {
+	if strings.Contains(tidy(t, p), "afftdn") {
 		t.Error("afftdn should be off")
 	}
 	// Room sound raises the floor the noise reduction works down to; leveling can be off or stronger.
 	p.Opt.NoiseReduction, p.Opt.RoomSound = 12, 50
-	if f := p.tidyFilter(); !strings.Contains(f, "afftdn=nr=12:rf=-29.0") {
+	if f := tidy(t, p); !strings.Contains(f, "afftdn=nr=12:rf=-29.0") {
 		t.Errorf("room sound: %q", f)
 	}
 	p.Opt.Leveling = "off"
-	if strings.Contains(p.tidyFilter(), "dynaudnorm") {
+	if strings.Contains(tidy(t, p), "dynaudnorm") {
 		t.Error("leveling should be off")
 	}
 	p.Opt.Leveling = "strong"
-	if !strings.Contains(p.tidyFilter(), "dynaudnorm=f=150") {
-		t.Errorf("strong leveling: %q", p.tidyFilter())
+	if !strings.Contains(tidy(t, p), "dynaudnorm=f=150") {
+		t.Errorf("strong leveling: %q", tidy(t, p))
 	}
 	// A record from before these settings has none: the old ones.
 	p.Opt.Leveling, p.Opt.RoomSound = "", 0
-	if !strings.Contains(p.tidyFilter(), EvenLevels) {
-		t.Errorf("default leveling: %q", p.tidyFilter())
+	if !strings.Contains(tidy(t, p), EvenLevels) {
+		t.Errorf("default leveling: %q", tidy(t, p))
+	}
+}
+
+// tidy is p's tidyFilter, failing the test on an error.
+func tidy(t *testing.T, p *Pipeline) string {
+	t.Helper()
+	f, err := p.tidyFilter()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+// The speech method replaces afftdn with arnndn and its model, written to the temporary folder; room
+// sound is the part of the sound before it mixed back in.
+func TestTidyFilterSpeech(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	p := &Pipeline{Opt: DefaultOptions()}
+	p.Opt.NoiseMethod, p.Opt.RoomSound = "speech", 30
+	f := tidy(t, p)
+	if strings.Contains(f, "afftdn") || !strings.Contains(f, ":mix=0.70") {
+		t.Errorf("speech: %q", f)
+	}
+	model, err := speechModelFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(model); !bytes.Equal(b, speechModel) {
+		t.Errorf("%s is not the model", model)
+	}
+	if !strings.Contains(f, "arnndn=m="+filterPath(model)+":") {
+		t.Errorf("the model's path is not in %q", f)
+	}
+	p.Opt.NoiseMethod = "fft"
+	if err := p.Opt.Validate(); err == nil || !strings.Contains(err.Error(), "noise reduction must be one of") {
+		t.Errorf("unknown method: %v", err)
+	}
+}
+
+func TestFilterPath(t *testing.T) {
+	for in, want := range map[string]string{
+		"/tmp/m.rnnn":          "/tmp/m.rnnn",
+		"/a:b/it's,[x];y.rnnn": `/a\\:b/it\\\'s\,\[x\]\;y.rnnn`,
+	} {
+		if got := filterPath(in); got != want {
+			t.Errorf("filterPath(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 
@@ -281,7 +328,7 @@ func TestSetStereo(t *testing.T) {
 func TestTidyFilterStereo(t *testing.T) {
 	p := &Pipeline{Opt: DefaultOptions()}
 	p.Opt.SetStereo(true)
-	if f := p.tidyFilter(); !strings.HasPrefix(f, "aformat=channel_layouts=stereo,") || p.Opt.TargetLUFS != -16 {
+	if f := tidy(t, p); !strings.HasPrefix(f, "aformat=channel_layouts=stereo,") || p.Opt.TargetLUFS != -16 {
 		t.Errorf("filter %q, target %g", f, p.Opt.TargetLUFS)
 	}
 }

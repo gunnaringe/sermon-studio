@@ -18,6 +18,7 @@ const maxDefaultFade = 30
 type processing struct {
 	Stereo         bool          `json:"stereo"` // the channels a recording starts with
 	NoiseReduction int           `json:"noiseReduction"`
+	NoiseMethod    string        `json:"noiseMethod,omitempty"` // "" = standard
 	RoomSound      int           `json:"roomSound"`
 	Leveling       string        `json:"leveling"`
 	Compression    string        `json:"compression"`
@@ -43,7 +44,7 @@ func levelsOf(q runRequest) channelLevels {
 func builtinProcessing() processing {
 	m := requestFrom(normalizer.DefaultOptions())
 	return processing{
-		Stereo: m.Stereo, NoiseReduction: m.NoiseReduction, RoomSound: m.RoomSound,
+		Stereo: m.Stereo, NoiseReduction: m.NoiseReduction, NoiseMethod: m.NoiseMethod, RoomSound: m.RoomSound,
 		Leveling: m.Leveling, Compression: m.Compression, TruePeak: m.TruePeak,
 		FadeIn: m.FadeIn, FadeOut: m.FadeOut,
 		Mono: levelsOf(m), StereoLevels: levelsOf(stereoDefaults()),
@@ -53,7 +54,7 @@ func builtinProcessing() processing {
 // request is a run with the processing, in mono or stereo.
 func (p processing) request(stereo bool) runRequest {
 	q := requestFrom(normalizer.DefaultOptions())
-	q.Stereo, q.NoiseReduction, q.RoomSound, q.Leveling, q.Compression = stereo, p.NoiseReduction, p.RoomSound, p.Leveling, p.Compression
+	q.Stereo, q.NoiseReduction, q.NoiseMethod, q.RoomSound, q.Leveling, q.Compression = stereo, p.NoiseReduction, p.NoiseMethod, p.RoomSound, p.Leveling, p.Compression
 	q.TruePeak, q.FadeIn, q.FadeOut = p.TruePeak, p.FadeIn, p.FadeOut
 	l := p.Mono
 	if stereo {

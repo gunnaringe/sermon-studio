@@ -594,6 +594,35 @@ func TestIntegrationProcessing(t *testing.T) {
 	wantFiles(t, dir, date+".flac", date+".mp3", date+".opus", "original/"+date+"_raw.flac")
 }
 
+// The speech noise reduction runs, at 44.1 kHz too, with its model in a temporary folder whose path has
+// the characters a filter graph would take as its own (and, on Windows, a drive's colon).
+func TestIntegrationSpeech(t *testing.T) {
+	ff := requireFFmpeg(t)
+	tmp := filepath.Join(t.TempDir(), "it's, [a];b")
+	if err := os.Mkdir(tmp, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMPDIR", tmp)
+	t.Setenv("TMP", tmp)
+	t.Setenv("TEMP", tmp)
+	dir := dateFolder(t)
+	expr := "0.2*sin(2*PI*220*t)*(0.6+0.4*sin(2*PI*3*t))+0.01*(random(0)-0.5)"
+	if _, err := ff.Run(context.Background(), "-y", "-f", "lavfi", "-i",
+		"aevalsrc=exprs='"+expr+"':s=44100:d=30", "-c:a", "flac", filepath.Join(dir, date+"_raw.flac")); err != nil {
+		t.Fatal(err)
+	}
+	opt := DefaultOptions()
+	opt.Start, opt.End = 5, 25
+	opt.NoiseMethod, opt.RoomSound = "speech", 20
+	if err := run(t, context.Background(), ff, dir, opt); err != nil {
+		t.Fatal(err)
+	}
+	checkOutputsAs(t, ff, dir, 20, 1, opt.TargetLUFS)
+	if _, err := os.Stat(filepath.Join(tmp, "sermon-studio-"+modelKey()+".rnnn")); err != nil {
+		t.Errorf("the model is not in the temporary folder: %v", err)
+	}
+}
+
 // A sample is a few seconds of the recording with the processing, as an MP3 at the target loudness.
 func TestIntegrationSample(t *testing.T) {
 	ff := requireFFmpeg(t)

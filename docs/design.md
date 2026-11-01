@@ -85,5 +85,6 @@ MP3 bitrate (96k), Opus bitrate (48k).
 
 - **Opus true peak** overshoots easily; handled by the measurement step, but consider setting the master peak to -2 dBTP.
 - **Title in file names** is not decided (date only for now).
-- **Noise reduction** (`afftdn`) has not been listened to; tune the noise reduction by ear.
+- **Noise reduction** (`afftdn`) has not been listened to; tune the noise reduction by ear. The Speech method (`arnndn`,
+  rnnoise-nu's speech model) is opt-in until it has been listened to on real services.
 - Sync clients can leave placeholder files (e.g. `*.rsls`); only exact names count, so they are ignored.

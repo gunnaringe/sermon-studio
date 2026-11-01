@@ -251,16 +251,25 @@ func madeFrom(o normalizer.Options, format, clips string) string {
 		Pauses                      []normalizer.Pause `json:",omitempty"` // omitted when there are none: older fingerprints stay as they were
 		Stereo                      bool
 		NoiseReduction              int
+		NoiseMethod                 string `json:",omitempty"` // omitted for the standard one: older fingerprints stay as they were
 		RoomSound                   int
 		Leveling, Compression       string
 		TargetLUFS, TruePeak        float64
 		Tags                        normalizer.Tags
 		Format, Bitrate             string
 		Clips                       string `json:",omitempty"` // omitted without clips: older fingerprints stay as they were
-	}{o.Start, o.End, o.FadeIn, o.FadeOut, o.Cuts, o.Pauses, o.Stereo, o.NoiseReduction, o.RoomSound, o.LevelingName(), o.CompressionName(), o.TargetLUFS, o.TruePeak, o.Tags, format, bitrateFor(o, format), clips}
+	}{o.Start, o.End, o.FadeIn, o.FadeOut, o.Cuts, o.Pauses, o.Stereo, o.NoiseReduction, noiseMethodKey(o), o.RoomSound, o.LevelingName(), o.CompressionName(), o.TargetLUFS, o.TruePeak, o.Tags, format, bitrateFor(o, format), clips}
 	data, _ := json.Marshal(v)
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:8])
+}
+
+// noiseMethodKey is the noise method in madeFrom: "" for the standard one.
+func noiseMethodKey(o normalizer.Options) string {
+	if m := o.NoiseMethodName(); m != "standard" {
+		return m
+	}
+	return ""
 }
 
 // cutOf is the fingerprint of the cut alone: the parts of the recording and

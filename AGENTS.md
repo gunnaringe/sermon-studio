@@ -253,6 +253,10 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - Every answer of the studio carries `securityHeaders` (`app.go`: no frames, `nosniff`, `Referrer-Policy: same-origin`, HSTS with the
   login on HTTPS); the share page has its own (`shareGuard`). Errors reach the page without server paths (`withoutPaths`).
 - Measure with `ebur128` (`FFmpeg.Measure`), not `loudnorm`.
+- Noise reduction has two methods (`NoiseMethod`): standard (`afftdn`, the default, `""`) and speech (`arnndn`, the model
+  `normalizer/models/speech.rnnn` embedded and written to the temporary folder, `speech.go`; a path in a filter option goes
+  through `filterPath`). A new choice of the sound is `omitempty` in the JSON and in `madeFrom` at its default, so files made
+  before it are not out of date.
 - Messages from `normalizer` show in the web UI: use the form's names
   (Start, Save, mono), not flags. English everywhere.
 - The public share page is on the internet without a login: add nothing to `ShareHandler`
