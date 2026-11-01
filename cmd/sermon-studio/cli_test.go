@@ -85,3 +85,20 @@ func TestAdminInviteFlags(t *testing.T) {
 		t.Errorf("%v %v", ctx, err)
 	}
 }
+
+// A model's languages are one --model, commas and all, as in its help.
+func TestModelsPullFlags(t *testing.T) {
+	var c cli
+	var out bytes.Buffer
+	p, err := newParser(&c, &out, &out, func(int) { t.Fatalf("exit: %s", out.String()) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Parse([]string{"models", "pull", "--dir", "m", "--model", "nb,nn=NbAiLab/nb-whisper-medium/ggml-model-q5_0.bin",
+		"--model=*=ggerganov/whisper.cpp/ggml-large-v3-turbo-q5_0.bin"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := c.Models.Pull.Model; len(got) != 2 || got[0] != "nb,nn=NbAiLab/nb-whisper-medium/ggml-model-q5_0.bin" {
+		t.Errorf("models: %q", got)
+	}
+}
