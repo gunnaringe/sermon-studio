@@ -1,6 +1,12 @@
 package normalizer
 
 import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -56,5 +62,36 @@ func TestValidLanguage(t *testing.T) {
 		if ValidLanguage(code) != ok {
 			t.Errorf("%q: %v", code, !ok)
 		}
+	}
+}
+
+// A transcript's ffmpeg runs at the lowest priority, and only that one.
+func TestBackgroundNice(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no nice on Windows")
+	}
+	if _, err := exec.LookPath("nice"); err != nil {
+		t.Skip("no nice here")
+	}
+	// An ffmpeg that says its priority (macOS has no /proc).
+	bin := filepath.Join(t.TempDir(), "ffmpeg")
+	script := "#!/bin/sh\nif [ -r /proc/$$/stat ]; then cut -d' ' -f19 /proc/$$/stat; else ps -o nice= -p $$; fi\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	niceness := func(f FFmpeg) int {
+		res, err := f.run(context.Background(), nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(res.Stdout))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	// 19 on Linux; macOS's ps shows its own scale, so: lower than a run's, which is the studio's own.
+	if bg, own := niceness(FFmpeg{Bin: bin, background: true}), niceness(FFmpeg{Bin: bin}); bg <= own || runtime.GOOS == "linux" && bg != 19 {
+		t.Errorf("nice: background %d, a run %d", bg, own)
 	}
 }

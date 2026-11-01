@@ -42,7 +42,8 @@ const queueSeconds = 30
 
 // Transcribe writes what is said in the sound of in to dst as SubRip (.srt), with ffmpeg's whisper
 // filter (whisper.cpp, on the CPU). progress gets the seconds of sound done so far. It takes about as
-// long as the sound with a medium model on four cores, so it is slow work; ctx stops it. It runs on the
+// long as the sound with a medium model on four cores, so it is slow work, done at the lowest priority;
+// ctx stops it. It runs on the
 // CPU, which needs AVX and F16C on x86 (CanTranscribe).
 func (f FFmpeg) Transcribe(ctx context.Context, in, dst string, t Transcription, progress func(seconds float64)) error {
 	vad, err := embeddedFile("vad", ".bin", vadModel)
@@ -55,6 +56,7 @@ func (f FFmpeg) Transcribe(ctx context.Context, in, dst string, t Transcription,
 	// As many threads as the cores it may use (in a container, its limit): ffmpeg's default is one more,
 	// and whisper.cpp's threads wait by spinning, so one too many makes it several times slower.
 	threads := strconv.Itoa(runtime.GOMAXPROCS(0))
+	f.background = true
 	args := []string{"-y", "-filter_threads", threads, "-i", in, "-map", "0:a:0", "-af", filter, "-f", "null", "-"}
 	if _, err := f.run(ctx, progress, args); err != nil {
 		Remove(tmp)

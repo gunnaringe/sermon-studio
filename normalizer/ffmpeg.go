@@ -14,6 +14,10 @@ import (
 // FFmpeg calls ffmpeg with an argument list (never through a shell).
 type FFmpeg struct {
 	Bin string
+	// background runs ffmpeg at the lowest priority (nice 19), when the system has nice: work nobody waits
+	// for, which then gives way to the studio and its runs. In a container it only ranks the container's
+	// own processes; other containers get their share by their CPU requests.
+	background bool
 }
 
 // Result holds what ffmpeg wrote to stdout and stderr.
@@ -35,7 +39,15 @@ func (f FFmpeg) run(ctx context.Context, progress func(seconds float64), args []
 		// Every 0.1 s instead of 0.5: on a fast machine a step can be over before the first report.
 		full = append(full, "-progress", "pipe:1", "-stats_period", "0.1")
 	}
-	cmd := exec.CommandContext(ctx, f.Bin, append(full, GuardInputs(args)...)...)
+	bin, full := f.Bin, append(full, GuardInputs(args)...)
+	if f.background {
+		// Through nice, not by setting it on the process once started: it is per thread on Linux, and
+		// ffmpeg's threads start with what their creator has.
+		if nice, err := exec.LookPath("nice"); err == nil {
+			bin, full = nice, append([]string{"-n", "19", f.Bin}, full...)
+		}
+	}
+	cmd := exec.CommandContext(ctx, bin, full...)
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	if progress != nil {

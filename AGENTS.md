@@ -260,7 +260,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - Every answer of the studio carries `securityHeaders` (`app.go`: no frames, `nosniff`, `Referrer-Policy: same-origin`, HSTS with the
   login on HTTPS); the share page has its own (`shareGuard`). Errors reach the page without server paths (`withoutPaths`).
 - Transcripts: give the whisper filter `-filter_threads` = the cores (`GOMAXPROCS`); ffmpeg's default is one more, and
-  whisper.cpp's spinning threads then run several times slower. ffmpeg-lgpl builds whisper.cpp for AVX + F16C on x86:
+  whisper.cpp's spinning threads then run several times slower. It runs at nice 19 (`FFmpeg.background`, through the `nice`
+  command: nice is per thread on Linux), so runs and pages go first. ffmpeg-lgpl builds whisper.cpp for AVX + F16C on x86:
   check `normalizer.CanTranscribe` before running it, or an older CPU stops with "Illegal instruction".
 - Measure with `ebur128` (`FFmpeg.Measure`), not `loudnorm`.
 - Noise reduction has two methods (`NoiseMethod`): standard (`afftdn`, the default, `""`) and speech (`arnndn`, the model

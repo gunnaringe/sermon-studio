@@ -48,7 +48,9 @@ starts at once, and transcripts are offered once the first model is there.
 ```
 
 **Speed.** One transcript is made at a time, on all the cores the studio may use, after the files. It shares them
-with runs: a run while a transcript is being made slows both, the transcript most. On four cores of a desktop processor from 2014, whisper's small model takes a little longer than the sermon
+with runs, at the lowest priority (`nice 19`): a run, or a page, while a transcript is being made goes first, and the
+transcript waits. In a container this only ranks the container's own work; against other containers, give the studio's
+a CPU limit if transcripts take too much of the machine (whisper then uses as many threads as the limit allows). On four cores of a desktop processor from 2014, whisper's small model takes a little longer than the sermon
 (half as long again when it finds the language itself), and a medium model, which makes fewer mistakes, about three
 times as long as small. A newer server is several times faster. Pick the model by what the server can keep up with.
 
