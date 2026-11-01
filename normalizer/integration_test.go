@@ -618,8 +618,16 @@ func TestIntegrationSpeech(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkOutputsAs(t, ff, dir, 20, 1, opt.TargetLUFS)
-	if _, err := os.Stat(filepath.Join(tmp, "sermon-studio-"+modelKey()+".rnnn")); err != nil {
-		t.Errorf("the model is not in the temporary folder: %v", err)
+	// Not filepath.Glob: the folder's name has a [a] in it.
+	var m []string
+	files, _ := os.ReadDir(tmp)
+	for _, f := range files {
+		if strings.HasPrefix(f.Name(), "sermon-studio-speech-") && strings.HasSuffix(f.Name(), ".rnnn") {
+			m = append(m, f.Name())
+		}
+	}
+	if len(m) != 1 {
+		t.Errorf("the model is not in the temporary folder: %v", m)
 	}
 }
 

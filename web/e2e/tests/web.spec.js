@@ -779,7 +779,7 @@ test('settings: groups fold open and shut, this browser remembers which; an addr
   await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeVisible(); // Recordings is open at first
   await expect(page.locator('select[name=language]')).toBeHidden();
   await expect(page.locator('details.settings-group > summary')).toHaveText([
-    'RecordingsIntro and outro, default tags', 'ProcessingNoise reduction, loudness and formats', 'ChurchName, logo and storage',
+    'RecordingsIntro and outro, default tags', 'ProcessingNoise reduction, loudness, formats and transcripts', 'ChurchName, logo and storage',
     /^Trash(Empty|\d+ recordings?)$/, 'This browserLanguage, theme and waveform']);
   await dialog.getByRole('heading', { name: 'Recordings', exact: true }).click();
   await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeHidden();

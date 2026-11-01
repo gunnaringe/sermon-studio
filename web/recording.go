@@ -41,7 +41,7 @@ type folderState struct {
 	Saved   *sermonSettings `json:"saved"`
 	SavedAt *time.Time      `json:"savedAt,omitempty"`
 	// Outputs is how each output (flac, mp3, opus) was made, by the format; the sermon only, made by a run
-	// with an intro or outro, is under flac_sermon, mp3_sermon, opus_sermon.
+	// with an intro or outro, is under flac_sermon, mp3_sermon, opus_sermon; the transcript under transcript.
 	Outputs map[string]outputMade `json:"outputs"`
 	// OwnClips are the sermon's own intro and outro (sermonclips.go), kept in <folder>/clips/<which>.flac.
 	OwnClips map[string]clipInfo `json:"ownClips,omitempty"`

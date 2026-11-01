@@ -5,6 +5,7 @@ import { api, q, h, href, formatSize, formatTime, forTenant } from './util.js';
 import { alertDialog, confirmDialog } from './dialog.js';
 import { showCode, expiryInput, recordingShares } from './shares.js';
 import { t, tn, tr } from './i18n.js';
+import { transcriptPanel } from './transcripts.js';
 
 const FORMATS = [['flac', 'FLAC'], ['mp3', 'MP3'], ['opus', 'Opus']];
 // SERMON_ONLY ends the format of the files without the intro and outro (flac_sermon ...).
@@ -321,6 +322,7 @@ export function sermonDetail(entry, ctx = {}) {
         h('span', { class: 'muted player-what' }, t('Plays: {what}', { what: playing }))),
       h('div', { class: 'actions' }, downloadMenu(info, saved, status), iconButton('a', EDIT_ICON, t('Edit sermon'), { class: 'button', href: editURL }),
         copyLink(), ctx.shares && info.outputs.length ? shareButton(info) : ''),
+      transcriptPanel(entry.path, info).box,
       ctx.shares ? sharesBox : '',
     ];
   }

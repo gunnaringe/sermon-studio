@@ -55,6 +55,20 @@ func (f FFmpeg) run(ctx context.Context, progress func(seconds float64), args []
 	return res(), nil
 }
 
+// HasFilter tells whether this ffmpeg has the filter (the whisper filter needs ffmpeg built with whisper.cpp).
+func (f FFmpeg) HasFilter(ctx context.Context, name string) bool {
+	res, err := f.Run(ctx, "-filters")
+	if err != nil {
+		return false
+	}
+	for line := range strings.SplitSeq(res.Stdout, "\n") {
+		if fields := strings.Fields(line); len(fields) >= 2 && fields[1] == name {
+			return true
+		}
+	}
+	return false
+}
+
 // inputFormats are the only containers ffmpeg may read a file as (-format_whitelist): what a recording, a
 // clip or a file the studio made can be, and none of the playlists and scripts (HLS, concat ...) that name
 // other files. ffmpeg still finds the format from the content, so a file with the wrong extension is read as

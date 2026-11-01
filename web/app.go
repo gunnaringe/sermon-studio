@@ -56,6 +56,8 @@ type AppConfig struct {
 	// ParallelRuns is how many runs (and samples) can work at once, across all churches; 0 = 1. A run uses
 	// about one core; more of them wait their turn. One recording is never run twice at once.
 	ParallelRuns int
+	// Transcription turns on transcripts (transcribe.go); nil = off.
+	Transcription *TranscriptionConfig
 }
 
 // churchConfig is church.json. Everything is optional: a church is a folder
@@ -70,6 +72,8 @@ type churchConfig struct {
 	EndedSharesDays *int `json:"endedSharesDays,omitempty"`
 	// Clips are the intro and outro clips (clips.go): the list, the defaults, the pause.
 	Clips *clipLibrary `json:"clips,omitempty"`
+	// Transcript is the language of the sermons' transcripts (transcribe.go); "" = none.
+	Transcript string `json:"transcript,omitempty"`
 }
 
 // TenantInfo is a church as listed in the UI.
@@ -111,8 +115,9 @@ func (t *tenant) info() TenantInfo {
 // user sees. Who sees which church is in access.go; every request to a church
 // goes through App.tenantFor.
 type App struct {
-	cfg    AppConfig
-	limits *limits
+	cfg         AppConfig
+	limits      *limits
+	transcriber *transcriber // nil = no transcripts
 
 	createMu sync.Mutex // one church is added at a time
 	mu       sync.Mutex
@@ -145,6 +150,12 @@ func NewApp(cfg AppConfig) (*App, error) {
 		a.share = &shareState{limits: newLimiter(cfg.Share.Limits), busy: map[string]bool{}, sending: map[string]int{}, done: make(chan struct{})}
 	}
 	fail := func(err error) (*App, error) { a.Close(); return nil, err }
+	if cfg.Transcription != nil {
+		var err error
+		if a.transcriber, err = newTranscriber(*cfg.Transcription); err != nil {
+			return nil, err
+		}
+	}
 	if cfg.VisitorRole != "" {
 		if cfg.OIDC != nil {
 			return nil, errors.New("a visitor role is for the studio without the login")
@@ -261,7 +272,7 @@ func writeChurch(dir string, cc churchConfig) error {
 // start brings up the Server of one church and adds it to the list.
 func (a *App) start(id, dir string, cc churchConfig) (*tenant, error) {
 	cfg := a.cfg.Base
-	cfg.limits = a.limits
+	cfg.limits, cfg.transcriber = a.limits, a.transcriber
 	t := &tenant{id: id, dir: dir, cfg: cc}
 	if dir != "" {
 		cfg.Root, cfg.Inbox = filepath.Join(dir, tenantRoot), filepath.Join(dir, tenantInbox)
@@ -276,6 +287,8 @@ func (a *App) start(id, dir string, cc churchConfig) (*tenant, error) {
 		cfg.SaveProcessing = func(p *processing) error { return a.update(t, func(c *churchConfig) { c.Processing = p }) }
 		cfg.ClipsDir, cfg.Clips = filepath.Join(dir, clipsDir), cc.Clips
 		cfg.SaveClips = func(l clipLibrary) error { return a.update(t, func(c *churchConfig) { c.Clips = &l }) }
+		cfg.Transcript = cc.Transcript
+		cfg.SaveTranscript = func(lang string) error { return a.update(t, func(c *churchConfig) { c.Transcript = lang }) }
 	}
 	if dir != "" {
 		var err error

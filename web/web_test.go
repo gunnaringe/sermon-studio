@@ -426,6 +426,11 @@ func TestFile(t *testing.T) {
 	if rec := ts.do(t, "GET", "/api/file?path=2026-10-04/notes.txt", nil); rec.Code != http.StatusNotFound {
 		t.Errorf("non-audio: %d", rec.Code)
 	}
+	// A transcript is the one text file served.
+	ts.file(t, "2026-10-04/2026-10-04.vtt", "WEBVTT\n")
+	if rec := ts.do(t, "GET", "/api/file?path=2026-10-04/2026-10-04.vtt", nil); rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "text/vtt; charset=utf-8" {
+		t.Errorf("transcript: %d %s", rec.Code, rec.Header().Get("Content-Type"))
+	}
 	if rec := ts.do(t, "GET", "/api/file?path=2026-10-04/2026-10-04.mp3&download=1", nil); !strings.Contains(rec.Header().Get("Content-Disposition"), "attachment") {
 		t.Error("download should be an attachment")
 	}

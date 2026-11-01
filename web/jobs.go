@@ -221,6 +221,9 @@ func (js *jobs) run(ctx context.Context, j *job, pl plan) {
 	if err == nil && pl.Clips.key() == "" {
 		js.s.dropSermonOnly(pl)
 	}
+	if err == nil {
+		js.s.afterRun(pl.paths.Folder)
+	}
 	if oldKey != "" {
 		if raw := pl.paths.Source(); raw != "" {
 			js.s.analyses.carry(oldKey, raw)

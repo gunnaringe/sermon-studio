@@ -15,18 +15,19 @@ import (
 type action string
 
 const (
-	actOpen           action = "open"               // no church: the pages, the session, the login, invites, the church list
-	actView           action = "church.view"        // see the church: its recordings, settings and jobs
-	actChurchCreate   action = "church.create"      // add a church (without the login only)
-	actChurchSettings action = "church.settings"    // name, logo, default tags, processing, how long ended shares are kept
-	actChurchClips    action = "church.clips"       // the church's intro and outro clips
-	actMembers        action = "members.manage"     // the members and invites
-	actUpload         action = "recording.upload"   // send a file: a recording, a sermon's own intro or outro
-	actEdit           action = "recording.edit"     // cut, tag, rename, hear a sample
-	actMake           action = "recording.make"     // make the files, and stop a run
-	actDownload       action = "recording.download" // listen to and download the files
-	actDelete         action = "recording.delete"   // delete files, originals and recordings; the trash
-	actShares         action = "shares.manage"      // the church's shares
+	actOpen           action = "open"                 // no church: the pages, the session, the login, invites, the church list
+	actView           action = "church.view"          // see the church: its recordings, settings and jobs
+	actChurchCreate   action = "church.create"        // add a church (without the login only)
+	actChurchSettings action = "church.settings"      // name, logo, default tags, processing, how long ended shares are kept
+	actChurchClips    action = "church.clips"         // the church's intro and outro clips
+	actMembers        action = "members.manage"       // the members and invites
+	actUpload         action = "recording.upload"     // send a file: a recording, a sermon's own intro or outro
+	actEdit           action = "recording.edit"       // cut, tag, rename, hear a sample
+	actMake           action = "recording.make"       // make the files, and stop a run
+	actTranscribe     action = "recording.transcribe" // make a transcript, stop or delete one
+	actDownload       action = "recording.download"   // listen to and download the files
+	actDelete         action = "recording.delete"     // delete files, originals and recordings; the trash
+	actShares         action = "shares.manage"        // the church's shares
 )
 
 // RoleDemo is a demo's visitor: they edit the recording that is there and make its files.
@@ -35,8 +36,8 @@ const RoleDemo = "demo"
 // roleActions is what each role may do in a church. Adding a church is no church's: permit lets only the
 // user without the login do it, when visitors are admins (AppConfig.VisitorRole).
 var roleActions = map[string][]action{
-	RoleAdmin:  {actView, actChurchSettings, actChurchClips, actMembers, actUpload, actEdit, actMake, actDownload, actDelete, actShares},
-	RoleMember: {actView, actUpload, actEdit, actMake, actDownload, actDelete, actShares},
+	RoleAdmin:  {actView, actChurchSettings, actChurchClips, actMembers, actUpload, actEdit, actMake, actTranscribe, actDownload, actDelete, actShares},
+	RoleMember: {actView, actUpload, actEdit, actMake, actTranscribe, actDownload, actDelete, actShares},
 	RoleDemo:   {actView, actEdit, actMake, actDownload},
 }
 
@@ -68,6 +69,11 @@ var routeActions = map[string]action{
 	"GET /api/settings":             actView,
 	"PUT /api/settings":             actChurchSettings,
 	"PUT /api/processing":           actChurchSettings,
+	"GET /api/transcription":        actView,
+	"PUT /api/transcription":        actChurchSettings,
+	"POST /api/transcript":          actTranscribe,
+	"POST /api/transcript/cancel":   actTranscribe,
+	"POST /api/transcript/remove":   actTranscribe,
 	"PUT /api/shares/ended-days":    actChurchSettings,
 	"GET /api/shares":               actShares,
 	"POST /api/shares":              actShares,

@@ -86,6 +86,8 @@ church and no right to add more sees just its name in the header; otherwise a qu
 | `--trash-days` | 30 | how long a deleted recording stays in the trash (Settings → Trash) before it is removed for good |
 | `--layout` | `2006/2006-01-02` | where new recordings go under a church's `Taler`, as a Go time layout |
 | `--ffmpeg` | `ffmpeg` | path to ffmpeg |
+| `--no-transcripts` | | no transcripts ([transcripts](transcripts.md)) |
+| `--models-dir` | `<data-dir>/.models` | the speech models for transcripts, filled by `sermon-studio models pull` ([transcripts](transcripts.md)) |
 | `--share-listen` | | address of the public share page, for sending recordings and downloading sermons (see [Shares](guide.md#shares)); unset = no shares |
 | `--share-url` | | the share page's public address, so the studio can show share links |
 | `--share-ip-header` | | header with the client's address, for the rate limits (Cloudflare: `CF-Connecting-IP`) |
@@ -99,5 +101,7 @@ Churches: the dropdown in the header switches church. A request names its church
 **Search engines:** every response, from the studio and the share page, has `X-Robots-Tag: noindex, nofollow`,
 so neither shows up in search results. Don't block them in a `robots.txt` as well: a crawler that is turned away
 never sees the header, and may list the address anyway.
+
+Transcripts and the speech models: [transcripts.md](transcripts.md).
 
 Access control, for several users: [access.md](access.md); the login with Pocket ID, step by step: [login-pocket-id.md](login-pocket-id.md).

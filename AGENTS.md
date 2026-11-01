@@ -187,6 +187,13 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `sermons.js`). It finds its recording by `id` in `recording.json` (given when the share is made; the path is a hint that follows a
   rename, a recording in the trash is not found). `POST api/share/downloads` counts one and hands out a ticket (`GET api/share/downloads/{id}`,
   no code, Range, `ticketFor`); the same file from the same address while its ticket lasts counts nothing.
+- `web/transcribe.go`: transcripts (docs/transcripts.md): a church's language (`transcript` in `church.json`, `api/transcription`),
+  one made at a time (`transcriber.sem`) after a run only when there is none (`afterRun`), or by `POST api/transcript`; never
+  made again by itself (`otherModel`, `earlierCut` only say so). `<date>.transcript.json` is the transcript (with the model's
+  name, commit, sha256, date), `.txt`/`.vtt` come from it. The models are package `models`: `models.json` in `--models-dir`,
+  read on each use; `sermon-studio models pull` (`cmd/sermon-studio/models.go`, `models/pull.go`) fills it from Hugging Face,
+  only files its scans call safe, checked by SHA-256. `normalizer/transcribe.go` runs ffmpeg's whisper filter. The desktop
+  app has none. `web/static/transcripts.js` is the settings section and a sermon's transcript panel.
 - `web/static/`: plain JS, no build. `app.js` = the router over the address (History API; `util.js` `href`/`go`, links in
   the page are followed without a reload): `c/<church>/` then the page, or without `c/<church>/` on a church host (the
   church is the host's); `''` the recordings, `recordings/<slug>` one opened, `recordings/<slug>/edit` the editor,
@@ -252,6 +259,9 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   Windows' device names (`nul`, `com1` ...) are not churches or kept file names (`windowsDevice`).
 - Every answer of the studio carries `securityHeaders` (`app.go`: no frames, `nosniff`, `Referrer-Policy: same-origin`, HSTS with the
   login on HTTPS); the share page has its own (`shareGuard`). Errors reach the page without server paths (`withoutPaths`).
+- Transcripts: give the whisper filter `-filter_threads` = the cores (`GOMAXPROCS`); ffmpeg's default is one more, and
+  whisper.cpp's spinning threads then run several times slower. ffmpeg-lgpl builds whisper.cpp for AVX + F16C on x86:
+  check `normalizer.CanTranscribe` before running it, or an older CPU stops with "Illegal instruction".
 - Measure with `ebur128` (`FFmpeg.Measure`), not `loudnorm`.
 - Noise reduction has two methods (`NoiseMethod`): standard (`afftdn`, the default, `""`) and speech (`arnndn`, the model
   `normalizer/models/speech.rnnn` embedded and written to the temporary folder, `speech.go`; a path in a filter option goes
