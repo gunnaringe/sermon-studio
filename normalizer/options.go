@@ -7,9 +7,13 @@ type Options struct {
 	Stereo         bool    // keep two channels; default mono
 	TargetLUFS     float64 // mono: -19, stereo: -16
 	TruePeak       float64
-	NoiseReduction int // afftdn nr in dB; 0 = off
+	NoiseReduction int // afftdn nr in dB; 0 = off (with the standard method)
+	// NoiseMethod is how noise is taken out: one of NoiseMethods ("" = standard). "speech" is always
+	// on, and NoiseReduction does not apply to it.
+	NoiseMethod string
 	// RoomSound is how much of the room's own sound (reverb, ambience) is kept when noise is taken
-	// out, 0 to 100: it raises the floor the noise reduction works down to.
+	// out, 0 to 100: it raises the floor the noise reduction works down to (standard), or mixes that
+	// much of the sound before it back in (speech).
 	RoomSound int
 	// Leveling evens out quiet speech and loud music: one of LevelingNames ("" = normal).
 	Leveling string

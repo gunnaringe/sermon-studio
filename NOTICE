@@ -10,6 +10,9 @@ Licensed under the Apache License 2.0 (LICENSE), except:
   Sermon Studio and its copies, unchanged.
 - web/static/vendor/wavesurfer/ is wavesurfer.js, under its own licence (see
   that folder).
+- normalizer/models/speech.rnnn is a model from github.com/GregorR/rnnoise-models
+  (somnolent-hogwash), whose README says the models are not subject to copyright
+  (see normalizer/models/README.md).
 - The desktop app has ffmpeg built in (github.com/gunnaringe/ffmpeg-lgpl): FFmpeg under the LGPL
   2.1 or later, with LAME (LGPL), Opus (BSD) and zlib (zlib licence). Their
   licences come with it (sermon-studio-desktop --licenses, and LICENSES.txt next

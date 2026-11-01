@@ -23,10 +23,14 @@ func (p *Pipeline) renderMaster(ctx context.Context, dst string, length float64,
 	if err != nil {
 		return err
 	}
+	tidyF, err := p.tidyFilter()
+	if err != nil {
+		return err
+	}
 	if graph == "" {
-		args = append(args, "-map", "0:a:0", "-af", p.tidyFilter()) // not a cover picture or video
+		args = append(args, "-map", "0:a:0", "-af", tidyF) // not a cover picture or video
 	} else {
-		args = append(args, "-filter_complex", graph+";[cut]"+p.tidyFilter()+"[out]", "-map", "[out]")
+		args = append(args, "-filter_complex", graph+";[cut]"+tidyF+"[out]", "-map", "[out]")
 	}
 	args = append(args, "-c:a", "flac", "-sample_fmt", "s32")
 	if err := p.runTo(ctx, tidy, length, args...); err != nil {

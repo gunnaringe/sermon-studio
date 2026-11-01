@@ -2,6 +2,8 @@ package web
 
 import (
 	"strings"
+
+	"github.com/gunnaringe/sermon-studio/normalizer"
 	"testing"
 )
 
@@ -24,5 +26,20 @@ func TestCleanSourceName(t *testing.T) {
 	long := cleanSourceName(strings.Repeat("a", 300) + ".wav")
 	if len([]rune(long)) != maxSourceName || !strings.HasSuffix(long, ".wav") {
 		t.Errorf("long name: %d runes, %q", len([]rune(long)), long[len(long)-8:])
+	}
+}
+
+// The noise method is in the fingerprint only when it is not the standard one, so files made before it
+// was a choice are not out of date.
+func TestMadeFromNoiseMethod(t *testing.T) {
+	o := normalizer.DefaultOptions()
+	before := madeFrom(o, "mp3", "")
+	o.NoiseMethod = "standard"
+	if madeFrom(o, "mp3", "") != before {
+		t.Error("standard changed the fingerprint")
+	}
+	o.NoiseMethod = "speech"
+	if madeFrom(o, "mp3", "") == before {
+		t.Error("speech did not change the fingerprint")
 	}
 }

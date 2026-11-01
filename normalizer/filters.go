@@ -47,6 +47,14 @@ func (o Options) LevelingName() string {
 	return o.Leveling
 }
 
+// NoiseMethodName is the way noise is taken out, "standard" when none was chosen.
+func (o Options) NoiseMethodName() string {
+	if o.NoiseMethod == "" {
+		return "standard"
+	}
+	return o.NoiseMethod
+}
+
 // CompressionName is the compression, "off" when none was chosen.
 func (o Options) CompressionName() string {
 	if o.Compression == "" {
@@ -57,12 +65,18 @@ func (o Options) CompressionName() string {
 
 // tidyFilter is the first part of the master chain: the channels that get published, the noise
 // taken out, the levels evened out. It does not set the level: that is done by measuring (finish).
-func (p *Pipeline) tidyFilter() string {
+func (p *Pipeline) tidyFilter() (string, error) {
 	// Convert first, whatever the input has (mono, stereo, more), so the rest
 	// of the chain works on the channels that get published. A mono recording
 	// made stereo is the same signal on both sides.
 	f := []string{"aformat=channel_layouts=" + p.Opt.Channels()}
-	if p.Opt.NoiseReduction > 0 {
+	if p.Opt.NoiseMethodName() == "speech" {
+		speech, err := p.speechFilter()
+		if err != nil {
+			return "", err
+		}
+		f = append(f, speech)
+	} else if p.Opt.NoiseReduction > 0 {
 		nr := fmt.Sprintf("afftdn=nr=%d", p.Opt.NoiseReduction)
 		if p.Opt.RoomSound > 0 {
 			nr += fmt.Sprintf(":rf=%.1f", -38+0.18*float64(p.Opt.RoomSound)) // the default floor is -38 dB
@@ -72,7 +86,7 @@ func (p *Pipeline) tidyFilter() string {
 	if lv := levelingFilters[p.Opt.LevelingName()]; lv != "" {
 		f = append(f, lv)
 	}
-	return strings.Join(f, ",")
+	return strings.Join(f, ","), nil
 }
 
 // finalFilter sets the level and ends the chain: gain (dB), a limiter that keeps the peaks under the

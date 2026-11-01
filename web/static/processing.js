@@ -26,6 +26,16 @@ export async function processingView(box, saved) {
   const channels = row(t('Channels'), h('select', { name: 'stereo', onchange: (e) => { p.stereo = e.target.value === 'stereo'; touched(); } },
     h('option', { value: 'mono', selected: !p.stereo }, t('Mono')), h('option', { value: 'stereo', selected: p.stereo }, t('Stereo'))));
 
+  // The noise method: the dB are only the standard one's ('' = standard, kept out of what is saved).
+  const strength = row(t('Noise reduction (dB)'), num(p, 'noiseReduction', 1, 0, 40, t('Noise reduction (dB)')));
+  strength.hidden = p.noiseMethod === 'speech';
+  const method = row(t('Noise reduction'), h('select', { name: 'noiseMethod', onchange: (e) => {
+    p.noiseMethod = e.target.value || undefined;
+    strength.hidden = e.target.value === 'speech';
+    touched();
+  } }, h('option', { value: '', selected: p.noiseMethod !== 'speech' }, t('noise|Standard')),
+  h('option', { value: 'speech', selected: p.noiseMethod === 'speech' }, t('noise|Speech'))));
+
   const save = h('button', { class: 'primary', name: 'save-processing', onclick: async () => {
     try {
       await api('PUT', 'api/processing', { processing: p });
@@ -45,7 +55,8 @@ export async function processingView(box, saved) {
     h('p', { class: 'muted' }, t('What a recording starts with in the editor. A recording keeps its own processing once it is changed there; Use the defaults in the editor brings these back.')),
     h('div', { class: 'panel tags processing-defaults' },
       channels,
-      row(t('Noise reduction (dB)'), num(p, 'noiseReduction', 1, 0, 40, t('Noise reduction (dB)'))),
+      method,
+      strength,
       row(t('Keep room sound') + ' (%)', num(p, 'roomSound', 5, 0, 100, t('Keep room sound'))),
       choice('leveling', t('Leveling'), strengths(['gentle', t('Gentle')])),
       choice('compression', t('Compression'), strengths(['light', t('compression|Light')])),

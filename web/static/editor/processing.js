@@ -66,7 +66,7 @@ export function processingPart(ed) {
     const levels = { targetLufs: opts.targetLufs, mp3Bitrate: opts.mp3Bitrate, opusBitrate: opts.opusBitrate };
     const p = {
       ...config.defaults.processing,
-      stereo: opts.stereo, noiseReduction: Math.round(opts.noiseReduction), roomSound: opts.roomSound,
+      stereo: opts.stereo, noiseReduction: Math.round(opts.noiseReduction), noiseMethod: opts.noiseMethod, roomSound: opts.roomSound,
       leveling: opts.leveling, compression: opts.compression, truePeak: opts.truePeak,
       fadeIn: opts.fadeIn, fadeOut: opts.fadeOut,
       [opts.stereo ? 'stereoLevels' : 'mono']: levels,
@@ -106,6 +106,15 @@ export function processingPart(ed) {
       type: 'range', name: 'roomSound', min: 0, max: 100, step: 5, value: opts.roomSound,
       oninput: (e) => { opts.roomSound = Number(e.target.value); roomValue.textContent = `${opts.roomSound}%`; ed.changed(); },
     }), roomValue));
+    // The noise method: the dB are only the standard one's ('' = standard, kept out of what is saved).
+    const strength = num('noiseReduction', t('Noise reduction (dB)'), 1, 0, 40);
+    strength.hidden = opts.noiseMethod === 'speech';
+    const method = field(t('Noise reduction'), h('select', { name: 'noiseMethod', onchange: (e) => {
+      opts.noiseMethod = e.target.value || undefined;
+      strength.hidden = e.target.value === 'speech';
+      ed.changed();
+    } }, h('option', { value: '', selected: opts.noiseMethod !== 'speech' }, t('noise|Standard')),
+    h('option', { value: 'speech', selected: opts.noiseMethod === 'speech' }, t('noise|Speech'))));
     const strengths = (off, a, b, c) => [['off', off], ['gentle', a], ['normal', b], ['strong', c]];
 
     const sample = h('audio', { class: 'player', controls: true, hidden: true, 'aria-label': t('The sample') });
@@ -138,9 +147,11 @@ export function processingPart(ed) {
       group(t('Defaults'), h('p', {}, useDefaultsButton, ' ', makeDefaultsButton), defaultsNote),
       group(t('Channels'), channels, channelWarning),
       group(t('Noise'),
-        num('noiseReduction', t('Noise reduction (dB)'), 1, 0, 40),
+        method,
+        strength,
         room,
-        hint(t('Taking out noise also takes out some of the room\'s own sound, such as its reverb. Less reduction, or more room sound kept, sounds more natural; more sounds cleaner.'))),
+        hint(t('Taking out noise also takes out some of the room\'s own sound, such as its reverb. Less reduction, or more room sound kept, sounds more natural; more sounds cleaner.')),
+        hint(t('Speech keeps the voice and takes out what is not speech, more than the standard one does. Listen to a sample: it can also take out singing and make the voice sound thin.'))),
       group(t('Levels'),
         choice('leveling', t('Leveling'), strengths(t('Off'), t('Gentle'), t('Normal'), t('Strong'))),
         choice('compression', t('Compression'), [['off', t('Off')], ['light', t('compression|Light')], ['normal', t('Normal')], ['strong', t('Strong')]]),
