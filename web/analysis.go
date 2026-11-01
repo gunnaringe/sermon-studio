@@ -280,10 +280,10 @@ func (a *analyses) lookLater(raw, key string) {
 func analyze(ctx context.Context, ff normalizer.FFmpeg, raw, dir string, progress func(float64)) (normalizer.LevelData, error) {
 	preview := filepath.Join(dir, "preview.mp3")
 	tmp := filepath.Join(dir, "preview.partial.mp3")
-	cmd := exec.CommandContext(ctx, ff.Bin, "-nostdin", "-hide_banner", "-v", "error", "-y", "-i", raw,
+	cmd := exec.CommandContext(ctx, ff.Bin, normalizer.GuardInputs([]string{"-nostdin", "-hide_banner", "-v", "error", "-y", "-i", raw,
 		"-map", "0:a:0", "-ac", "1", "-ar", strconv.Itoa(normalizer.LevelRate), "-f", "s16le", "pipe:1",
 		"-map", "0:a:0", "-ac", "1", "-af", normalizer.ListenLevels, "-ar", "44100",
-		"-c:a", "libmp3lame", "-b:a", "64k", "-f", "mp3", tmp)
+		"-c:a", "libmp3lame", "-b:a", "64k", "-f", "mp3", tmp})...)
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
 	out, err := cmd.StdoutPipe()
