@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -78,17 +79,19 @@ func TestBackgroundNice(t *testing.T) {
 	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	niceness := func(f FFmpeg) string {
+	niceness := func(f FFmpeg) int {
 		res, err := f.run(context.Background(), nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		return strings.TrimSpace(res.Stdout)
+		n, err := strconv.Atoi(strings.TrimSpace(res.Stdout))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
 	}
-	if got := niceness(FFmpeg{Bin: bin, background: true}); got != "19" {
-		t.Errorf("background: nice %s, want 19", got)
-	}
-	if got := niceness(FFmpeg{Bin: bin}); got == "19" {
-		t.Errorf("a run: nice %s, want the studio's own", got)
+	// 19 on Linux; macOS's ps shows its own scale, so: lower than a run's, which is the studio's own.
+	if bg, own := niceness(FFmpeg{Bin: bin, background: true}), niceness(FFmpeg{Bin: bin}); bg <= own || runtime.GOOS == "linux" && bg != 19 {
+		t.Errorf("nice: background %d, a run %d", bg, own)
 	}
 }
