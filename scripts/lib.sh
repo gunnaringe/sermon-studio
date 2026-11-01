@@ -4,14 +4,20 @@ run=$(command -v podman || command -v docker) || { echo "needs podman or docker"
 golang=docker.io/library/golang:1.27-alpine3.24
 playwright=mcr.microsoft.com/playwright:v1.64.1-noble # keep equal to web/e2e/package.json
 quiet_npm="-e NPM_CONFIG_UPDATE_NOTIFIER=false" # no "new version of npm" notice in the output
-# testimage <name> <base>: the image scripts/test-images/<name>.Containerfile makes from base (ffmpeg added),
-# built the first time and kept; its tag changes with the file and the base, so either changing builds it anew.
+# testimage <name> <base>: the image scripts/test-images/<name>.Containerfile makes from base (ffmpeg added:
+# the image's, packaging/ffmpeg-release, for this machine), built the first time and kept; its tag changes with
+# the file, the base and the ffmpeg release, so any of them changing builds it anew.
 testimage() {
 	file=scripts/test-images/$1.Containerfile
-	tag="localhost/sermon-studio-test-$1:$( (cat "$file"; echo "$2") | sha256sum | cut -c1-12)"
+	. packaging/ffmpeg-release
+	case $(uname -m) in x86_64) arch=amd64 ;; aarch64 | arm64) arch=arm64 ;; *) echo "no ffmpeg build for $(uname -m)" >&2; exit 1 ;; esac
+	sum=$(grep "  ffmpeg-linux-$arch\$" packaging/ffmpeg.sha256 | cut -d' ' -f1)
+	url=https://github.com/$FFMPEG_REPO/releases/download/$FFMPEG_RELEASE/ffmpeg-linux-$arch
+	tag="localhost/sermon-studio-test-$1:$( (cat "$file"; echo "$2 $url $sum") | sha256sum | cut -c1-12)"
 	if ! "$run" image inspect "$tag" >/dev/null 2>&1; then
 		echo "building $tag (once)" >&2
-		"$run" build -q -t "$tag" --build-arg BASE="$2" -f "$file" scripts/test-images >/dev/null || exit 1
+		"$run" build -q -t "$tag" --build-arg BASE="$2" --build-arg FFMPEG_URL="$url" --build-arg FFMPEG_SHA256="$sum" \
+			-f "$file" scripts/test-images >/dev/null || exit 1
 	fi
 	echo "$tag"
 }

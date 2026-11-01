@@ -379,7 +379,7 @@ func TestIntegrationInputTypes(t *testing.T) {
 		ext, becomes string
 		args         []string
 	}{
-		{".mp3", ".mp3", []string{"-i", src, "-i", cover, "-map", "0:a", "-map", "1:v", "-c:a", "libmp3lame", "-b:a", "96k",
+		{".mp3", ".mp3", []string{"-i", src, "-f", "image2", "-i", cover, "-map", "0:a", "-map", "1:v", "-c:a", "libmp3lame", "-b:a", "96k",
 			"-c:v", "png", "-disposition:v", "attached_pic"}},
 		{".m4a", ".m4a", []string{"-i", src, "-c:a", "aac", "-b:a", "96k"}},
 		{".caf", ".caf", []string{"-i", src, "-c:a", "alac"}},

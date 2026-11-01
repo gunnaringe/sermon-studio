@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # arm64's final stage (apk add ffmpeg and its check) runs emulated; the Go build is cross-compiled
+      # arm64's final stage (the check of ffmpeg's encoders) runs emulated; the Go build is cross-compiled
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
       - name: Login to GHCR

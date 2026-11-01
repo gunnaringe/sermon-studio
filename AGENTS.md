@@ -36,7 +36,11 @@ new checkout). `TestToolVersions` checks that `mise.toml`, `go.mod`, `scripts/li
 change them together. `demo/` has its own `mise.toml`.
 
 ffmpeg is not on the dev host; `all`/`e2e` run in podman, in images with ffmpeg that `test.sh` builds
-once (`scripts/test-images/`, retagged when the file or the base image changes). The browser tests keep
+once (`scripts/test-images/`, retagged when the file, the base image or the ffmpeg release changes). Every ffmpeg the
+studio runs on, the image's, the desktop app's and these test images', is the ffmpeg-lgpl release in
+`packaging/ffmpeg-release` (checked against `packaging/ffmpeg.sha256`); the system's ffmpeg in the build stage and the
+test images is there only for ffprobe, which some tests use. CI on Windows and macOS still installs ffmpeg from
+Chocolatey and Homebrew; ffmpeg-lgpl's own CI runs these tests against every build. The browser tests keep
 `node_modules` until the lock file changes, and the test recordings in `web/e2e/fixtures/made/` (delete the
 folder to make them again). With `FFMPEG_REQUIRED` set (CI, the image build, `all`) a missing ffmpeg fails
 the tests instead of skipping them; a test run much faster than usual still means something was skipped.
@@ -232,7 +236,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - Delete a source only after its copy is verified identical (`FFmpeg.Convert`: `SameAudio` for
   WAV/AIFF→FLAC, the same packets for a video's sound; byte MD5 for copies). A run moves the whole
   recording into `<date>/original/` as it is (any of `normalizer.InputTypes`), named as it arrived (`sourceName` in `recording.json`; else `<date>_raw.<ext>`; `Paths.RawOriginal` finds either); the outputs are cut
-  straight from it using the sections + cuts, there is no edit file. Every encode maps only `0:a:0`
+  straight from it using the sections + cuts, there is no edit file. Every input file is read through `GuardInputs` (`normalizer/ffmpeg.go`: `-protocol_whitelist file` and
+  `-format_whitelist`, so no playlist or script reaches other files); an input of another kind (lavfi) names its `-f`. Every encode maps only `0:a:0`
   (an MP3's cover picture or a video must not end up in the outputs).
 - The input types are one table, `normalizer/types.go`; `INPUT_TYPES` in `util.js` and the
   upload page's `magicOK` follow it (tests check both).

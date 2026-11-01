@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -34,7 +35,7 @@ func (f FFmpeg) run(ctx context.Context, progress func(seconds float64), args []
 		// Every 0.1 s instead of 0.5: on a fast machine a step can be over before the first report.
 		full = append(full, "-progress", "pipe:1", "-stats_period", "0.1")
 	}
-	cmd := exec.CommandContext(ctx, f.Bin, append(full, args...)...)
+	cmd := exec.CommandContext(ctx, f.Bin, append(full, GuardInputs(args)...)...)
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	if progress != nil {
@@ -52,6 +53,33 @@ func (f FFmpeg) run(ctx context.Context, progress func(seconds float64), args []
 		return res(), fmt.Errorf("ffmpeg failed (%w):\n%s", err, lastLines(res().Stderr, 15))
 	}
 	return res(), nil
+}
+
+// inputFormats are the only containers ffmpeg may read a file as (-format_whitelist): what a recording, a
+// clip or a file the studio made can be, and none of the playlists and scripts (HLS, concat ...) that name
+// other files. ffmpeg still finds the format from the content, so a file with the wrong extension is read as
+// what it is.
+const inputFormats = "wav,aiff,flac,mp3,mov,aac,ogg,asf,caf,matroska"
+
+// GuardInputs puts -protocol_whitelist file and -format_whitelist before every file input in args (an -i
+// whose options have no -f, which lavfi's have): ffmpeg then reads that file as audio or video, and never
+// another file or an address the file names. The files come from the public, and ffmpeg reads many formats.
+func GuardInputs(args []string) []string {
+	out := make([]string, 0, len(args)+4)
+	start := 0 // where the options of the next input begin
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-i" && i+1 < len(args) {
+			if !slices.Contains(args[start:i], "-f") {
+				out = append(out, "-protocol_whitelist", "file", "-format_whitelist", inputFormats)
+			}
+			out = append(out, args[i], args[i+1])
+			i++
+			start = i + 1
+			continue
+		}
+		out = append(out, args[i])
+	}
+	return out
 }
 
 // RunTo runs ffmpeg with dst as the output file. ffmpeg writes to a temporary
