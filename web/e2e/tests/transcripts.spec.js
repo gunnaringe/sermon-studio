@@ -179,7 +179,7 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   await expect(bar.locator('progress')).toHaveJSProperty('value', 0.42);
   await expect(bar.locator('progress')).toHaveAttribute('title', '42% done');
   await expect(bar.locator('.live-bar.running')).toBeVisible();
-  await expect(bar.locator('.background-note')).toContainText('in the background');
+  await expect(bar.locator('.background-note')).toContainText('background job');
   await expect(bar.locator('button[name=stop-transcript]')).toHaveText('✕');
   await expect(box.locator('.pill .state')).toHaveText('being made');
   await box.screenshot({ path: path.join(shots, 'transcript-progress.png') });
