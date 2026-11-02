@@ -73,7 +73,10 @@ export function outputPart(ed) {
   const toMake = () => FORMATS.map(([f]) => f).filter((f) => opts[f] && (!outputState(f).file || outputState(f).stale));
   // Without the right to delete (a demo), a format turned off is only not made.
   const toDelete = () => (can('recording.delete') ? FORMATS.map(([f]) => f).filter((f) => !opts[f] && outputState(f).file) : []);
-  const labels = (list) => list.map((f) => FORMATS.find(([x]) => x === f)[1]).join(', ');
+  const labels = (list) => list.map((f) => f === 'transcript' ? t('transcript') : FORMATS.find(([x]) => x === f)[1]).join(', ');
+  // The transcript, like a format (editor/transcript.js): stale when the one there is of another cut than the edit.
+  const transcriptStale = () => Boolean(lastCheck.transcript && lastCheck.transcript.stale);
+  const transcriptToDo = () => (ed.transcriptToDo ? ed.transcriptToDo(transcriptStale()) : '');
 
   function renderOutputs() {
     pills.replaceChildren(...FORMATS.map(([format, label]) => {
@@ -89,7 +92,9 @@ export function outputPart(ed) {
         }, h('span', { class: 'box', 'aria-hidden': 'true' }, chosen ? '☑' : '☐'), ' ', label, file ? ' ✓' : ''),
         h('span', { class: 'state' + (file && !chosen ? ' delete' : chosen && (stale || !file) ? ' will' : '') }, note));
     }));
-    const make = toMake(), del = toDelete(), keep = unsaved();
+    const tx = transcriptToDo();
+    ed.redrawTranscript?.(transcriptStale());
+    const make = [...toMake(), ...(tx === 'make' ? ['transcript'] : [])], del = [...toDelete(), ...(tx === 'delete' ? ['transcript'] : [])], keep = unsaved();
     const blocked = (make.length > 0 || keep) && Boolean(lastCheck.error); // deleting does not need a valid edit
     outputNote.textContent = blocked ? ''
       : make.length || del.length || keep
@@ -109,9 +114,9 @@ export function outputPart(ed) {
   async function save() {
     if (ed.proposed) ed.adopt(); // the start the page made has not been kept yet
     await ed.persistAdjusted();
-    const make = toMake(), del = toDelete();
+    const make = toMake(), del = toDelete(), tx = transcriptToDo();
     const replaced = make.map(outputState).filter((x) => x.file).map((x) => x.file.name);
-    const deleted = del.map((f) => outputState(f).file.name);
+    const deleted = [...del.map((f) => outputState(f).file.name), ...(tx === 'delete' ? [t('The transcript (text and captions)')] : [])];
     if (deleted.length) {
       const ok = await confirmDialog({
         title: t('Delete files?'),
@@ -141,9 +146,15 @@ export function outputPart(ed) {
         renderOutputs();
         check();
       }
-      if (!make.length) return;
+      if (tx === 'delete') await ed.removeTranscript();
+      // The transcript is made from the files: after the run that makes them, else now.
+      if (!make.length) {
+        if (tx === 'make') await ed.makeTranscript();
+        return;
+      }
       const req = request(replaced.length > 0);
       for (const [f] of FORMATS) req[f] = make.includes(f);
+      if (tx === 'make') req.transcript = ed.transcriptAsk();
       job = await api('POST', 'api/run?path=' + q(path), req);
       showJob(job);
       follow(job.id);

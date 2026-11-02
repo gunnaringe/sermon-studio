@@ -53,6 +53,17 @@ export function infoDialog({ title, body }) {
   return ask({ title, body, buttons: [{ label: t('OK'), value: 'ok', class: 'primary' }] });
 }
 
+// choiceDialog shows a choice (any content) with Cancel, more buttons ({label, value}) and a confirm button, and
+// resolves with result(value): value is 'ok' when confirmed, a button's value, or 'cancel' when dismissed.
+/** @param {{ title: string, body: any, confirm?: string, more?: { label: string, value: string }[], result: (value: string) => any }} o */
+export function choiceDialog({ title, body, confirm = t('OK'), more = [], result }) {
+  return ask({
+    title, body, result,
+    buttons: [{ label: t('Cancel'), value: 'cancel' }, ...more, { label: confirm, value: 'ok', class: 'primary' }],
+    focus: '[data-result=ok]',
+  });
+}
+
 // promptDialog asks for a line of text and resolves with it, or null if cancelled.
 export function promptDialog({ title, label, value = '', placeholder = '', confirm = t('OK'), maxlength = 200 }) {
   const input = h('input', { type: 'text', value, placeholder, maxlength, 'aria-label': label || title });

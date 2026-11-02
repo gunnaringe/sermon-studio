@@ -43,8 +43,9 @@ type transcriptionView struct {
 		Code  string
 		Model modelInfo
 	}
-	Models []struct {
-		File, Size string
+	Defaults map[string]string
+	Models   []struct {
+		Key, Size string
 	}
 }
 
@@ -80,6 +81,38 @@ func TestTranscriptionSettings(t *testing.T) {
 	}
 	if rec := ts.do(t, "PUT", "/api/transcription", map[string]string{"language": "sv"}); rec.Code != http.StatusOK {
 		t.Errorf("any language: %d", rec.Code)
+	}
+	// The church's models by language, by their keys: one for the language, installed; a language's
+	// transcripts are made with its own.
+	put := func(body any) int {
+		t.Helper()
+		return ts.do(t, "PUT", "/api/transcription", body).Code
+	}
+	for _, bad := range []map[string]string{{"nb": "nope"}, {"sv": "nb-whisper-medium"}} {
+		if code := put(map[string]any{"language": "nb", "defaults": bad}); code != http.StatusBadRequest {
+			t.Errorf("%v: %d", bad, code)
+		}
+	}
+	if code := put(map[string]any{"language": "nb", "defaults": map[string]string{"nb": "whisper.cpp ggml-small", "nn": ""}}); code != http.StatusOK {
+		t.Fatalf("nb with whisper: %d", code)
+	}
+	if got := decode[transcriptionView](t, ts.do(t, "GET", "/api/transcription", nil)); got.Language != "nb" || len(got.Defaults) != 1 ||
+		got.Defaults["nb"] != "whisper.cpp ggml-small" {
+		t.Errorf("the church's choice: %+v", got)
+	}
+	if ts.defaultModel("nb") != "whisper.cpp ggml-small" || ts.defaultModel("nn") != "" {
+		t.Errorf("default: %q %q", ts.defaultModel("nb"), ts.defaultModel("nn"))
+	}
+	// Its model gone: the first for the language instead, and the choice is kept.
+	writeModels(t, dir, nbMedium)
+	if ts.defaultModel("nb") != "" {
+		t.Errorf("gone: %q", ts.defaultModel("nb"))
+	}
+	if code := put(map[string]any{"language": "", "defaults": map[string]string{"nb": "whisper.cpp ggml-small"}}); code != http.StatusOK {
+		t.Errorf("kept while gone: %d", code)
+	}
+	if lang, keys := ts.transcriptChoice(); lang != "" || keys["nb"] != "whisper.cpp ggml-small" {
+		t.Errorf("off: %q %v", lang, keys)
 	}
 	// Without transcripts in the studio, there is nothing to choose.
 	plain := newTestServer(t, normalizer.FFmpeg{})
@@ -137,7 +170,7 @@ func TestTranscriptState(t *testing.T) {
 		t.Errorf("done: %+v", got)
 	}
 	// A run does not make it again.
-	ts.afterRun(folder)
+	ts.afterRun(folder, nil)
 	if len(ts.transcripts) != 0 {
 		t.Errorf("made again after a run: %v", ts.transcripts)
 	}
@@ -209,17 +242,17 @@ func TestTranscriptInLanguage(t *testing.T) {
 	}
 	// A model that is not installed, or not for the language.
 	writeModels(t, dir, nbMedium, whisper)
-	for _, q := range []string{"nn&model=other.bin", "sv&model=nb.bin", "*&model=nb.bin"} {
+	for _, q := range []string{"nn&model=other", "sv&model=nb-whisper-medium", "*&model=nb-whisper-medium"} {
 		if code := make(q); code != http.StatusBadRequest {
 			t.Errorf("%s: %d", q, code)
 		}
 	}
-	if code := make("sv&model=small.bin"); code != http.StatusOK {
+	if code := make("sv&model=whisper.cpp+ggml-small"); code != http.StatusOK {
 		t.Fatalf("sv with the small model: %d", code)
 	}
 	waitFailed()
 	if got := decode[transcriptionView](t, ts.do(t, "GET", "/api/transcription", nil)); len(got.Models) != 2 ||
-		got.Models[1].File != "small.bin" || got.Models[1].Size != "small" || got.Models[0].Size != "medium" {
+		got.Models[1].Key != "whisper.cpp ggml-small" || got.Models[1].Size != "small" || got.Models[0].Size != "medium" {
 		t.Errorf("models: %+v", got.Models)
 	}
 	if code := make("nn"); code != http.StatusOK {
@@ -227,6 +260,14 @@ func TestTranscriptInLanguage(t *testing.T) {
 	}
 	if got = waitFailed(); got.State != "failed" || got.Spoken != "nn" || !got.CanMake {
 		t.Errorf("failed in nn: %+v", got)
+	}
+	// A run that asks for one makes it from the files it made.
+	if ts.checkTranscript(transcriptAsk{Language: "sv", Model: "nb-whisper-medium"}) == nil || ts.checkTranscript(transcriptAsk{Language: "nb"}) != nil {
+		t.Error("check")
+	}
+	ts.afterRun(folder, &transcriptAsk{Language: "nb"})
+	if got := waitFailed(); got.Spoken != "nb" {
+		t.Errorf("after the run: %+v", got)
 	}
 }
 

@@ -112,6 +112,11 @@ export const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.
  * @property {() => void} drawClips
  * @property {() => void} showClipLength
  * @property {(transcript: any) => void} renderTranscript draw the transcript from the folder read again
+ * @property {(stale?: boolean) => string} transcriptToDo what Save does to the transcript: 'make', 'delete' or ''
+ * @property {(stale?: boolean) => void} redrawTranscript
+ * @property {() => { language: string, model: string }} transcriptAsk the transcript a run is asked to make
+ * @property {() => Promise<void>} makeTranscript
+ * @property {() => Promise<void>} removeTranscript
  */
 
 /**

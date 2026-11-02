@@ -201,7 +201,10 @@ func TestWhisperSizeAndSame(t *testing.T) {
 	if !(Model{Name: "a"}).Same(Model{Name: "a", File: "x"}) || (Model{Name: "a"}).Same(a) {
 		t.Error("by hand: the name")
 	}
-	if m, ok := Find([]Model{a, {Name: "b", File: "b.bin"}}, "b.bin"); !ok || m.Name != "b" {
+	if a.Key() != "r/p" {
+		t.Errorf("key %q", a.Key())
+	}
+	if m, ok := Find([]Model{a, {Name: "b", File: "b.bin"}}, "b"); !ok || m.Name != "b" {
 		t.Errorf("find: %+v", m)
 	}
 }
