@@ -202,17 +202,25 @@ export function sermonDetail(entry, ctx = {}) {
     const buttons = [];
     const draw = () => {
       buttons.length = 0;
-      list.replaceChildren(...FORMATS.map(([format, label]) => {
+      list.replaceChildren(...FORMATS.flatMap(([format, label]) => {
         if (menuVersion && !made(format)) return ''; // the sermon only is made with its format
         const o = made(format + menuVersion);
         const name = menuVersion ? t('Download {format}, sermon only', { format: label }) : t('Download {format}', { format: label });
+        const gone = !info.raw && info.originalDeleted; // nothing to make it from
         if (o) {
           const go = h('span', { class: 'go icon', 'aria-hidden': 'true' });
           go.innerHTML = DOWNLOAD_ICON;
-          return h('a', { class: 'menu-item', href: fileURL(o, true), 'aria-label': name },
-            h('strong', {}, label), h('span', { class: 'muted' }, formatSize(o.size)), go);
+          const link = h('a', { class: 'menu-item', href: fileURL(o, true), 'aria-label': name },
+            h('strong', {}, label), h('span', { class: o.stale ? 'warn' : 'muted' }, formatSize(o.size) + (o.stale ? ' · ' + t('out of date') : '')), go);
+          if (!o.stale || gone || !saved) return link;
+          // Made from another cut or sound than the saved version: made again from it, here.
+          const again = h('button', { type: 'button', class: 'menu-item again', name: 'make-again-' + format,
+            title: t('Make {format} again from the saved version', { format: label }),
+            onclick: () => make(format, label, again, status, buttons, true) },
+          h('span', {}), h('span', {}), h('span', { class: 'go' }, t('Make again')));
+          buttons.push(again);
+          return [link, again];
         }
-        const gone = !info.raw && info.originalDeleted; // nothing to make it from
         const b = h('button', { type: 'button', class: 'menu-item', name: 'make-' + format, disabled: !saved || gone,
           title: gone ? t('The original was deleted, so it cannot be made') : saved ? t('Not made yet: make {format}', { format: label }) : t('Save the sermon in the editor first'),
           onclick: () => make(format, label, b, status, buttons) },
@@ -327,12 +335,12 @@ export function sermonDetail(entry, ctx = {}) {
     ];
   }
 
-  async function make(format, label, button, status, buttons) {
+  async function make(format, label, button, status, buttons, again = false) {
     for (const b of buttons) b.disabled = true;
     button.classList.add('busy');
     status.textContent = t('Making {format}: the conversion is running…', { format: label });
     try {
-      let job = await api('POST', 'api/make?path=' + q(entry.path) + '&format=' + format);
+      let job = await api('POST', 'api/make?path=' + q(entry.path) + '&format=' + format + (again ? '&again=1' : ''));
       while (job.state === 'queued' || job.state === 'running') {
         await sleep(1000);
         const left = timeLeft(job.remaining);

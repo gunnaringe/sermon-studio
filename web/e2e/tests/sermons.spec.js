@@ -66,6 +66,17 @@ test('a sermon opens its details in the list: play, download, make a missing for
   await expect(detail.getByRole('link', { name: 'Download MP3' })).toBeVisible({ timeout: 60_000 });
   expect(fs.readdirSync(path.join(DATA, 'root', folder)).some((f) => f.endsWith('.mp3'))).toBe(true);
 
+  // The FLAC and Opus were made with another sound than the saved version: out of date, and made again here.
+  const again = detail.locator('button[name=make-again-opus]');
+  await expect(detail.getByRole('link', { name: 'Download Opus' })).toContainText('out of date');
+  await expect(detail.locator('button[name=make-again-flac]')).toBeVisible();
+  await expect(detail.locator('button[name=make-again-mp3]')).toHaveCount(0); // just made from the saved version
+  await page.screenshot({ path: path.join(shots, 'sermon-list-make-again.png') });
+  await again.click();
+  await expect(again).toHaveCount(0, { timeout: 60_000 });
+  await expect(detail.getByRole('link', { name: 'Download Opus' })).not.toContainText('out of date');
+  await expect(detail.locator('button[name=make-again-flac]')).toBeVisible(); // only the one asked for
+
   await row.locator('button.sermon-name').click(); // the name button too: once, not twice
   await expect(detail).toHaveCount(0);
   await row.click();

@@ -710,3 +710,73 @@ func TestErrorsWithoutPaths(t *testing.T) {
 		t.Errorf("other error: %q", got)
 	}
 }
+
+// MP3 and Opus are made from the FLAC while it is of the saved version, also when made again; never from one of
+// an earlier version. The folder info says which files are out of date, and Make again makes one anew.
+func TestIntegrationMakeFromMaster(t *testing.T) {
+	ff := requireFFmpeg(t)
+	ts := newTestServer(t, ff)
+	folder := filepath.Join(ts.root, "2026-10-04")
+	ts.file(t, "2026-10-04/x", "")
+	service(t, ff, filepath.Join(folder, "2026-10-04_raw.wav"))
+	save := func(fadeIn float64) {
+		saved := sermonSettings{cutting: cutting{Sections: []span{{Start: 21, End: 79}}, Cuts: []span{}}, FadeIn: fadeIn}
+		if _, err := ts.updateState(folder, func(st *folderState) error { st.Saved = &saved; return nil }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk := func(query string) string { // the run's log
+		t.Helper()
+		rec := ts.do(t, "POST", "/api/make?path=2026-10-04&"+query, nil)
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("make %s: %d %s", query, rec.Code, rec.Body)
+		}
+		j := ts.jobs.get(decode[jobSnapshot](t, rec).ID)
+		for {
+			if s := j.snapshot(); s.State != "queued" && s.State != "running" {
+				if s.State != "done" {
+					t.Fatalf("make %s: %+v", query, s)
+				}
+				return strings.Join(s.Log, "\n")
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+	stale := func() map[string]bool {
+		out := map[string]bool{}
+		for _, o := range decode[folderInfo](t, ts.do(t, "GET", "/api/folder?path=2026-10-04", nil)).Outputs {
+			out[o.Format] = o.Stale
+		}
+		return out
+	}
+	const reused = "Using the existing 2026-10-04.flac"
+
+	save(0)
+	mk("format=flac")
+	if log := mk("format=mp3"); !strings.Contains(log, reused) {
+		t.Errorf("the MP3 is not made from the FLAC:\n%s", log)
+	}
+	if got := stale(); len(got) != 2 || got["flac"] || got["mp3"] {
+		t.Errorf("up to date: %v", got)
+	}
+
+	// Another saved version: both are out of date, and the old FLAC is not used for the MP3.
+	save(1)
+	if got := stale(); !got["flac"] || !got["mp3"] {
+		t.Errorf("after a new save: %v", got)
+	}
+	if log := mk("format=mp3&again=1"); strings.Contains(log, reused) {
+		t.Errorf("the MP3 was made from the FLAC of the earlier version:\n%s", log)
+	}
+	if got := stale(); !got["flac"] || got["mp3"] {
+		t.Errorf("after the MP3 again: %v", got)
+	}
+	// The FLAC made again is used for the next, though it is made again too.
+	mk("format=flac&again=1")
+	if log := mk("format=mp3&again=1"); !strings.Contains(log, reused) {
+		t.Errorf("the MP3 made again is not made from the new FLAC:\n%s", log)
+	}
+	if got := stale(); got["flac"] || got["mp3"] {
+		t.Errorf("all made again: %v", got)
+	}
+}
