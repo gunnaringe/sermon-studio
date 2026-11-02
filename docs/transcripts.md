@@ -57,7 +57,12 @@ times as long as small. A newer server is several times faster. Pick the model b
 ## When it is made
 
 - **After a run**, when the church has a language and the sermon has no transcript yet. Never again by itself.
-- **Make transcript** / **Make again** on the recordings page (a sermon's details), for admins and members.
+- **Make transcript** / **Make again** in the editor's **Transcript**, for admins and members: in the language chosen
+  there (the church's, or the transcript's, to begin with) and with the model chosen from every installed one, filtered
+  by language, size (tiny … large-v3-turbo, from the model's name) and name. The one the studio would take for the
+  language is chosen first, and marked. Also on the recordings page (a sermon's details), in the transcript's language,
+  else the church's, with the model for it. A church without a language gets transcripts only this way.
+- While one is made, a bar shows how far it is, with ✕ to stop it.
 - A transcript made **from an earlier cut** (the sermon was cut again since) or **with another model** than the one there
   now says so, with **Make again**; it is not made again by itself.
 

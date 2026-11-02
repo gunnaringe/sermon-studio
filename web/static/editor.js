@@ -13,6 +13,7 @@ import { processingPart } from './editor/processing.js';
 import { clipsPart } from './editor/clips.js';
 import { historyPart } from './editor/history.js';
 import { outputPart } from './editor/output.js';
+import { transcriptPart } from './editor/transcript.js';
 
 export async function editorView(view, slug, config) {
   const { path, slug: own } = await api('GET', 'api/recording?slug=' + q(slug));
@@ -72,8 +73,8 @@ export async function editorView(view, slug, config) {
   });
   ed.lastSent = JSON.stringify(ed.sermon.adjusted || ed.sermon.saved);
   const inputFile = infoPart(ed), waveform = waveformPart(ed), processing = processingPart(ed), clips = clipsPart(ed),
-    history = historyPart(ed), output = outputPart(ed);
-  Object.assign(ed, inputFile, waveform, sectionsPart(ed), cutsPart(ed), fadesPart(ed), processing, clips, history, output);
+    history = historyPart(ed), output = outputPart(ed), transcript = transcriptPart(ed);
+  Object.assign(ed, inputFile, waveform, sectionsPart(ed), cutsPart(ed), fadesPart(ed), processing, clips, history, output, transcript);
 
   // changed: the edit changed. It is checked, kept in a moment, and becomes a step of undo.
   function changed() {
@@ -98,6 +99,7 @@ export async function editorView(view, slug, config) {
     h('section', { class: 'step', 'aria-labelledby': 'step-processing' }, h('h2', { id: 'step-processing' }, t('Processing')), processing.processingEl),
     clips.clipsSection,
     output.outputEl,
+    transcript.transcriptEl,
     can('recording.delete') ? h('section', { class: 'step', 'aria-labelledby': 'step-delete' }, h('h2', { id: 'step-delete' }, t('Delete')), inputFile.deletePanel) : '',
     saveBar,
   );
@@ -105,6 +107,7 @@ export async function editorView(view, slug, config) {
   inputFile.showInput();
   inputFile.waitForFacts();
   output.showJobs();
+  transcript.showTranscript();
   waveform.showWaveform();
   inputFile.renderDelete();
   // Without the original there is nothing left to edit: the page has what it was made into, and Delete.

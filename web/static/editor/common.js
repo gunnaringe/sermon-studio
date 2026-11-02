@@ -111,6 +111,7 @@ export const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.
  * @property {() => Record<string, string>} clipChoices
  * @property {() => void} drawClips
  * @property {() => void} showClipLength
+ * @property {(transcript: any) => void} renderTranscript draw the transcript from the folder read again
  */
 
 /**
