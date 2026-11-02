@@ -149,7 +149,7 @@ export function liveBar(progress, running, label) {
 
 // backgroundNote tells that work runs on the server: nobody needs to wait for it on the page.
 export const backgroundNote = (tag = 'p') =>
-  h(tag, { class: 'muted background-note' }, t('This runs on the server in the background. You can close the page or go on working; it carries on.'));
+  h(tag, { class: 'muted background-note' }, t('This runs as a background job and carries on even if you leave the page.'));
 
 // Dates are shown as 2026-10-04 and times as 2026-10-04 18:30, whatever the
 // browser's locale.

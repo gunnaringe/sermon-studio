@@ -18,7 +18,7 @@ export function outputPart(ed) {
   const outputNote = h('p', { class: 'muted' });
   const checkOut = h('div', {});
   const saveButton = h('button', { class: 'primary', disabled: true, title: t('Make this the saved version and make the files'), onclick: save }, t('Save'));
-  const jobPanel = h('section', {});
+  const jobPanel = h('section', { class: 'job' });
 
   // request is the run as the server takes it, and as it checks it.
   /** @returns {Record<string, any>} */
