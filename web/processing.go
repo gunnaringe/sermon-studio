@@ -64,12 +64,10 @@ func (p processing) request(stereo bool) runRequest {
 	return q
 }
 
-// start is what a recording starts with: also the church's default intro and outro, and only the FLAC (the
-// master; MP3 and Opus are made from it when wanted, in the editor, the recordings page or a share).
+// start is what a recording starts with: also the church's default intro and outro.
 func (p processing) start() runRequest {
 	q := p.request(p.Stereo)
 	q.Intro, q.Outro = clipDefault, clipDefault
-	q.Flac, q.Mp3, q.Opus = true, false, false
 	return q
 }
 

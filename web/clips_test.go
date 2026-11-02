@@ -235,7 +235,7 @@ func TestIntegrationRunWithClips(t *testing.T) {
 	service(t, ff, filepath.Join(folder, "2026-10-04_raw.wav"))
 	q := ts.processing().start()
 	q.Sections = []span{{Start: 21, End: 79}}
-	q.Flac, q.Mp3, q.Opus = false, true, false
+	q.Flac, q.Opus = false, false
 	pl := decode[plan](t, ts.do(t, "POST", "/api/check?path=2026-10-04", q))
 	if pl.Error != "" || pl.Clips.Intro == nil || pl.Clips.Intro.Name != "Jingle" || pl.Clips.Outro != nil || pl.Clips.Pause != 0.5 {
 		t.Fatalf("check: %+v", pl)

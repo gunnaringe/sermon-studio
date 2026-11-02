@@ -10,7 +10,7 @@
 
 | Option | Default | |
 |---|---|---|
-| Outputs | FLAC | which files to make; in the studio a new recording starts with FLAC only, and MP3 and Opus are made from it when wanted (the editor, the recordings page) |
+| Outputs | FLAC, MP3, Opus | which files to make |
 | Stereo | off (mono) | stereo moves the defaults to -16 LUFS, MP3 128k, Opus 96k |
 | Fade in / out | 0 | seconds of fade at the start and end of the sermon, 0 = off |
 | Pause | 0 | seconds of silence put in where a section ends or a cut is |

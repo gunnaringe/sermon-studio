@@ -357,8 +357,8 @@ test('the adjustments are kept as you go (draft.json); Save makes them the saved
   await expect(page.getByText('Length 1:00.0 (2 cuts)')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Revert…' })).toBeDisabled(); // nothing to go back to yet
 
-  // Save makes it the saved version (with no format chosen, it makes no files; FLAC is the only default).
-  await pick(page, 'FLAC').click();
+  // Save makes it the saved version (with no format chosen, it makes no files).
+  for (const label of ['FLAC', 'MP3', 'Opus']) await pick(page, label).click();
   await expect(page.getByText('Save keeps the edit.')).toBeVisible();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Saved.', { exact: true })).toBeVisible();
@@ -416,7 +416,7 @@ test('a recording not cut yet starts with the sermon set to all of it but the si
   expect(start.end).toBeGreaterThan(55.4);
   expect(start.end).toBeLessThan(56.5);
   await expect(page.getByText('Nothing is saved yet.')).toBeVisible();
-  await expect(page.getByText('Save keeps the edit, makes: FLAC.')).toBeVisible(); // the master only, by default
+  await expect(page.getByText('Save keeps the edit, makes: FLAC, MP3, Opus.')).toBeVisible();
 
   // It is only a start: nothing is kept until something is changed.
   await page.waitForTimeout(1500);
@@ -431,7 +431,7 @@ test('a recording not cut yet starts with the sermon set to all of it but the si
   forget(folder);
   await page.reload();
   await expect(sectionHint(page)).toContainText('The sermon is set to', { timeout: 60_000 });
-  await pick(page, 'FLAC').click();
+  for (const label of ['FLAC', 'MP3', 'Opus']) await pick(page, label).click();
   await expect(page.getByText('Save keeps the edit.')).toBeVisible();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Saved.', { exact: true })).toBeVisible();
@@ -479,23 +479,20 @@ test('the page: Input file, Edit, Metadata, Processing, Intro and outro, Output,
   await expect(page.getByText(/stereo gives the same sound in bigger files/)).toBeHidden();
   await expect(page.getByLabel('Target loudness (LUFS)')).toHaveValue('-19');
 
-  // Output: a pill per format, none made yet; FLAC (the master) is chosen, MP3 and Opus are not.
+  // Output: a pill per format, all chosen, none made yet.
   await editor(page, () => window.__editor.addSection(21, 79));
-  await expect(pick(page, 'FLAC')).toHaveAttribute('aria-pressed', 'true');
-  await expect(pill(page, 'FLAC')).toContainText('will be made');
-  for (const label of ['MP3', 'Opus']) {
-    await expect(pick(page, label)).toHaveAttribute('aria-pressed', 'false');
-    await expect(pill(page, label)).toContainText('not made');
+  for (const label of ['FLAC', 'MP3', 'Opus']) {
+    await expect(pick(page, label)).toHaveAttribute('aria-pressed', 'true');
+    await expect(pill(page, label)).toContainText('will be made');
   }
-  await pick(page, 'MP3').click();
-  await expect(pick(page, 'MP3')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('Save keeps the edit, makes: FLAC, MP3.')).toBeVisible();
+  await pick(page, 'FLAC').click();
+  await expect(pick(page, 'FLAC')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByText('Save keeps the edit, makes: MP3, Opus.')).toBeVisible();
   await page.locator('section.step').first().screenshot({ path: path.join(shots, 'edit-input.png') });
   await page.locator('section.step').last().screenshot({ path: path.join(shots, 'edit-output-new.png') });
   // The choice is this recording's own: not remembered, here or for other folders.
   await page.reload();
   await expect(pick(page, 'FLAC')).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 });
-  await expect(pick(page, 'MP3')).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('Save makes the chosen formats, and only what is missing or out of date', async ({ page }) => {
@@ -505,7 +502,7 @@ test('Save makes the chosen formats, and only what is missing or out of date', a
   await page.getByLabel('Section to').fill('1:19');
   await page.getByLabel('Section to').press('Enter');
   await pick(page, 'FLAC').click();
-  await pick(page, 'MP3').click();
+  await pick(page, 'Opus').click();
   await setFade(page, 'fadeIn', 1);
   // Save keeps the edit, then makes the files; it asks nothing when it deletes nothing.
   await page.getByRole('button', { name: 'Save', exact: true }).click();
