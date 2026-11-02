@@ -125,7 +125,6 @@ test('editor: the intro and outro of a sermon, its own clip, and a deleted one',
   await expect(step.locator('.error')).toHaveCount(0);
   await step.screenshot({ path: path.join(shots, 'editor-intro-outro.png') });
 
-  await page.locator('.pill[data-format=mp3] button.pick').click(); // FLAC is the only default
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Done' })).toBeVisible({ timeout: 90_000 });
   for (const f of ['2027-06-06.mp3', '2027-06-06_sermon.mp3', '2027-06-06.flac', '2027-06-06_sermon.flac']) expect(fs.existsSync(path.join(dir, f)), f).toBe(true);
