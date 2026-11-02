@@ -33,7 +33,37 @@ const (
 // downloadFormats are what a download share can give, in the order shown.
 var downloadFormats = []string{"flac", "mp3", "opus"}
 
-var downloadTypes = map[string]string{"flac": "audio/flac", "mp3": "audio/mpeg", "opus": "audio/ogg"}
+// transcriptDownloads are what a share with the transcript gives of it: its text and its captions. They are
+// not counted as downloads.
+var transcriptDownloads = []string{"txt", "vtt"}
+
+var downloadTypes = map[string]string{"flac": "audio/flac", "mp3": "audio/mpeg", "opus": "audio/ogg",
+	"txt": "text/plain; charset=utf-8", "vtt": "text/vtt; charset=utf-8"}
+
+// formats are the formats a download share gives: all of them, also ones made later, or those chosen.
+func (sh *Share) formats() []string {
+	if sh.AllFormats {
+		return downloadFormats
+	}
+	return sh.Formats
+}
+
+// gives tells whether the share gives a download: one of its formats, or the transcript's text or captions.
+func (sh *Share) gives(format string) bool {
+	return slices.Contains(sh.formats(), format) || (sh.Transcript && slices.Contains(transcriptDownloads, format))
+}
+
+// downloadPath is the file of a download of the share.
+func downloadPath(p normalizer.Paths, sh *Share, format string) string {
+	text, captions, _ := transcriptPaths(p)
+	switch format {
+	case "txt":
+		return text
+	case "vtt":
+		return captions
+	}
+	return outputPath(p, format, sh.SermonOnly)
+}
 
 // downloadTicket is a download that has been counted, and can be fetched (and resumed) until it expires.
 type downloadTicket struct {
@@ -128,8 +158,21 @@ func (a *App) findRecordings(t *tenant, only *Share) map[*Share]string {
 	return found
 }
 
-// createDownloadShare makes a download share of a recording's finished files: POST api/shares with kind "download".
-func (a *App) createDownloadShare(w http.ResponseWriter, t *tenant, label, rec string, formats []string, sermonOnly bool, maxDownloads int, expires *time.Time) {
+// downloadRequest is a download share asked for: POST api/shares with kind "download".
+type downloadRequest struct {
+	Recording    string
+	Formats      []string // when not AllFormats
+	AllFormats   bool     // every format, also ones made later
+	Transcript   bool     // and the transcript
+	SermonOnly   bool
+	MaxDownloads int
+	Expires      *time.Time
+}
+
+// createDownloadShare makes a download share of a saved recording, of the files made (shareable): POST
+// api/shares with kind "download". It makes nothing: Save in the editor makes every format.
+func (a *App) createDownloadShare(w http.ResponseWriter, t *tenant, label string, q downloadRequest) {
+	rec, formats, sermonOnly, maxDownloads, expires := q.Recording, q.Formats, q.SermonOnly, q.MaxDownloads, q.Expires
 	s := t.srv
 	abs, err := s.resolve(rec)
 	if err != nil || rec == "" || !s.entry(abs).Date {
@@ -147,17 +190,22 @@ func (a *App) createDownloadShare(w http.ResponseWriter, t *tenant, label, rec s
 			picked = append(picked, f)
 		}
 	}
+	if q.AllFormats {
+		formats, picked = downloadFormats, nil
+	}
 	err = checkLabel(label)
 	switch {
 	case err != nil:
-	case len(picked) == 0 || len(picked) != len(formats):
+	case !q.AllFormats && (len(picked) == 0 || len(picked) != len(formats)):
 		err = fmt.Errorf("choose formats from %s", strings.Join(downloadFormats, ", "))
 	case maxDownloads < 0:
 		err = errors.New("limits cannot be negative")
 	case expires != nil && !expires.After(time.Now()):
 		err = errors.New("the expiry is in the past")
-	case slices.ContainsFunc(picked, func(f string) bool { return !fileExists(outputPath(paths, f, sermonOnly)) }):
-		err = errors.New("a chosen format has not been made yet")
+	case sermonOnly && !slices.ContainsFunc(sermonOnlyOutputs(paths), func(o output) bool { return fileExists(o.path) }):
+		err = errors.New("this sermon has no version without its intro and outro")
+	default:
+		err = s.shareable(abs, paths, formats, q.AllFormats, sermonOnly, q.Transcript)
 	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -173,7 +221,35 @@ func (a *App) createDownloadShare(w http.ResponseWriter, t *tenant, label, rec s
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	a.addShare(w, t, &Share{Kind: kindDownload, Recording: s.relPath(abs), RecordingID: st.ID, Formats: picked, SermonOnly: sermonOnly, MaxDownloads: maxDownloads}, label, expires)
+	a.addShare(w, t, &Share{Kind: kindDownload, Recording: s.relPath(abs), RecordingID: st.ID, Formats: picked, AllFormats: q.AllFormats,
+		Transcript: q.Transcript, SermonOnly: sermonOnly, MaxDownloads: maxDownloads}, label, expires)
+}
+
+// shareable tells why a download share of the recording cannot be made: it is not saved, a format it gives has
+// not been made (with all formats: none has), or the transcript asked for is not there.
+func (s *Server) shareable(abs string, paths normalizer.Paths, formats []string, allFormats, sermonOnly, transcript bool) error {
+	if sf := readSermon(abs); sf == nil || sf.Saved == nil {
+		return errors.New("save the sermon in the editor first")
+	}
+	var missing []string
+	for _, f := range formats {
+		if !fileExists(outputPath(paths, f, sermonOnly)) {
+			missing = append(missing, strings.ToUpper(f))
+		}
+	}
+	switch {
+	case !allFormats && len(missing) > 0:
+		return fmt.Errorf("not made yet: %s (make it from the Download menu)", strings.Join(missing, ", "))
+	case len(missing) == len(formats):
+		return errors.New("no file has been made yet: press Save in the editor")
+	}
+	if transcript {
+		text, _, _ := transcriptPaths(paths)
+		if s.cfg.transcriber == nil || !fileExists(text) {
+			return errors.New("there is no transcript of this sermon yet")
+		}
+	}
+	return nil
 }
 
 // uploadShareFor and downloadShareFor are shareFor for the one kind of share.
@@ -206,15 +282,41 @@ func (a *App) downloadInfo(w http.ResponseWriter, t *tenant, sh *Share) {
 		info["downloadsLeft"] = max(0, sh.MaxDownloads-sh.Count)
 	}
 	a.shareMu.Unlock()
-	files := []map[string]any{}
+	files, preparing := []map[string]any{}, []string{}
 	if abs == "" {
 		if state == "" {
 			state = "missing"
 		}
 	} else if paths, err := normalizer.NewPaths(abs); err == nil {
-		for _, f := range sh.Formats {
-			if st, err := os.Stat(outputPath(paths, f, sh.SermonOnly)); err == nil {
+		// While a run of the recording is busy, what it is making (again) is being prepared, not offered.
+		var stale map[string]outputState
+		making := t.srv.jobs.active(t.srv.relPath(abs)) != nil
+		if making {
+			stale = t.srv.savedStatus(abs, paths)
+		}
+		for _, f := range sh.formats() {
+			key := f
+			if sh.SermonOnly {
+				key += normalizer.SermonOnly
+			}
+			st, err := os.Stat(outputPath(paths, f, sh.SermonOnly))
+			switch {
+			case making && (err != nil || stale[key].Stale):
+				preparing = append(preparing, f)
+			case err == nil:
 				files = append(files, map[string]any{"format": f, "size": st.Size()})
+			}
+		}
+		if sh.Transcript && t.srv.cfg.transcriber != nil {
+			tx := t.srv.transcript(paths, readState(abs))
+			switch {
+			case tx.State == "waiting" || tx.State == "running" || (making && (tx.Text == nil || tx.EarlierCut)):
+				preparing = append(preparing, "transcript")
+			case tx.Text != nil:
+				files = append(files, map[string]any{"format": "txt", "size": tx.Text.Size})
+				if tx.Captions != nil {
+					files = append(files, map[string]any{"format": "vtt", "size": tx.Captions.Size})
+				}
 			}
 		}
 		title, artist := filepath.Base(abs), ""
@@ -229,7 +331,7 @@ func (a *App) downloadInfo(w http.ResponseWriter, t *tenant, sh *Share) {
 			info["date"] = d.Format("2006-01-02")
 		}
 	}
-	info["state"], info["files"] = state, files
+	info["state"], info["files"], info["preparing"] = state, files, preparing
 	writeJSON(w, http.StatusOK, info)
 }
 
@@ -248,7 +350,7 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if !slices.Contains(sh.Formats, q.Format) {
+	if !sh.gives(q.Format) {
 		writeError(w, http.StatusBadRequest, errors.New("this code does not give that format"))
 		return
 	}
@@ -260,7 +362,7 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	paths, err := normalizer.NewPaths(abs)
 	var st os.FileInfo
 	if err == nil {
-		st, err = os.Stat(outputPath(paths, q.Format, sh.SermonOnly))
+		st, err = os.Stat(downloadPath(paths, sh, q.Format))
 	}
 	if err != nil {
 		writeError(w, http.StatusNotFound, errors.New("this file is not there now; ask the church that gave you the code"))
@@ -284,7 +386,10 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 		sh.Tickets = map[string]*downloadTicket{}
 	}
 	sh.Tickets[id] = &downloadTicket{Format: q.Format, IP: ip, Expires: now.Add(ticketFor).UTC()}
-	sh.Count++
+	counted := slices.Contains(downloadFormats, q.Format) // the transcript is not a download of the sermon
+	if counted {
+		sh.Count++
+	}
 	log := sh.Log
 	sh.Log = append(sh.Log, ShareUpload{Name: st.Name(), Size: st.Size(), IP: ip, Time: now.UTC()})
 	if len(sh.Log) > shareLogMax {
@@ -292,7 +397,9 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := a.saveShares(t); err != nil {
 		delete(sh.Tickets, id)
-		sh.Count--
+		if counted {
+			sh.Count--
+		}
 		sh.Log = log
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -346,7 +453,7 @@ func (a *App) handleShareDownloadFile(w http.ResponseWriter, r *http.Request) {
 	paths, err := normalizer.NewPaths(abs)
 	var f *os.File
 	if err == nil {
-		f, err = os.Open(outputPath(paths, tk.Format, sh.SermonOnly))
+		f, err = os.Open(downloadPath(paths, sh, tk.Format))
 	}
 	if err != nil {
 		writeError(w, http.StatusNotFound, errors.New("this file is not there now; ask the church that gave you the code"))

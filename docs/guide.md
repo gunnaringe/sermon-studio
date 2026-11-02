@@ -240,8 +240,11 @@ removed once they have sat untouched for a day; the server looks every hour.
 ![The share page with a download code](img/21-public-download.png)
 
 **Share for download…** on a finished sermon (in its row on the recordings page) makes a code that lets
-someone without a login download it: a name, which of the files that have been made (MP3 to begin with),
-and optionally how many downloads and an expiry. The code and the link are shown once, as for uploads,
+someone without a login download it (only a saved sermon is shared): **Recording**, or **Recording and transcript**
+(when it has one); all formats, also ones made later, unless **Limit formats** leaves some out; a name, and optionally
+how many downloads and an expiry. A share makes nothing: Save in the editor makes the files, and the dialog says which
+are not made yet. While a run is making a file the share gives, the share page says it is *being prepared*. The
+transcript is given as text and as captions (WebVTT), and is not counted as a download. The code and the link are shown once, as for uploads,
 and the share is listed under **Shares** with its downloads (file, size, address, time); it is
 paused, resumed and removed the same way. The sermon's row lists its own download shares too, under
 **Shared for download**, where they can be paused and removed as well. For a sermon made with an intro or outro,

@@ -1077,6 +1077,8 @@ test('download shares: share a finished sermon from its row, download it on the 
   const mp3 = Buffer.from('ID3 a stand-in for the MP3 file');
   fs.writeFileSync(path.join(dir, '2025-12-24 Christmas.mp3'), mp3);
   fs.writeFileSync(path.join(dir, '2025-12-24 Christmas.flac'), Buffer.from('fLaC a stand-in for the FLAC file'));
+  // Only a saved sermon is shared.
+  fs.writeFileSync(path.join(dir, 'recording.json'), JSON.stringify({ saved: { sections: [{ start: 10, end: 90 }], cuts: [], fadeIn: 0, fadeOut: 0 }, savedAt: '2025-12-24T12:00:00Z' }));
 
   await page.goto(recordingPage(folder, 'first-church'));
   const detail = page.locator('tr.detail-row');
@@ -1084,9 +1086,13 @@ test('download shares: share a finished sermon from its row, download it on the 
   await detail.getByRole('button', { name: 'Share for download…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Share for download' });
   await expect(dialog.locator('input[name=label]')).toHaveValue('2025-12-24 Christmas');
-  await expect(dialog.getByLabel('MP3')).toBeChecked();
-  await expect(dialog.getByLabel('FLAC')).not.toBeChecked();
-  await expect(dialog.getByLabel('Opus')).toHaveCount(0); // not made
+  // All formats by default, also the Opus once it is made. Limited to the MP3 here.
+  const what = dialog.locator('.share-what');
+  await expect(what).toContainText('Ready: FLAC, MP3');
+  await expect(what).toContainText('Not made yet: Opus. Shared once made (from the Download menu).');
+  await dialog.locator('summary', { hasText: 'Limit formats' }).click();
+  for (const f of ['FLAC', 'Opus']) await dialog.getByLabel(f).uncheck();
+  await expect(what).toHaveText('✓ Ready: MP3');
   await dialog.locator('input[name=label]').fill('For Anna');
   await dialog.locator('input[name=maxDownloads]').fill('1');
   await dialog.locator('input[name=expiresTime]').fill('12:00'); // a time, but no day
