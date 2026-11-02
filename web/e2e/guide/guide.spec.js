@@ -90,7 +90,9 @@ test('upload, cut, save', async ({ page }) => {
   await shot(page, '06-cut-warning', edit.locator('.group', { hasText: 'Cut out' }));
   await page.locator('.cut.outside').getByRole('button', { name: 'Remove' }).click();
 
-  const output = page.locator('section.step').last();
+  // FLAC (the master) is chosen by default; MP3 is added, for listening.
+  const output = page.locator('section.step', { has: page.getByRole('heading', { name: 'Output', exact: true }) });
+  await output.locator('.pill[data-format=mp3] button.pick').click();
   await output.scrollIntoViewIfNeeded();
   await shot(page, '07-output', output);
   await shot(page, '07-save-bar', page.locator('.save-bar'));
