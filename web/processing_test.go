@@ -34,6 +34,9 @@ func TestProcessingDefaults(t *testing.T) {
 	if got.Processing != builtinProcessing() || got.Builtin != builtinProcessing() || got.Start.Stereo {
 		t.Fatalf("built-in: %+v", got)
 	}
+	if !got.Start.Flac || got.Start.Mp3 || got.Start.Opus { // a new recording makes the master only
+		t.Errorf("start formats: flac %v, mp3 %v, opus %v", got.Start.Flac, got.Start.Mp3, got.Start.Opus)
+	}
 	if got.Mono.TargetLUFS == got.Stereo.TargetLUFS {
 		t.Errorf("mono and stereo have the same loudness: %v", got.Mono.TargetLUFS)
 	}

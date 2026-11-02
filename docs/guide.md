@@ -146,7 +146,7 @@ Each can have a label, which shows on the waveform.
   green when the file is there (play and download it from the recordings list). `recording.json` keeps what each file was made from (sections, cuts,
   fades, sound, tags, bitrate), so a file made from other settings than the page shows says
   *out of date*; files made from the recordings list count too. The choice is the recording's own (not
-  carried over): it starts with the formats it has, or the defaults when it has none; a file whose format is no longer chosen says *will be deleted*.
+  carried over): it starts with the formats it has, or with FLAC only when it has none (the master: MP3 and Opus are made from it, so with FLAC kept they are made quickly later, also from the recordings list); a file whose format is no longer chosen says *will be deleted*.
   **Save** saves the edit, then makes the chosen formats that are missing or out of date and
   deletes the files of those not chosen (never the recording), asking first when it deletes a
   file. The edit is saved even if the files cannot be made right then. The run is followed live and
