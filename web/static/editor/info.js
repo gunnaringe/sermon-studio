@@ -138,9 +138,10 @@ export function infoPart(ed) {
   async function refreshInfo() {
     const inf = await api('GET', 'api/folder?path=' + q(path));
     if (!ed.alive) return;
-    Object.assign(info, { raw: inf.raw, recording: inf.recording, convertedFrom: inf.convertedFrom, outputs: inf.outputs, originalDeleted: inf.originalDeleted });
+    Object.assign(info, { raw: inf.raw, recording: inf.recording, convertedFrom: inf.convertedFrom, outputs: inf.outputs, originalDeleted: inf.originalDeleted, transcript: inf.transcript });
     showInput();
     ed.renderOutputs();
+    ed.renderTranscript(inf.transcript); // a run makes the files it is made from, and may start one
     renderDelete();
   }
 

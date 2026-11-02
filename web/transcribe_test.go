@@ -43,6 +43,9 @@ type transcriptionView struct {
 		Code  string
 		Model modelInfo
 	}
+	Models []struct {
+		File, Size string
+	}
 }
 
 var (
@@ -162,6 +165,68 @@ func TestTranscriptState(t *testing.T) {
 	}
 	if got := info(); got.State != "" || !got.CanMake {
 		t.Errorf("after delete: %+v", got)
+	}
+}
+
+// Asked for in a language, a transcript is made in it, also when the church has none; Make again makes it in
+// the same one.
+func TestTranscriptInLanguage(t *testing.T) {
+	ts, dir := newTranscriptServer(t, nbMedium)
+	folder := filepath.Join(ts.root, "2026-10-04")
+	ts.file(t, "2026-10-04/2026-10-04.mp3", "mp3")
+	// There is no ffmpeg here: one made fails.
+	waitFailed := func() *transcriptInfo {
+		t.Helper()
+		var got *transcriptInfo
+		for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+			if got = decode[folderInfo](t, ts.do(t, "GET", "/api/folder?path=2026-10-04", nil)).Transcript; got.State == "failed" {
+				break
+			}
+		}
+		return got
+	}
+	make := func(lang string) int {
+		t.Helper()
+		return ts.do(t, "POST", "/api/transcript?path=2026-10-04&language="+lang, nil).Code
+	}
+	if code := make("nb"); code != http.StatusBadRequest {
+		t.Errorf("without the files: %d", code)
+	}
+	saved := &sermonSettings{Sections: []span{{Start: 10, End: 50}}}
+	ts.updateState(folder, func(st *folderState) error {
+		st.Saved = saved
+		st.Outputs["mp3"] = outputMade{From: "sound-1", Cut: savedCut(*saved)}
+		return nil
+	})
+	got := decode[folderInfo](t, ts.do(t, "GET", "/api/folder?path=2026-10-04", nil)).Transcript
+	if !got.HasFiles || got.CanMake || got.Spoken != "" {
+		t.Errorf("the church has no language: %+v", got)
+	}
+	for _, lang := range []string{"sv", "NB", "n%3Ab"} {
+		if code := make(lang); code != http.StatusBadRequest {
+			t.Errorf("%s: %d", lang, code)
+		}
+	}
+	// A model that is not installed, or not for the language.
+	writeModels(t, dir, nbMedium, whisper)
+	for _, q := range []string{"nn&model=other.bin", "sv&model=nb.bin", "*&model=nb.bin"} {
+		if code := make(q); code != http.StatusBadRequest {
+			t.Errorf("%s: %d", q, code)
+		}
+	}
+	if code := make("sv&model=small.bin"); code != http.StatusOK {
+		t.Fatalf("sv with the small model: %d", code)
+	}
+	waitFailed()
+	if got := decode[transcriptionView](t, ts.do(t, "GET", "/api/transcription", nil)); len(got.Models) != 2 ||
+		got.Models[1].File != "small.bin" || got.Models[1].Size != "small" || got.Models[0].Size != "medium" {
+		t.Errorf("models: %+v", got.Models)
+	}
+	if code := make("nn"); code != http.StatusOK {
+		t.Fatalf("nn: %d", code)
+	}
+	if got = waitFailed(); got.State != "failed" || got.Spoken != "nn" || !got.CanMake {
+		t.Errorf("failed in nn: %+v", got)
 	}
 }
 

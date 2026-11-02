@@ -632,3 +632,23 @@ input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(-
 /* A sermon's transcript (transcripts.js). */
 .transcript summary .badge { margin-left: 0.5em; }
 .transcript-text { max-width: 70ch; }
+/* A transcript being made: what it does, the bar, and ✕ to stop it. */
+.transcript-progress { display: grid; gap: 0.35rem; margin: 0.5rem 0; max-width: 40rem; }
+.transcript-progress .bar { display: flex; align-items: center; gap: 0.5rem; }
+.transcript-progress progress { flex: 1; height: 0.7rem; }
+.transcript-progress .x { flex: none; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 999px; box-shadow: none; background: none; color: var(--muted); font-size: 1rem; cursor: pointer; }
+.transcript-progress .x:hover { color: var(--error); background: var(--bg); }
+/* The editor's choice of the model: filters, then the models as a list to pick one from. */
+.model-picker .model-filters { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.5rem 1rem; margin-bottom: 0.75rem; }
+.model-picker .model-filters label { flex-direction: column; align-items: stretch; gap: 0.2rem; }
+.model-picker .model-filters label span.name { min-width: 0; }
+.model-picker .model-filters :is(input, select) { box-sizing: border-box; height: 2.3rem; }
+.model-picker .transcript:not(:empty) { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
+.transcript-log pre { max-height: 12rem; overflow: auto; }
+.model-list { display: grid; gap: 0.4rem; margin-bottom: 0.75rem; }
+.model-list .model { display: grid; grid-template-columns: auto 1fr; column-gap: 0.6rem; align-items: baseline; padding: 0.55rem 0.75rem; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.model-list .model.chosen { border-color: var(--accent); }
+.model-list .model input { grid-row: span 2; }
+.model-list .model-name { font-weight: 600; overflow-wrap: anywhere; }
+.model-list .model-name .badge { margin-left: 0.5em; font-weight: normal; }
+.model-list .model-facts { grid-column: 2; font-size: 0.9em; }

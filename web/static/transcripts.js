@@ -1,7 +1,7 @@
 // Transcripts: what is said in a sermon as text and captions, made by the studio from the files
 // (web/transcribe.go) with the speech models in its models folder. transcriptSettings is the church's choice
-// of language (Settings → Processing); transcriptPanel is a sermon's transcript in its details on the
-// recordings page.
+// of language (Settings → Processing); transcriptPanel is a sermon's transcript, in its details on the
+// recordings page and in the editor, where modelPicker chooses the language and the model it is made with.
 import { api, q, h, can, formatDate, forTenant } from './util.js';
 import { confirmDialog } from './dialog.js';
 import { t, tr } from './i18n.js';
@@ -59,17 +59,21 @@ export async function transcriptSettings(box) {
       model) : '');
 }
 
-// transcriptPanel is a sermon's transcript in its details (info.transcript from api/folder): the text to
-// read, its files to download, and how far one being made is. It asks for the folder again by itself
-// while one is being made, so the player above is not drawn again.
-export function transcriptPanel(path, info) {
+// transcriptPanel is a sermon's transcript (info.transcript from api/folder): the text to read, its files to
+// download, and how far one being made is, as a bar with ✕ to stop it. It asks for the folder again by itself
+// while one is being made, so the page around it is not drawn again. In the recordings' details it has its
+// own Make (again), in the language the transcript is in, else the church's; in the editor (chosen) the
+// editor's model picker makes it, and the panel tells it the state (onDraw).
+/** @param {string} path @param {any} info @param {{ chosen?: boolean, onDraw?: (tx: any) => void }} [o] */
+export function transcriptPanel(path, info, { chosen = false, onDraw = (_tx) => {} } = {}) {
   const box = h('div', { class: 'transcript' });
   const busy = (tx) => tx && (tx.state === 'waiting' || tx.state === 'running');
   const mayMake = can('recording.transcribe');
   let polling = false;
-  const act = (verb) => async () => {
+  let current = info.transcript;
+  const act = (verb, query = '') => async () => {
     try {
-      draw((await api('POST', 'api/transcript' + verb + '?path=' + q(path))).transcript);
+      draw((await api('POST', 'api/transcript' + verb + '?path=' + q(path) + query)).transcript);
     } catch (err) {
       box.append(h('p', { class: 'error' }, err.message));
     }
@@ -90,28 +94,44 @@ export function transcriptPanel(path, info) {
     }
     polling = false;
   };
-  const makeButton = (label) => mayMake ? h('button', { type: 'button', name: 'make-transcript', onclick: act('') }, label) : '';
+  // Make again in the language it is in (or was being made in), with the model for it.
+  const makeButton = (tx, label) => mayMake && !chosen
+    ? h('button', { type: 'button', name: 'make-transcript', onclick: act('', tx.spoken ? '&language=' + q(tx.spoken) : '') }, label) : '';
+
+  // progressBar is one being made: what it is doing, the bar (moving, while it waits) and ✕ to stop it.
+  function progressBar(tx) {
+    const percent = Math.round(100 * (tx.progress || 0));
+    const what = tx.state === 'waiting' ? t('Waiting for its turn…') : t('Transcribing… {percent}%', { percent });
+    const bar = h('progress', { max: 1, 'aria-label': t('Transcript') });
+    if (tx.state === 'running') bar.value = tx.progress || 0;
+    return h('div', { class: 'transcript-progress', 'aria-live': 'polite' },
+      h('span', { class: 'what' }, chosen ? '' : [h('strong', {}, t('Transcript')), ' '], h('span', { class: 'muted' }, what)),
+      h('span', { class: 'bar' }, bar,
+        mayMake ? h('button', { type: 'button', class: 'x', name: 'stop-transcript', title: t('Stop'), 'aria-label': t('Stop the transcript'), onclick: act('/cancel') }, '✕') : ''));
+  }
 
   function draw(tx) {
-    if (!tx || (!tx.language && tx.state !== 'done')) {
+    current = tx;
+    onDraw(tx);
+    if (!tx || (!chosen && !tx.language && tx.state !== 'done' && !busy(tx))) {
       box.replaceChildren();
       return;
     }
     if (busy(tx)) {
-      const what = tx.state === 'waiting' ? t('Transcript: waiting for its turn…')
-        : t('Transcript: being made… {percent}%', { percent: Math.round(100 * (tx.progress || 0)) });
-      box.replaceChildren(h('p', { class: 'muted', 'aria-live': 'polite' }, what, ' ',
-        mayMake ? h('button', { type: 'button', name: 'stop-transcript', onclick: act('/cancel') }, t('Stop')) : ''));
+      box.replaceChildren(progressBar(tx));
       poll();
       return;
     }
     if (tx.state === 'failed') {
-      box.replaceChildren(h('p', {}, h('span', { class: 'error' }, t('The transcript was not made: {error}', { error: tr(tx.error) })), ' ',
-        tx.canMake ? makeButton(t('Try again')) : ''));
+      // ffmpeg's error is its first line; what it wrote follows, folded away.
+      const [first, ...rest] = tx.error.split('\n');
+      box.replaceChildren(h('p', {}, h('span', { class: 'error' }, t('The transcript was not made: {error}', { error: tr(first.replace(/:$/, '')) })), ' ',
+        tx.canMake ? makeButton(tx, t('Try again')) : ''),
+      rest.length ? h('details', { class: 'transcript-log' }, h('summary', {}, t('Log')), h('pre', { class: 'log' }, rest.join('\n').trim())) : '');
       return;
     }
     if (tx.state !== 'done') {
-      box.replaceChildren(tx.canMake ? h('p', {}, makeButton(t('Make transcript'))) : '');
+      box.replaceChildren(tx.canMake ? h('p', {}, makeButton(tx, t('Make transcript'))) : '');
       return;
     }
     // Made from an earlier cut, or with another model than the one there now: said, and made again only
@@ -140,13 +160,80 @@ export function transcriptPanel(path, info) {
       h('p', { class: 'actions transcript-actions' },
         tx.text ? h('a', { class: 'button', href: fileURL(tx.text, true), download: '' }, t('Download text')) : '',
         tx.captions ? h('a', { class: 'button', href: fileURL(tx.captions, true), download: '' }, t('Download captions (WebVTT)')) : '',
-        tx.canMake && !notes.length ? makeButton(t('Make again')) : '', // else it is beside the notice
+        tx.canMake && !notes.length ? makeButton(tx, t('Make again')) : '', // else it is beside the notice
         mayMake ? h('button', { type: 'button', name: 'delete-transcript', onclick: remove }, t('Delete')) : ''),
       tx.model && !tx.otherModel ? h('p', { class: 'muted' }, t('Made with {model}.', { model: modelName(tx.model) })) : '',
       text);
-    box.replaceChildren(details, notes.length && tx.canMake ? h('p', { class: 'transcript-note' }, makeButton(t('Make again'))) : '');
+    box.replaceChildren(details, notes.length && tx.canMake && !chosen ? h('p', { class: 'transcript-note' }, makeButton(tx, t('Make again'))) : '');
   }
 
   draw(info.transcript);
-  return { box };
+  return {
+    box,
+    // update draws it from the folder read again, unless it is following one being made itself.
+    update: (tx) => { if (!polling) draw(tx); },
+    // make makes it in language with the model in file.
+    make: (language, file) => act('', '&language=' + q(language) + '&model=' + q(file))(),
+    get transcript() { return current; },
+  };
+}
+
+// The sizes of Whisper, smallest first: the order of the size filter.
+const SIZES = ['tiny', 'base', 'small', 'medium', 'large', 'large-v1', 'large-v2', 'large-v3', 'turbo', 'large-v3-turbo'];
+
+// canDo tells whether a model can transcribe lang: it is for it, or for any language ('*': only those).
+const canDo = (m, lang) => m.languages.includes(lang) || (lang !== '*' && m.languages.includes('*'));
+// usualModel is the model the studio takes for lang by itself (models.Choose).
+const usualModel = (list, lang) => (lang !== '*' && list.find((m) => m.languages.includes(lang))) || list.find((m) => m.languages.includes('*'));
+const megabytes = (bytes) => bytes >= 1e6 ? t('{n} MB', { n: Math.round(bytes / 1e6) }) : '';
+
+// modelPicker is the editor's choice of the model a transcript is made with: every installed model, filtered by
+// the language of the sermon (which whisper is told too), the size and the name; the one the studio would
+// take for the language is chosen to begin with, and marked. Make makes it with the one chosen (panel.make).
+export function modelPicker(data, panel) {
+  const models = data.models || [];
+  const tx0 = panel.transcript || {};
+  const langs = data.languages.map((l) => l.code);
+  let lang = [tx0.spoken, data.language].find((l) => l && langs.includes(l)) || (langs.includes('*') ? '*' : langs[0]);
+  let size = '', name = '';
+  let file = tx0.model && models.some((m) => m.file === tx0.model.file && canDo(m, lang)) ? tx0.model.file : '';
+  const mayMake = can('recording.transcribe');
+
+  const list = h('div', { class: 'model-list', role: 'radiogroup', 'aria-label': t('Speech model') });
+  const note = h('p', { class: 'muted' });
+  const makeButton = h('button', { type: 'button', class: 'primary', name: 'make-transcript', onclick: () => panel.make(lang, file) }, t('Make transcript'));
+  const select = (nm, label, options, value, onchange) => h('label', {}, h('span', { class: 'name' }, label),
+    h('select', { name: nm, onchange: (e) => { onchange(e.target.value); draw(); } },
+      options.map(([v, text]) => h('option', { value: v, selected: v === value }, text))));
+  const sizes = SIZES.filter((s) => models.some((m) => m.size === s));
+  const filters = h('div', { class: 'options model-filters' },
+    select('transcript-language', t('Language of the sermon'), langs.map((l) => [l, languageName(l)]), lang, (v) => { lang = v; }),
+    select('model-size', t('Size'), [['', t('All sizes')], ...sizes.map((s) => [s, s])], size, (v) => { size = v; }),
+    h('label', {}, h('span', { class: 'name' }, t('Name')), h('input', { type: 'text', name: 'model-name', placeholder: t('Filter by name'),
+      oninput: (e) => { name = e.target.value.trim().toLowerCase(); draw(); } })));
+
+  function draw() {
+    const usual = usualModel(models, lang);
+    const shown = models.filter((m) => canDo(m, lang) && (!size || m.size === size) &&
+      (!name || (m.name + ' ' + (m.repo || '')).toLowerCase().includes(name)));
+    // The one chosen stays while it is there; else the usual one, else the first.
+    if (!shown.some((m) => m.file === file)) file = (shown.find((m) => usual && m.file === usual.file) || shown[0] || {}).file || '';
+    list.replaceChildren(...(shown.length ? shown.map((m) => h('label', { class: 'model' + (m.file === file ? ' chosen' : '') },
+      h('input', { type: 'radio', name: 'transcript-model', value: m.file, checked: m.file === file, onchange: () => { file = m.file; draw(); } }),
+      h('span', { class: 'model-name' }, m.name, usual && m.file === usual.file ? h('span', { class: 'badge' }, t('usual for the language')) : ''),
+      h('span', { class: 'muted model-facts' }, [m.size, m.languages.map(languageName).join(', '), megabytes(m.bytes),
+        m.date ? formatDate(m.date) : ''].filter(Boolean).join(' · '))))
+      : [h('p', { class: 'muted' }, t('No model matches.'))]));
+    const tx = panel.transcript || {};
+    const busy = tx.state === 'waiting' || tx.state === 'running';
+    makeButton.textContent = tx.state === 'done' ? t('Make again') : tx.state === 'failed' ? t('Try again') : t('Make transcript');
+    makeButton.disabled = busy || !file || !tx.hasFiles;
+    note.textContent = !tx.hasFiles ? t('Save makes the files first: the transcript is made from them.')
+      : tx.state === 'done' ? t('Made again, it replaces the one there.') : t('It runs on the server and can take longer than the sermon.');
+  }
+  draw();
+  return {
+    el: h('div', { class: 'panel model-picker' }, panel.box, filters, list, mayMake ? h('p', { class: 'actions' }, makeButton) : '', note),
+    draw,
+  };
 }

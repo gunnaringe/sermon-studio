@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -52,6 +53,32 @@ func (m Model) Version() string {
 	}
 	return m.File
 }
+
+// whisperSize finds Whisper's size in a model's name or file: tiny ... large-v3-turbo.
+var whisperSize = regexp.MustCompile(`(?i)\b(tiny|base|small|medium|large(?:-v\d)?(?:-turbo)?|turbo)\b`)
+
+// WhisperSize is the size of Whisper the model is (tiny, base, small, medium, large, large-v3, large-v3-turbo
+// ...), from its name or file; "" when neither says.
+func (m Model) WhisperSize() string {
+	for _, s := range []string{m.Name, m.Path, m.File} {
+		if found := whisperSize.FindString(strings.ReplaceAll(s, "_", "-")); found != "" {
+			return strings.ToLower(found)
+		}
+	}
+	return ""
+}
+
+// Same tells whether o is the same model as m, in any version: the same file in the same repository, or
+// (written by hand) the same name.
+func (m Model) Same(o Model) bool {
+	if m.Repo != "" || o.Repo != "" {
+		return m.Repo == o.Repo && m.Path == o.Path
+	}
+	return m.Name == o.Name
+}
+
+// Can tells whether the model can transcribe the language: it is for it, or for any language.
+func (m Model) Can(lang string) bool { return m.For(lang) || m.For(AnyLanguage) }
 
 // For tells whether the model is for the language.
 func (m Model) For(lang string) bool { return slices.Contains(m.Languages, lang) }
@@ -113,6 +140,16 @@ func Choose(installed []Model, lang string) (Model, bool) {
 	}
 	for _, x := range installed {
 		if x.For(AnyLanguage) {
+			return x, true
+		}
+	}
+	return Model{}, false
+}
+
+// Find is the installed model in file.
+func Find(installed []Model, file string) (Model, bool) {
+	for _, x := range installed {
+		if x.File == file {
 			return x, true
 		}
 	}

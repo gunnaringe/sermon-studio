@@ -178,4 +178,32 @@ func TestChoose(t *testing.T) {
 	}
 }
 
+func TestWhisperSizeAndSame(t *testing.T) {
+	for _, c := range []struct {
+		m    Model
+		want string
+	}{
+		{Model{Name: "nb-whisper-medium", Path: "ggml-model-q5_0.bin"}, "medium"},
+		{Model{Name: "whisper.cpp ggml-large-v3-turbo-q8_0", Path: "ggml-large-v3-turbo-q8_0.bin"}, "large-v3-turbo"},
+		{Model{Name: "kb-whisper-small"}, "small"},
+		{Model{Name: "mine", File: "Tiny.bin"}, "tiny"},
+		{Model{Name: "mine", File: "mine.bin"}, ""},
+		{Model{Name: "smaller", File: "x.bin"}, ""},
+	} {
+		if got := c.m.WhisperSize(); got != c.want {
+			t.Errorf("%+v: %q, want %q", c.m, got, c.want)
+		}
+	}
+	a := Model{Name: "a", Repo: "r", Path: "p", SHA256: "1"}
+	if b := (Model{Name: "b", Repo: "r", Path: "p", SHA256: "2"}); !a.Same(b) || a.Same(Model{Name: "a", Repo: "r", Path: "q"}) {
+		t.Error("same repo and file")
+	}
+	if !(Model{Name: "a"}).Same(Model{Name: "a", File: "x"}) || (Model{Name: "a"}).Same(a) {
+		t.Error("by hand: the name")
+	}
+	if m, ok := Find([]Model{a, {Name: "b", File: "b.bin"}}, "b.bin"); !ok || m.Name != "b" {
+		t.Errorf("find: %+v", m)
+	}
+}
+
 func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
