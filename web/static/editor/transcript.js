@@ -1,12 +1,12 @@
 // The editor's transcript: whether Save makes one of the sermon, in which language and with which model (the
-// church's for the language, unless changed: modelField), and the one there or being made (transcriptPanel). It
+// church's for the language, unless changed: modelLine), and the one there or being made (transcriptPanel). It
 // starts as the recording has it: on, in its language and with its model, when it has one; else as the church's
 // default. Like a format, Save makes it
 // when it is on and the one there is not of this cut, language and model (after the files, when it makes
 // them), and deletes it when it is off. It is never made from the recording, only from the files of the cut.
 import { t } from '../i18n.js';
 import { api, q, h, can } from '../util.js';
-import { transcriptPanel, modelField, languageName } from '../transcripts.js';
+import { transcriptPanel, modelLine, languageName } from '../transcripts.js';
 
 /** @param {import('./common.js').Editor} ed */
 export function transcriptPart(ed) {
@@ -58,7 +58,7 @@ export function transcriptPart(ed) {
     let lang = own ? tx.spoken : data.language;
     if (!langs.includes(lang)) lang = langs.includes('*') ? '*' : langs[0];
     const changed = () => { drawPill(); ed.renderOutputs(); };
-    const model = modelField(data, { lang, key: own && tx.model ? tx.model.key : '', onChange: changed });
+    const model = modelLine(data, { lang, key: own && tx.model ? tx.model.key : '', onChange: changed });
     const select = h('select', { name: 'transcript-language', onchange: (e) => { lang = e.target.value; model.setLanguage(lang); changed(); } },
       langs.map((l) => h('option', { value: l, selected: l === lang }, languageName(l))));
     chooser = { get language() { return lang; }, get model() { return model.model; } };

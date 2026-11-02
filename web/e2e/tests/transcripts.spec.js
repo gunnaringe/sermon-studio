@@ -1,7 +1,7 @@
 // Transcripts: the church's default in Settings → Processing (a language and a model from the models folder), a
 // sermon's transcript in its details: the text, its downloads, the notice when another model is there now, Make
-// again; and in the editor, Transcript on or off with the choice of the model (filtered by language, size and
-// name), made by Save, and the bar of one being made.
+// again; and in the editor, Transcript on or off, the language and its model (another chosen in a dialog,
+// filtered by size and name), made by Save, and the bar of one being made.
 // The model is not a real one (a transcript is not made here: that is whisper's work); the transcript is written
 // as the studio writes it, and Make again shows how a failed one looks.
 import { test, expect } from '@playwright/test';
@@ -70,17 +70,24 @@ test('transcripts: the default in the settings, a sermon\'s transcript, made wit
   await expect(select.locator('option')).toHaveText(['No transcripts', 'Norwegian Bokmål', 'Norwegian Nynorsk', 'Detect automatically']);
   await select.selectOption('nb');
   await expect(box.getByRole('status')).toHaveText('Saved.');
-  // The model for each language: the first for it, until the church chooses another under Change model.
-  const nb = box.locator('.model-default').first(); // Norwegian Bokmål
-  await expect(box.locator('.model-default > strong')).toHaveText(['Norwegian Bokmål', 'Norwegian Nynorsk', 'Detect automatically']);
-  await expect(nb.locator('.model-current')).toHaveText('Model: nb-whisper-medium from 2025-03-02.');
-  await expect(nb.locator('.model-list')).toBeHidden();
-  await nb.locator('summary', { hasText: 'Change model' }).click();
-  await expect(nb.locator('.model-list .model')).toHaveCount(2);
-  await nb.locator('.model-list .model', { hasText: 'turbo' }).click();
+  // The model for its language, on one line: the first for it, until the church chooses another in a dialog.
+  const line = box.locator('.transcript-defaults > .model-line');
+  await expect(line.locator('.model-current')).toHaveText('Model: nb-whisper-medium from 2025-03-02.');
+  await line.getByRole('button', { name: 'Change…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Model for Norwegian Bokmål' });
+  await expect(dialog.locator('.model-list .model')).toHaveCount(2);
+  await dialog.locator('.model-list .model', { hasText: 'turbo' }).click();
+  await dialog.screenshot({ path: path.join(shots, 'transcript-model-dialog.png') });
+  await dialog.getByRole('button', { name: 'Use this model' }).click();
   await expect(box.getByRole('status')).toHaveText('Saved.');
-  await expect(nb.locator('.model-current')).toHaveText('Model: whisper.cpp ggml-large-v3-turbo-q8_0 from 2024-10-29.');
+  await expect(line).toContainText('Model: whisper.cpp ggml-large-v3-turbo-q8_0 from 2024-10-29.changed');
   await expect.poll(async () => (await (await page.request.get('api/transcription')).json()).defaults).toEqual({ nb: TURBO });
+  // The other languages: folded away, a line each.
+  const others = box.locator('details.model-others');
+  await expect(others.locator('summary')).toHaveText('Models for other languages (2)');
+  await others.locator('summary').click();
+  await expect(others.locator('th')).toHaveText(['Norwegian Nynorsk', 'Detect automatically']);
+  await expect(others.locator('tr[data-language=nn] .model-current')).toHaveText('Model: nb-whisper-medium from 2025-03-02.');
   await box.screenshot({ path: path.join(shots, 'transcript-settings.png') });
 
   await page.goto('c/first-church/');
@@ -111,7 +118,7 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   await page.goto(editPage(folder));
   await expect(page.locator('#waveform')).toBeVisible({ timeout: 60_000 }); // the saved cut is on the page
   const box = page.locator('section[aria-labelledby=step-transcript]');
-  const models = box.locator('.model-list .model');
+  const models = page.getByRole('dialog', { name: /^Model for/ }).locator('.model-list .model');
   const current = box.locator('.model-current');
   const on = box.locator('button[name=transcript-on]');
   const language = box.locator('select[name=transcript-language]');
@@ -120,25 +127,28 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   await expect(on).toHaveAttribute('aria-pressed', 'true');
   await expect(language).toHaveValue('nb');
   await expect(current).toHaveText('Model: nb-whisper-medium from 2025-03-02.');
-  await expect(box.locator('.model-list')).toBeHidden();
-  // Change model: every model for the language, filtered by size and name; the default marked.
-  await box.locator('summary', { hasText: 'Change model' }).click();
+  // Change…: every model for the language in a dialog, filtered by size and name; the default marked.
+  const dialog = page.getByRole('dialog', { name: /^Model for/ });
+  const change = box.getByRole('button', { name: 'Change…' });
+  await change.click();
   await expect(models).toHaveCount(2);
   await expect(models.nth(1)).toContainText('whisper.cpp ggml-large-v3-turbo-q8_0default');
   await expect(models.nth(1)).toContainText('large-v3-turbo · Detect automatically');
-  await box.locator('select[name=model-size]').selectOption('large-v3-turbo');
+  await dialog.locator('select[name=model-size]').selectOption('large-v3-turbo');
   await expect(models).toHaveCount(1);
-  await box.locator('select[name=model-size]').selectOption('');
-  await box.locator('input[name=model-name]').fill('NB-');
+  await dialog.locator('select[name=model-size]').selectOption('');
+  await dialog.locator('input[name=model-name]').fill('NB-');
   await expect(models).toHaveCount(1);
-  await box.locator('input[name=model-name]').fill('');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(current).toHaveText('Model: nb-whisper-medium from 2025-03-02.');
   // Another language: its default model (Detect automatically: only a model that finds the language itself).
   await language.selectOption('*');
-  await expect(models).toHaveCount(1);
-  await expect(current).toContainText('Model: whisper.cpp ggml-large-v3-turbo-q8_0');
+  await expect(current).toHaveText('Model: whisper.cpp ggml-large-v3-turbo-q8_0 from 2024-10-29.');
   await language.selectOption('nb');
-  await expect(current).toContainText('Model: whisper.cpp ggml-large-v3-turbo-q8_0 from 2024-10-29.default');
+  await expect(box.locator('.model-line')).toContainText('Model: whisper.cpp ggml-large-v3-turbo-q8_0 from 2024-10-29.default');
+  await change.click();
   await models.first().click();
+  await dialog.getByRole('button', { name: 'Use this model' }).click();
   await expect(current).toHaveText('Model: nb-whisper-medium from 2025-03-02.');
   // Off: Save leaves it out. On, not made: Save makes it, after the files when it makes them.
   await on.click();

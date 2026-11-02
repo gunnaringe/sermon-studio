@@ -1,10 +1,10 @@
 // Transcripts: what is said in a sermon as text and captions, made by the studio from the files of the cut
 // sermon (web/transcribe.go) with the speech models in its models folder. transcriptSettings is the church's
-// defaults (Settings → Processing): the language, and the model for each language; modelField is the choice
-// of a model, there and in the editor (editor/transcript.js). transcriptPanel is a sermon's transcript, in its
+// defaults (Settings → Processing): the language, and the model for each language; modelLine and chooseModel
+// are the choice of a model, there and in the editor (editor/transcript.js). transcriptPanel is a sermon's transcript, in its
 // details on the recordings page and in the editor.
 import { api, q, h, can, formatDate, forTenant } from './util.js';
-import { confirmDialog } from './dialog.js';
+import { confirmDialog, choiceDialog } from './dialog.js';
 import { t, tr } from './i18n.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -22,7 +22,9 @@ export function languageName(code) {
 const modelName = (m) => m.date ? t('{model} from {date}', { model: m.name, date: formatDate(m.date) }) : m.name;
 
 // transcriptSettings fills box with the church's defaults for its recordings' transcripts: the language (none =
-// Save makes none), and the model for each language. Saved as they are changed.
+// Save makes none) and its model, and folded away, the model for each other language, one line each; a model is
+// chosen in a dialog (chooseModel), so the page stays as long however many languages there are. Saved as they
+// are changed.
 export async function transcriptSettings(box) {
   const data = await api('GET', 'api/transcription');
   if (!data.available) {
@@ -32,33 +34,50 @@ export async function transcriptSettings(box) {
   const status = h('span', { class: 'muted', role: 'status' });
   const defaults = { ...(data.defaults || {}) };
   let language = data.language;
+  let othersOpen = false;
+  const langs = data.languages.map((l) => l.code);
+  const has = (data.models || []).length > 0;
   const save = async () => {
     status.textContent = '';
     try {
       Object.assign(data, await api('PUT', 'api/transcription', { language, defaults }));
       status.textContent = t('Saved.');
     } catch (err) { status.textContent = err.message; }
+    draw();
   };
-  const langs = data.languages.map((l) => l.code);
-  const select = h('select', { name: 'transcript-language', 'aria-label': t('Language of the sermons'),
-    onchange: (e) => { language = e.target.value; save(); } },
-  h('option', { value: '' }, t('No transcripts')),
-  langs.map((l) => h('option', { value: l, selected: language === l }, languageName(l))),
-  // A language chosen earlier whose model is gone: kept, and said.
-  language && !langs.includes(language) ? h('option', { value: language, selected: true }, languageName(language)) : '');
-  const has = (data.models || []).length > 0;
-  box.replaceChildren(
-    h('h3', {}, t('Transcripts')),
-    has
-      ? h('p', { class: 'muted' }, t('Whether Save in the editor makes a transcript of the sermon, as text and captions, and in which language: the default for every recording, which it can change. It is made on the server after the files, and can take longer than the sermon. Names and Bible references can come out wrong: read it before you publish it.'))
-      : h('p', { class: 'muted' }, t('No speech models are installed, so there are no transcripts yet.')),
-    has || language ? h('div', { class: 'panel tags' },
-      h('label', {}, h('span', { class: 'name' }, t('Language of the sermons')), h('span', {}, select, ' ', status))) : '',
-    has ? h('div', { class: 'panel model-defaults' },
-      h('h4', {}, t('Model for each language')),
-      h('p', { class: 'muted' }, t('The model a transcript in the language is made with, unless the recording chooses another.')),
-      langs.map((l) => h('div', { class: 'model-default' }, h('strong', {}, languageName(l)),
-        modelField(data, { lang: l, key: defaults[l] || '', mark: false, onChange: (key) => { defaults[l] = key; save(); } }).el))) : '');
+  const setModel = (l) => (key) => {
+    if (key) defaults[l] = key;
+    else delete defaults[l];
+    save();
+  };
+
+  function draw() {
+    const select = h('select', { name: 'transcript-language', 'aria-label': t('Language of the sermons'),
+      onchange: (e) => { language = e.target.value; save(); } },
+    h('option', { value: '' }, t('No transcripts')),
+    langs.map((l) => h('option', { value: l, selected: language === l }, languageName(l))),
+    // A language chosen earlier whose model is gone: kept, and said.
+    language && !langs.includes(language) ? h('option', { value: language, selected: true }, languageName(language)) : '');
+    const others = langs.filter((l) => l !== language);
+    const otherModels = h('details', { class: 'model-others', open: othersOpen,
+      ontoggle: (e) => { othersOpen = e.target.open; } },
+    h('summary', {}, t('Models for other languages ({n})', { n: others.length })),
+    h('p', { class: 'muted' }, t('For a recording in another language than the church\'s.')),
+    h('table', { class: 'model-table' }, h('tbody', {}, others.map((l) => h('tr', { 'data-language': l },
+      h('th', { scope: 'row' }, languageName(l)),
+      h('td', {}, modelLine(data, { lang: l, key: defaults[l] || '', church: true, onChange: setModel(l) }).el))))));
+    box.replaceChildren(
+      h('h3', {}, t('Transcripts')),
+      has
+        ? h('p', { class: 'muted' }, t('Whether Save in the editor makes a transcript of the sermon, as text and captions, and in which language: the default for every recording, which it can change. It is made on the server after the files, and can take longer than the sermon. Names and Bible references can come out wrong: read it before you publish it.'))
+        : h('p', { class: 'muted' }, t('No speech models are installed, so there are no transcripts yet.')),
+      has || language ? h('div', { class: 'panel tags transcript-defaults' },
+        h('label', {}, h('span', { class: 'name' }, t('Language of the sermons')), h('span', {}, select, ' ', status)),
+        has && language && langs.includes(language)
+          ? modelLine(data, { lang: language, key: defaults[language] || '', church: true, onChange: setModel(language) }).el : '',
+        has && others.length ? otherModels : '') : '');
+  }
+  draw();
 }
 
 // transcriptPanel is a sermon's transcript (info.transcript from api/folder): the text to read, its files to
@@ -198,42 +217,67 @@ export function defaultModel(data, lang) {
   return (usualModel(models, lang) || {}).key || '';
 }
 
-// modelField is the model a transcript in a language is made with: its name, and under Change model every
-// installed model that can do the language, filtered by size and name. The model is not one often changed:
-// the default for the language is chosen to begin with (and when the language changes), and marked unless
-// mark is false (the church's own choice is the default). onChange gets the model the user chose.
-export function modelField(data, { lang, key = '', mark = true, onChange = (_model) => {} }) {
-  const models = data.models || [];
-  let size = '', name = '';
-  const current = h('span', { class: 'model-current' });
+// chooseModel asks in a dialog for the model a transcript in lang is made with: every installed model that can do
+// the language, filtered by size and name, key chosen, def marked as the default. It resolves with the key
+// chosen, '' for Use default, or null when cancelled.
+export function chooseModel(data, { lang, key, def }) {
+  const models = (data.models || []).filter((m) => canDo(m, lang));
+  let size = '', name = '', chosen = key;
   const list = h('div', { class: 'model-list', role: 'radiogroup', 'aria-label': t('Speech model') });
   const field = (label, input) => h('label', {}, h('span', { class: 'name' }, label), input);
   const sizes = SIZES.filter((s) => models.some((m) => m.size === s));
-  const filters = h('div', { class: 'options model-filters' },
-    field(t('Size'), h('select', { name: 'model-size', onchange: (e) => { size = e.target.value; draw(); } },
-      [['', t('All sizes')], ...sizes.map((s) => [s, s])].map(([v, text]) => h('option', { value: v }, text)))),
-    field(t('Name'), h('input', { type: 'text', name: 'model-name', placeholder: t('Filter by name'),
-      oninput: (e) => { name = e.target.value.trim().toLowerCase(); draw(); } })));
-  const details = h('details', { class: 'model-change' }, h('summary', {}, t('Change model')), filters, list);
-
   function draw() {
-    const def = defaultModel(data, lang);
-    if (!models.some((m) => m.key === key && canDo(m, lang))) key = def;
-    const chosen = models.find((m) => m.key === key);
-    current.replaceChildren(chosen ? t('Model: {model}.', { model: modelName(chosen) }) : t('No speech model for this language is installed.'),
-      mark && chosen && key === def ? h('span', { class: 'badge' }, t('default')) : '');
-    const shown = models.filter((m) => canDo(m, lang) && (!size || m.size === size) &&
-      (!name || (m.name + ' ' + (m.repo || '')).toLowerCase().includes(name)));
-    list.replaceChildren(...(shown.length ? shown.map((m) => h('label', { class: 'model' + (m.key === key ? ' chosen' : '') },
-      h('input', { type: 'radio', name: 'transcript-model-' + lang, value: m.key, checked: m.key === key, onchange: () => { key = m.key; draw(); onChange(key); } }),
-      h('span', { class: 'model-name' }, m.name, mark && m.key === def ? h('span', { class: 'badge' }, t('default')) : ''),
+    const shown = models.filter((m) => (!size || m.size === size) && (!name || (m.name + ' ' + (m.repo || '')).toLowerCase().includes(name)));
+    list.replaceChildren(...(shown.length ? shown.map((m) => h('label', { class: 'model' + (m.key === chosen ? ' chosen' : '') },
+      h('input', { type: 'radio', name: 'transcript-model', value: m.key, checked: m.key === chosen, onchange: () => { chosen = m.key; draw(); } }),
+      h('span', { class: 'model-name' }, m.name, m.key === def ? h('span', { class: 'badge' }, t('default')) : ''),
       h('span', { class: 'muted model-facts' }, [m.size, m.languages.map(languageName).join(', '), megabytes(m.bytes),
         m.date ? formatDate(m.date) : ''].filter(Boolean).join(' · '))))
       : [h('p', { class: 'muted' }, t('No model matches.'))]));
   }
   draw();
+  return choiceDialog({
+    title: t('Model for {language}', { language: languageName(lang) }),
+    body: [
+      h('div', { class: 'options model-filters' },
+        field(t('Size'), h('select', { name: 'model-size', onchange: (e) => { size = e.target.value; draw(); } },
+          [['', t('All sizes')], ...sizes.map((s) => [s, s])].map(([v, text]) => h('option', { value: v }, text)))),
+        field(t('Name'), h('input', { type: 'text', name: 'model-name', placeholder: t('Filter by name'),
+          oninput: (e) => { name = e.target.value.trim().toLowerCase(); draw(); } }))),
+      list],
+    confirm: t('Use this model'),
+    more: key !== def ? [{ label: t('Use the default'), value: 'default' }] : [],
+    result: (v) => (v === 'ok' ? chosen : v === 'default' ? '' : null),
+  });
+}
+
+// modelLine is the model a transcript in a language is made with: its name, and Change… to choose another
+// (chooseModel). The model is not one often changed. For the church (church), the default is the first model for
+// the language, and its own choice is marked changed; for a recording, the default is the church's, marked as
+// such, and is chosen again when the language changes. onChange gets the key chosen ('' = the default).
+export function modelLine(data, { lang, key = '', church = false, onChange = (_model) => {} }) {
+  const line = h('p', { class: 'model-line' });
+  const usual = () => (usualModel(data.models || [], lang) || {}).key || '';
+  const def = () => (church ? usual() : defaultModel(data, lang));
+  function draw() {
+    if (!(data.models || []).some((m) => m.key === key && canDo(m, lang))) key = def();
+    const m = (data.models || []).find((x) => x.key === key);
+    line.replaceChildren(
+      h('span', { class: 'model-current' }, m ? t('Model: {model}.', { model: modelName(m) }) : t('No speech model for this language is installed.')),
+      m && key === def() && !church ? h('span', { class: 'badge' }, t('default')) : '',
+      m && church && key !== usual() ? h('span', { class: 'badge warn' }, t('changed')) : '',
+      ' ',
+      m ? h('button', { type: 'button', class: 'link', name: 'change-model', onclick: async () => {
+        const chosen = await chooseModel(data, { lang, key, def: def() });
+        if (chosen === null) return;
+        key = chosen || def();
+        draw();
+        onChange(chosen && chosen !== def() ? chosen : '');
+      } }, t('Change…')) : '');
+  }
+  draw();
   return {
-    el: h('div', { class: 'model-field' }, h('p', {}, current), details),
+    el: line,
     get model() { return key; },
     // setLanguage changes the language: its default model is chosen.
     setLanguage(l) { lang = l; key = ''; draw(); },

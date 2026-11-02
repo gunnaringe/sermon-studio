@@ -61,11 +61,13 @@ times as long as small. A newer server is several times faster. Pick the model b
   makes one by itself.
 - **Transcript** starts as the recording has it (on, in its language and with its model) when it has one; else it is on
   when the church has a language (**Settings → Processing → Transcripts**, *No transcripts* = off), in that language.
-- **The model** is the church's for the language: Settings has one for each language, the first for it in
-  `models.json` until the church chooses another under **Change model** (every installed model for the language,
-  filtered by size, tiny … large-v3-turbo from the model's name, and by name). A church's choice is kept by the
-  model's repository and file, so a new version of it is taken. The editor shows the model's name, and Change model
-  there makes this recording's transcript with another; the church's is marked *default*.
+- **The model** is the church's for the language. Settings shows the model for the church's language on one line, and
+  folded away under *Models for other languages*, one line for each other language; until the church chooses another,
+  it is the first for the language in `models.json`. **Change…** opens a dialog with every installed model for the
+  language, filtered by size (tiny … large-v3-turbo, from the model's name) and by name; *Use the default* goes back. A
+  church's choice is kept by the model's repository and file, so a new version of it is taken, and is marked
+  *changed*. The editor shows the model's name, and Change… there makes this recording's transcript with another; the
+  church's is marked *default*.
 - **Make transcript** / **Make again** on the recordings page (a sermon's details), in the transcript's language, else
   the church's, with the church's model for it.
 - While one is made, a bar shows how far it is, with ✕ to stop it.
