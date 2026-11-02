@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ type job struct {
 	log      []string
 	warnings []string
 	progress float64
+	stepAt   time.Time // when the step began; progress is the step's
 	err      string
 	outputs  []outputFileInfo
 	subs     map[chan struct{}]struct{}
@@ -41,15 +43,17 @@ type job struct {
 
 // jobSnapshot is a job as the front end sees it.
 type jobSnapshot struct {
-	ID       string           `json:"id"`
-	Folder   string           `json:"folder"`
-	State    string           `json:"state"`
-	Steps    []string         `json:"steps"`
-	Log      []string         `json:"log"`
-	Warnings []string         `json:"warnings"`
-	Progress float64          `json:"progress"`
-	Error    string           `json:"error,omitempty"`
-	Outputs  []outputFileInfo `json:"outputs"`
+	ID       string   `json:"id"`
+	Folder   string   `json:"folder"`
+	State    string   `json:"state"`
+	Steps    []string `json:"steps"`
+	Log      []string `json:"log"`
+	Warnings []string `json:"warnings"`
+	Progress float64  `json:"progress"`
+	// Remaining is about how many seconds the step has left, from how fast it has gone; 0 = not known yet.
+	Remaining float64          `json:"remaining,omitempty"`
+	Error     string           `json:"error,omitempty"`
+	Outputs   []outputFileInfo `json:"outputs"`
 }
 
 func (j *job) snapshot() jobSnapshot {
@@ -59,8 +63,19 @@ func (j *job) snapshot() jobSnapshot {
 		ID: j.ID, Folder: j.Folder, State: j.state,
 		Steps: append([]string{}, j.steps...), Log: append([]string{}, j.log...),
 		Warnings: append([]string{}, j.warnings...), Progress: j.progress, Error: j.err,
-		Outputs: append([]outputFileInfo{}, j.outputs...),
+		Outputs:   append([]outputFileInfo{}, j.outputs...),
+		Remaining: remaining(j.stepAt, j.progress),
 	}
+}
+
+// remaining estimates the seconds left of work begun at since and done fraction of the way, from how fast it
+// has gone so far; 0 while it is too early to tell.
+func remaining(since time.Time, done float64) float64 {
+	elapsed := time.Since(since).Seconds()
+	if since.IsZero() || done < 0.02 || done >= 1 || elapsed < 5 {
+		return 0
+	}
+	return math.Round(elapsed * (1 - done) / done)
 }
 
 func (j *job) over() bool { return j.state == "done" || j.state == "failed" || j.state == "cancelled" }
@@ -206,7 +221,9 @@ func (js *jobs) run(ctx context.Context, j *job, pl plan) {
 		pl.opt.OriginalName = stemOf(sn)
 	}
 	p := &normalizer.Pipeline{P: pl.paths, Opt: pl.opt, FF: js.s.cfg.FFmpeg, Out: lw,
-		OnStep:     func(t string) { j.update(func() { j.steps = append(j.steps, t); j.progress = 0 }) },
+		OnStep: func(t string) {
+			j.update(func() { j.steps = append(j.steps, t); j.progress, j.stepAt = 0, time.Now() })
+		},
 		OnProgress: func(f float64) { j.update(func() { j.progress = f }) },
 	}
 	// The run moves the recording into original/; its analysis moves with it.

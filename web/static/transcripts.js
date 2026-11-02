@@ -3,7 +3,7 @@
 // defaults (Settings → Processing): the language, and the model for each language; modelLine and chooseModel
 // are the choice of a model, there and in the editor (editor/transcript.js). transcriptPanel is a sermon's transcript, in its
 // details on the recordings page and in the editor.
-import { api, q, h, can, formatDate, forTenant } from './util.js';
+import { api, q, h, can, formatDate, forTenant, timeLeft, liveBar, backgroundNote } from './util.js';
 import { confirmDialog, choiceDialog } from './dialog.js';
 import { t, tr } from './i18n.js';
 
@@ -119,16 +119,17 @@ export function transcriptPanel(path, info, { chosen = false, onDraw = (_tx) => 
   const makeButton = (tx, label) => mayMake && !chosen
     ? h('button', { type: 'button', name: 'make-transcript', onclick: act('', tx.spoken ? '&language=' + q(tx.spoken) : '') }, label) : '';
 
-  // progressBar is one being made: what it is doing, the bar (moving, while it waits) and ✕ to stop it.
+  // progressBar is one being made: what it is doing and about how long it has left, the bar (moving, while it
+  // waits), ✕ to stop it, and that nobody needs to wait for it.
   function progressBar(tx) {
-    const percent = Math.round(100 * (tx.progress || 0));
-    const what = tx.state === 'waiting' ? t('Waiting for its turn…') : t('Transcribing… {percent}%', { percent });
-    const bar = h('progress', { max: 1, 'aria-label': t('Transcript') });
-    if (tx.state === 'running') bar.value = tx.progress || 0;
+    const left = timeLeft(tx.remaining);
+    const what = tx.state === 'waiting' ? t('Waiting for its turn…') : t('Transcribing…') + (left ? ' · ' + left : '');
+    const bar = liveBar(tx.progress, tx.state === 'running', t('Transcript'));
     return h('div', { class: 'transcript-progress', 'aria-live': 'polite' },
       h('span', { class: 'what' }, chosen ? '' : [h('strong', {}, t('Transcript')), ' '], h('span', { class: 'muted' }, what)),
       h('span', { class: 'bar' }, bar,
-        mayMake ? h('button', { type: 'button', class: 'x', name: 'stop-transcript', title: t('Stop'), 'aria-label': t('Stop the transcript'), onclick: act('/cancel') }, '✕') : ''));
+        mayMake ? h('button', { type: 'button', class: 'x', name: 'stop-transcript', title: t('Stop'), 'aria-label': t('Stop the transcript'), onclick: act('/cancel') }, '✕') : ''),
+      backgroundNote());
   }
 
   function draw(tx) {

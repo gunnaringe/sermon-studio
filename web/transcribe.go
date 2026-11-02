@@ -88,11 +88,12 @@ type segmentJSON struct {
 // transcriptWork is a transcript being made: its stage ("waiting" for its turn, "running"), how far it
 // is (0..1), or the error it ended with ("failed").
 type transcriptWork struct {
-	Language string  `json:"-"` // what it is made in
-	Model    string  `json:"-"` // the key of the model asked for; "" = the first for the language
-	State    string  `json:"state"`
-	Progress float64 `json:"progress,omitempty"`
-	Error    string  `json:"error,omitempty"`
+	Language string    `json:"-"` // what it is made in
+	Model    string    `json:"-"` // the key of the model asked for; "" = the first for the language
+	State    string    `json:"state"`
+	Progress float64   `json:"progress,omitempty"`
+	Error    string    `json:"error,omitempty"`
+	since    time.Time // when it began running
 	cancel   context.CancelFunc
 }
 
@@ -100,11 +101,13 @@ type transcriptWork struct {
 type transcriptInfo struct {
 	Language string `json:"language,omitempty"` // the church's
 	// State is "", "waiting", "running" or "failed" (the work), else "done" when it is there.
-	State    string    `json:"state"`
-	Progress float64   `json:"progress,omitempty"`
-	Error    string    `json:"error,omitempty"`
-	Text     *fileInfo `json:"text,omitempty"`
-	Captions *fileInfo `json:"captions,omitempty"`
+	State    string  `json:"state"`
+	Progress float64 `json:"progress,omitempty"`
+	// Remaining is about how many seconds it has left, from how fast it has gone; 0 = not known yet.
+	Remaining float64   `json:"remaining,omitempty"`
+	Error     string    `json:"error,omitempty"`
+	Text      *fileInfo `json:"text,omitempty"`
+	Captions  *fileInfo `json:"captions,omitempty"`
 	// Spoken is the language of the transcript there, or of the one being made (or failed): what Make again
 	// makes it in.
 	Spoken string `json:"spoken,omitempty"`
@@ -227,6 +230,9 @@ func (s *Server) transcript(p normalizer.Paths, st *folderState) *transcriptInfo
 	s.transcriptMu.Lock()
 	if w := s.transcripts[p.Folder]; w != nil {
 		info.State, info.Progress, info.Error, info.Spoken = w.State, w.Progress, w.Error, w.Language
+		if w.State == "running" {
+			info.Remaining = remaining(w.since, w.Progress)
+		}
 	}
 	s.transcriptMu.Unlock()
 	makeIn := info.Spoken
@@ -345,7 +351,7 @@ func (s *Server) makeTranscript(ctx context.Context, folder, lang, key string, w
 	if pr, err := s.cfg.FFmpeg.ProbeFile(ctx, source); err == nil {
 		seconds = pr.Duration
 	}
-	s.setTranscript(func() { w.State = "running" })
+	s.setTranscript(func() { w.State, w.since = "running", time.Now() })
 	srt := filepath.Join(folder, "."+p.Date+".transcript.srt")
 	defer normalizer.Remove(srt)
 	t := normalizer.Transcription{Model: filepath.Join(tr.dir, model.File), Language: whisperLanguage(lang)}

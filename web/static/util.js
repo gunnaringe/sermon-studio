@@ -1,5 +1,5 @@
 // Shared helpers: API calls, times, and building DOM without innerHTML.
-import { t, tr } from './i18n.js';
+import { t, tn, tr } from './i18n.js';
 
 // The church the UI is working with; every request to the server names it.
 let tenant = localStorage.getItem('tenant') || '';
@@ -125,6 +125,31 @@ export function formatTime(t, decimals = 2) {
   const s = (rounded % 60).toFixed(decimals).padStart(decimals ? 3 + decimals : 2, '0');
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
+
+// timeLeft says roughly how long work on the server has left, from its estimate in seconds; '' when it has
+// none yet.
+export function timeLeft(seconds) {
+  if (!seconds) return '';
+  if (seconds < 60) return t('less than a minute left');
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) return tn(minutes, 'about {n} minute left', 'about {n} minutes left');
+  return tn(Math.round(minutes / 60), 'about {n} hour left', 'about {n} hours left');
+}
+
+// liveBar is a progress bar for work on the server: how far it is shows on hover, and a shine passes over it
+// while it runs; without a value (waiting) it is the browser's moving one.
+export function liveBar(progress, running, label) {
+  const bar = h('progress', { max: 1, 'aria-label': label });
+  if (running) {
+    bar.value = progress || 0;
+    bar.title = t('{percent}% done', { percent: Math.round(100 * (progress || 0)) });
+  }
+  return h('span', { class: running ? 'live-bar running' : 'live-bar' }, bar);
+}
+
+// backgroundNote tells that work runs on the server: nobody needs to wait for it on the page.
+export const backgroundNote = (tag = 'p') =>
+  h(tag, { class: 'muted background-note' }, t('This runs on the server in the background. You can close the page or go on working; it carries on.'));
 
 // Dates are shown as 2026-10-04 and times as 2026-10-04 18:30, whatever the
 // browser's locale.

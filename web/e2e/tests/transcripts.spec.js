@@ -163,7 +163,7 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   const running = async (route) => {
     const res = await route.fetch();
     const info = await res.json();
-    info.transcript = { ...info.transcript, state: 'running', progress: 0.42 };
+    info.transcript = { ...info.transcript, state: 'running', progress: 0.42, remaining: 200 };
     await route.fulfill({ response: res, json: info });
   };
   await page.route(/api\/(folder|transcript)\?/, running);
@@ -173,8 +173,13 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   if (req.url().includes('api/run?')) expect(req.postDataJSON().transcript).toEqual({ language: 'nb', model: NB });
   else expect(req.url()).toContain('language=nb&model=' + encodeURIComponent(NB));
   const bar = box.locator('.transcript-progress');
-  await expect(bar).toContainText('Transcribing… 42%', { timeout: 60_000 }); // after the run, when there is one
+  // How far it is shows on hover; the time left and that it runs in the background are said.
+  await expect(bar).toContainText('Transcribing… · about 3 minutes left', { timeout: 60_000 }); // after the run, when there is one
+  await expect(bar).not.toContainText('%');
   await expect(bar.locator('progress')).toHaveJSProperty('value', 0.42);
+  await expect(bar.locator('progress')).toHaveAttribute('title', '42% done');
+  await expect(bar.locator('.live-bar.running')).toBeVisible();
+  await expect(bar.locator('.background-note')).toContainText('in the background');
   await expect(bar.locator('button[name=stop-transcript]')).toHaveText('✕');
   await expect(box.locator('.pill .state')).toHaveText('being made');
   await box.screenshot({ path: path.join(shots, 'transcript-progress.png') });

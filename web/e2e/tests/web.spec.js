@@ -549,6 +549,10 @@ test('a run can be cancelled', async ({ page }) => {
   await page.getByLabel('Section from').press('Enter');
   await expect(pill(page, 'MP3')).toContainText('out of date, will be made again');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
+  // While it runs it says that it goes on without the page.
+  const panel = page.locator('.panel', { has: page.getByRole('heading', { name: /Processing…|Waiting/ }) });
+  await expect(panel.locator('.background-note')).toContainText('in the background');
+  await panel.screenshot({ path: path.join(shots, 'run-progress.png') });
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Cancelled' })).toBeVisible({ timeout: 30_000 });
   const left = fs.readdirSync(path.join(DATA, 'root/2026/2026-10-04')).filter((f) => f.includes('.partial') || f.startsWith('.'));
