@@ -2,7 +2,7 @@
 // saved version and makes the files (a job, followed here).
 import { confirmDialog } from '../dialog.js';
 import { t, tr } from '../i18n.js';
-import { api, q, h, debounce, forTenant, can } from '../util.js';
+import { api, q, h, debounce, forTenant, can, timeLeft, liveBar, backgroundNote } from '../util.js';
 import { spanOf } from './common.js';
 
 const FORMATS = [['flac', 'FLAC'], ['mp3', 'MP3'], ['opus', 'Opus']];
@@ -189,7 +189,9 @@ export function outputPart(ed) {
     jobPanel.replaceChildren(h('div', { class: 'panel' },
       h('h2', {}, title),
       h('ul', { class: 'steps' }, steps),
-      running ? h('progress', { max: 1, value: j.progress }) : '',
+      running ? liveBar(j.progress, j.state === 'running', title) : '',
+      running && j.remaining ? h('p', { class: 'muted' }, t('This step: {left}', { left: timeLeft(j.remaining) })) : '',
+      running ? backgroundNote() : '',
       j.warnings.length ? h('div', {}, j.warnings.map((w) => h('p', { class: 'warn' }, '⚠ ' + tr(w)))) : '',
       j.error ? h('p', { class: 'error' }, tr(j.error)) : '',
       j.state === 'cancelled' ? h('p', {}, t('Cancelled. Nothing half-written was left behind.')) : '',

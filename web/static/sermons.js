@@ -1,7 +1,7 @@
 // The details of a date folder in the folder list: what a sermon has (info,
 // play, download, make a missing format), or, for a recording that has not
 // been processed, only a way into the editor.
-import { api, q, h, href, formatSize, formatTime, forTenant } from './util.js';
+import { api, q, h, href, formatSize, formatTime, forTenant, timeLeft, liveBar, backgroundNote } from './util.js';
 import { alertDialog, confirmDialog } from './dialog.js';
 import { showCode, expiryInput, recordingShares } from './shares.js';
 import { t, tn, tr } from './i18n.js';
@@ -335,7 +335,9 @@ export function sermonDetail(entry, ctx = {}) {
       let job = await api('POST', 'api/make?path=' + q(entry.path) + '&format=' + format);
       while (job.state === 'queued' || job.state === 'running') {
         await sleep(1000);
-        status.textContent = t('Making {format}: the conversion is running… {percent}%', { format: label, percent: Math.round((job.progress || 0) * 100) });
+        const left = timeLeft(job.remaining);
+        status.replaceChildren(t('Making {format}: the conversion is running…', { format: label }) + (left ? ' · ' + left : ''),
+          liveBar(job.progress, job.state === 'running', label), backgroundNote('span'));
         job = await api('GET', 'api/jobs/' + job.id);
       }
       if (job.state !== 'done') throw new Error(job.error ? tr(job.error) : t('{format} was not made ({state})', { format: label, state: job.state }));

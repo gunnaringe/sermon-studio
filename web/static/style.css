@@ -635,8 +635,19 @@ input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(-
 /* A transcript being made: what it does, the bar, and ✕ to stop it. */
 .transcript-progress { display: grid; gap: 0.35rem; margin: 0.5rem 0; max-width: 40rem; }
 .transcript-progress .bar { display: flex; align-items: center; gap: 0.5rem; }
-.transcript-progress progress { flex: 1; height: 0.7rem; }
+.transcript-progress .live-bar { flex: 1; }
+/* Work on the server: a shine passes over the bar while it runs, so it shows it is still going. */
+.live-bar { position: relative; display: block; overflow: hidden; border-radius: 999px; }
+.live-bar progress { display: block; width: 100%; height: 0.7rem; margin: 0; }
+.live-bar.running::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.45), transparent);
+  transform: translateX(-100%); animation: live-bar 1.8s ease-in-out infinite; }
+@keyframes live-bar { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .live-bar.running::after { animation: none; } }
+span.live-bar { margin-top: 0.3rem; }
 .transcript-progress .x { flex: none; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 999px; box-shadow: none; background: none; color: var(--muted); font-size: 1rem; cursor: pointer; }
+.background-note { margin: 0; font-size: 0.9em; }
+span.background-note { display: block; margin-top: 0.2rem; }
 .transcript-progress .x:hover { color: var(--error); background: var(--bg); }
 /* The editor's choice of the model: filters, then the models as a list to pick one from. */
 .model-filters { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.5rem 1rem; margin-bottom: 0.75rem; }
