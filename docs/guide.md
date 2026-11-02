@@ -60,7 +60,7 @@ Each can have a label, which shows on the waveform.
   recording's details in place. **Labels** are your own tags on a recording ("Easter", "guest speaker": up to 10, 30 characters; added with the + button, Enter or a comma, or picked from the labels already in use;
   removed with the × on the pill, kept as `labels` in `recording.json`, not written into the files). The search matches name, date and labels
   in every year at once (all words must match); a label on a row searches for it. A sermon's details have its player and
-  what it plays (*Plays: MP3 · with intro and outro*), and **Download**, which opens its files: each format with its size, or *Make* for one not made yet (from the saved version).
+  what it plays (*Plays: MP3 · with intro and outro*), and **Download**, which opens its files: each format with its size, or *Make* for one not made yet (from the saved version); one made from another cut or sound than the saved version says *out of date* and has *Make again*. MP3 and Opus are made from the FLAC while it is of the saved version, which is quick.
   **Share link** shares the address of one recording (the device's share sheet, or the clipboard),
   `…/recordings/<date>-<name>`, which opens the page with its year and row open and scrolled to, for those who can log in.
 - **Editor:** the whole service as a waveform with a minimap overview, like Audacity or

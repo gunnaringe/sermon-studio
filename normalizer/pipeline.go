@@ -171,6 +171,14 @@ func (p *Pipeline) ingest(ctx context.Context) (string, error) {
 // pending reports whether an output file needs to be made.
 func (p *Pipeline) pending(path string) bool { return p.Opt.Force || !exists(path) }
 
+// reusable tells whether MP3 and Opus can be made from the master at path as it is.
+func (p *Pipeline) reusable(path string) bool {
+	if p.Opt.MasterFresh != nil {
+		return exists(path) && p.Opt.MasterFresh(path)
+	}
+	return !p.pending(path)
+}
+
 // version is one set of outputs: the main files, or with an intro or outro also the sermon only.
 type version struct {
 	label             string // for the log: "" for the main files
@@ -217,7 +225,7 @@ func (p *Pipeline) stepMaster(ctx context.Context) error {
 		}
 	case !needed:
 		return nil // no master wanted, and nothing to make from one
-	case !p.pending(p.master):
+	case p.reusable(p.master):
 		p.numbered("Master")
 		p.logf("Using the existing %s for MP3/Opus.", filepath.Base(p.master))
 		return nil
@@ -267,7 +275,7 @@ func (p *Pipeline) stepClips(ctx context.Context) error {
 		}
 	case !p.lossyPending(p.versions()[0]):
 		return nil
-	case !p.pending(p.full):
+	case p.reusable(p.full):
 		p.numbered("Intro and outro")
 		p.logf("Using the existing %s for MP3/Opus.", filepath.Base(p.full))
 		return nil

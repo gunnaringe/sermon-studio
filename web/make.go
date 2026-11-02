@@ -9,9 +9,9 @@ import (
 	"github.com/gunnaringe/sermon-studio/normalizer"
 )
 
-// handleMake makes one missing format (flac, mp3 or opus) of a sermon from its
-// saved version, with the default levels and bitrates. Files that exist are
-// kept: it is an ordinary run with only that format on and no Force.
+// handleMake makes one format (flac, mp3 or opus) of a sermon from its saved version, with the default levels
+// and bitrates: one that is missing, or with again=1 one that is out of date. Other files are kept: it is an
+// ordinary run with only that format on (and Force, to make it again).
 func (s *Server) handleMake(w http.ResponseWriter, r *http.Request) {
 	abs, ok := s.pathParam(w, r)
 	if !ok {
@@ -22,17 +22,13 @@ func (s *Server) handleMake(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("format must be flac, mp3 or opus"))
 		return
 	}
-	sf := readSermon(abs)
-	if sf == nil || sf.Saved == nil {
-		writeError(w, http.StatusBadRequest, errors.New("this sermon is not saved yet: open it in the editor and press Save"))
+	q, err := s.savedRequest(abs)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	q := s.processing().start() // for one saved before the studio kept its sound
-	q.cutting = sf.Saved.cutting
-	q.FadeIn, q.FadeOut = sf.Saved.FadeIn, sf.Saved.FadeOut
-	q.Intro, q.Outro = sf.Saved.Intro, sf.Saved.Outro
-	sf.Saved.Sound.applyTo(&q)
 	q.Flac, q.Mp3, q.Opus = format == "flac", format == "mp3", format == "opus"
+	q.Force = r.URL.Query().Get("again") == "1"
 	pl := s.check(abs, q)
 	if pl.Error != "" {
 		writeError(w, http.StatusBadRequest, errors.New(pl.Error))
@@ -44,6 +40,21 @@ func (s *Server) handleMake(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, j.snapshot())
+}
+
+// savedRequest is a run of the sermon's saved version, with no format on.
+func (s *Server) savedRequest(abs string) (runRequest, error) {
+	sf := readSermon(abs)
+	if sf == nil || sf.Saved == nil {
+		return runRequest{}, errors.New("this sermon is not saved yet: open it in the editor and press Save")
+	}
+	q := s.processing().start() // for one saved before the studio kept its sound
+	q.cutting = sf.Saved.cutting
+	q.FadeIn, q.FadeOut = sf.Saved.FadeIn, sf.Saved.FadeOut
+	q.Intro, q.Outro = sf.Saved.Intro, sf.Saved.Outro
+	sf.Saved.Sound.applyTo(&q)
+	q.Flac, q.Mp3, q.Opus = false, false, false
+	return q, nil
 }
 
 // handleRemoveOutputs deletes outputs of a sermon (format=flac, mp3, opus;

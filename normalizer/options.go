@@ -20,6 +20,9 @@ type Options struct {
 	// Compression narrows the loudness range further: one of CompressionNames ("" = off).
 	Compression string
 	Force       bool
+	// MasterFresh, when set, tells whether the master at a path is of these options, so MP3 and Opus can be made
+	// from it, also with Force; one it says no to is never used. Unset, an existing master is used unless Force.
+	MasterFresh func(path string) bool
 	// OriginalName is the name (no extension) the recording is kept under in original/: the name it
 	// arrived with. "" = <date>_raw.
 	OriginalName string

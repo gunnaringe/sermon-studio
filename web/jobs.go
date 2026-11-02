@@ -250,7 +250,7 @@ func (js *jobs) run(ctx context.Context, j *job, pl plan) {
 	on := map[string]bool{"flac": pl.opt.Outputs.Flac, "mp3": pl.opt.Outputs.Mp3, "opus": pl.opt.Outputs.Opus}
 	for _, o := range outputsOf(pl.paths) {
 		if fi := js.s.fileInfo(o.path); on[o.format] && fi != nil {
-			outs = append(outs, outputFileInfo{*fi, o.format})
+			outs = append(outs, outputFileInfo{fileInfo: *fi, Format: o.format})
 		}
 	}
 	j.update(func() {

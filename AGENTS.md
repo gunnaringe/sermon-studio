@@ -169,7 +169,9 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `sermon` in the folder info.
 - `web/folders.go`: `api/recordings` (every date folder of the church, flat: the page groups/searches it), `api/labels` (a
   recording's labels, `cleanLabels`), folder info, run options, `check` (validates a run).
-- `web/make.go`: `POST api/make?path&format`: one missing format from the saved version (a normal run, no Force).
+- `web/make.go`: `POST api/make?path&format`: one missing format from the saved version (`savedRequest`; a normal run, no Force),
+  or with `again=1` one that is out of date (Force; folder info marks those `stale`, `savedStatus`). `check` sets
+  `Options.MasterFresh`: MP3/Opus are made from an existing FLAC only while it is of the run, also with Force.
   `POST api/outputs/remove?path&format=…`: deletes outputs (only those) and their records; not during a run.
 - `web/jobs.go`: runs on the server context, `--parallel-runs` at a time (never two of one recording), SSE events.
 - `web/analysis.go`: conversion on arrival (`normalizer.ConvertsTo`: WAV/AIFF→FLAC, video→`.mka`), then waveform peaks + normalized MP3

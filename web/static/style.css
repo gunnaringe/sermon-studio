@@ -492,6 +492,8 @@ details.menu[open] .caret { transform: rotate(180deg); }
 .menu-item .go.icon { padding: 0; width: 2rem; }
 .menu-item .go svg { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .menu-item:hover:not(:disabled) .go { background: var(--grad); color: #fff; }
+.menu-item.again { margin-top: -0.2rem; padding-top: 0.2rem; font-size: 0.88rem; }
+.menu-item .warn { color: var(--warn); }
 .menu-panel .making { margin: 0.1rem 0.7rem 0.3rem; font-size: 0.88rem; }
 button.menu-item:disabled:not(.busy) { opacity: 0.55; }
 button.menu-item.busy { opacity: 1; animation: pulse 1.2s ease-in-out infinite; }

@@ -266,6 +266,9 @@ type folderInfo struct {
 type outputFileInfo struct {
 	fileInfo
 	Format string `json:"format"`
+	// Stale: made from other than the saved version (another cut, sound, intro or outro), so Make again makes it
+	// anew. Only in the folder info.
+	Stale bool `json:"stale,omitempty"`
 }
 
 func (s *Server) folderInfo(abs string) (folderInfo, error) {
@@ -283,9 +286,10 @@ func (s *Server) folderInfo(abs string) (folderInfo, error) {
 			info.Recording = st.Recording
 		}
 	}
+	stale := s.savedStatus(abs, paths) // what a run of the saved version would make differently
 	for _, o := range append(outputsOf(paths), sermonOnlyOutputs(paths)...) {
 		if fi := s.fileInfo(o.path); fi != nil {
-			info.Outputs = append(info.Outputs, outputFileInfo{*fi, o.format})
+			info.Outputs = append(info.Outputs, outputFileInfo{*fi, o.format, stale[o.format].Stale})
 		}
 	}
 	info.MadeWith = s.madeWithOf(paths, st)
@@ -540,6 +544,15 @@ func (s *Server) check(abs string, q runRequest) plan {
 		return fail(errors.New("the recording is still being converted"))
 	}
 	pl.Outputs = s.outputStatus(paths, pl.opt, pl.Clips)
+	// MP3 and Opus are made from a master only while it is of this run (it saves the slow part), never from one
+	// of another cut or sound.
+	fresh := map[string]bool{}
+	for _, x := range runOutputs(paths, pl.Clips) {
+		if st := pl.Outputs[x.format]; baseFormat(x.format) == "flac" && st.Exists && st.Known && !st.Stale {
+			fresh[x.path] = true
+		}
+	}
+	pl.opt.MasterFresh = func(path string) bool { return fresh[path] }
 	if _, _, data := transcriptPaths(paths); fileExists(data) {
 		m, ok := readState(abs).Outputs[transcriptFormat]
 		pl.Transcript = &outputState{Exists: true, Known: ok, Stale: ok && m.Cut != "" && m.Cut != cutOf(pl.opt)}
@@ -556,6 +569,26 @@ func (s *Server) check(abs string, q runRequest) plan {
 		return fail(fmt.Errorf("the files do not fit in the church's storage: they take about %s, and %s is left", sizeText(full.need), sizeText(full.left)))
 	}
 	return pl
+}
+
+// savedStatus is the outputs as a run of the saved version sees them (as check, without its other checks);
+// nil when there is no saved version, or no run of it can be planned.
+func (s *Server) savedStatus(abs string, paths normalizer.Paths) map[string]outputState {
+	q, err := s.savedRequest(abs)
+	if err != nil {
+		return nil
+	}
+	q.Flac, q.Mp3, q.Opus = true, true, true
+	o, err := q.options()
+	if err != nil {
+		return nil
+	}
+	clips, err := s.applyClips(abs, q.Intro, q.Outro, &o)
+	if err != nil {
+		return nil
+	}
+	o.Tags, _ = s.runTags(abs, q)
+	return s.outputStatus(paths, o, clips)
 }
 
 // outputState is an output as the page sees it: whether it is there, and
