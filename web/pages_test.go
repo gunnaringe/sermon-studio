@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -89,5 +90,26 @@ func TestRecordingBySlug(t *testing.T) {
 	}
 	if rec := chunkNamed(t, ts, "2026-10-12", "Kveld", "a.flac", "x"); rec.Code != http.StatusCreated || decode[map[string]any](t, rec)["slug"] != "2026-10-12-kveld" {
 		t.Errorf("upload: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestStaticETag(t *testing.T) {
+	ts := newTestServer(t, normalizer.FFmpeg{})
+	for _, path := range []string{"/util.js", "/style.css", "/invite"} {
+		rec := ts.do(t, "GET", path, nil)
+		tag := rec.Header().Get("ETag")
+		if rec.Code != http.StatusOK || tag == "" || rec.Header().Get("Cache-Control") != "no-cache" {
+			t.Fatalf("%s: %d, ETag %q, Cache-Control %q", path, rec.Code, tag, rec.Header().Get("Cache-Control"))
+		}
+		req := httptest.NewRequest("GET", path, nil)
+		req.Header.Set("If-None-Match", tag)
+		again := httptest.NewRecorder()
+		ts.h.ServeHTTP(again, req)
+		if again.Code != http.StatusNotModified || again.Body.Len() != 0 {
+			t.Errorf("%s with its ETag: %d, %d bytes, want 304", path, again.Code, again.Body.Len())
+		}
+	}
+	if a, b := ts.do(t, "GET", "/util.js", nil).Header().Get("ETag"), ts.do(t, "GET", "/style.css", nil).Header().Get("ETag"); a == b {
+		t.Errorf("same ETag %s for two files", a)
 	}
 }

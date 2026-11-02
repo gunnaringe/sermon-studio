@@ -2,6 +2,8 @@ package web
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/base64"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -40,7 +42,7 @@ func IsPage(path string) bool {
 // servePages wraps the static files: the app's pages get index.html, the other pages their files. start
 // reports whether / is the start (churches.html) for this request; nil: never (one church, no picker).
 func servePages(files fs.FS, start func(*http.Request) bool) http.Handler {
-	next := http.FileServerFS(files)
+	next := withETags(files, http.FileServerFS(files))
 	index, _ := fs.ReadFile(files, "index.html")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" && start != nil && start(r) {
@@ -49,7 +51,10 @@ func servePages(files fs.FS, start func(*http.Request) bool) http.Handler {
 			return
 		}
 		if file, ok := otherPages[strings.TrimPrefix(r.URL.Path, "/")]; ok {
-			http.ServeFileFS(w, r, files, file)
+			r2 := *r
+			r2.URL = new(*r.URL)
+			r2.URL.Path = "/" + file
+			next.ServeHTTP(w, &r2)
 			return
 		}
 		if !IsPage(r.URL.Path) || r.URL.Path == "/index.html" {
@@ -90,4 +95,30 @@ func slugOf(name string) string {
 		}
 	}
 	return b.String()
+}
+
+// withETags serves the static files with an ETag (a hash of the file) and Cache-Control: no-cache: the
+// browser asks again on every load and gets a 304 while the file is the same, so a new version is used at
+// once. Without a Cache-Control, Cloudflare gives them its own (4 hours), and a page could get old scripts.
+func withETags(files fs.FS, next http.Handler) http.Handler {
+	tags := map[string]string{}
+	fs.WalkDir(files, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, err := fs.ReadFile(files, path)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(b)
+		tags["/"+path] = `"` + base64.RawURLEncoding.EncodeToString(sum[:12]) + `"`
+		return nil
+	})
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if tag, ok := tags[r.URL.Path]; ok {
+			w.Header().Set("ETag", tag)
+		}
+		w.Header().Set("Cache-Control", "no-cache")
+		next.ServeHTTP(w, r)
+	})
 }
