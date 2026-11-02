@@ -162,6 +162,10 @@ function showUpload() {
 
 const FORMAT_NAMES = { flac: 'FLAC', mp3: 'MP3', opus: 'Opus' };
 
+// downloadName is what a download's button says: a format, or the transcript's text or captions.
+const downloadName = (format) => format === 'txt' ? t('Download the transcript')
+  : format === 'vtt' ? t('Download captions (WebVTT)') : t('Download {format}', { format: FORMAT_NAMES[format] || format });
+
 function downloadLimits() {
   const parts = [];
   if (info.downloadsLeft !== undefined) parts.push(tn(info.downloadsLeft, '{n} more download', '{n} more downloads'));
@@ -198,22 +202,30 @@ function showDownload() {
     }
   };
   const buttons = info.files.map((f) => {
-    const b = h('button', { type: 'button', class: 'primary', name: 'download-' + f.format },
-      t('Download {format}', { format: FORMAT_NAMES[f.format] || f.format }), ' · ', formatSize(f.size));
+    const audio = Boolean(FORMAT_NAMES[f.format]);
+    const b = h('button', { type: 'button', class: audio ? 'primary' : '', name: 'download-' + f.format },
+      downloadName(f.format), ' · ', formatSize(f.size));
     b.addEventListener('click', () => press(f, b));
     return b;
   });
   // the artist and date, unless the church's name or the title says it already
   const what = [info.artist !== info.church ? info.artist : '', info.date && !(info.title || '').includes(info.date) ? info.date : '']
     .filter(Boolean).join(' · ');
+  // What the church is still making for this share: said, so it is fetched later.
+  const preparing = (info.preparing || []).map((f) => f === 'transcript' ? t('the transcript') : FORMAT_NAMES[f] || f);
   const ended = info.state === 'missing' ? t('This sermon is no longer available.')
     : info.state ? t('This code cannot be used any more.')
-      : !buttons.length ? t('This sermon is no longer available.') : '';
+      : !buttons.length && !preparing.length ? t('This sermon is no longer available.') : '';
   view.replaceChildren(
     h('h1', {}, info.title || info.label),
     what ? h('p', {}, what) : '',
     limits,
-    ended ? h('p', { class: 'error' }, ended) : h('p', { class: 'actions' }, buttons),
+    // the sermon's files, then the transcript's
+    ...(ended ? [h('p', { class: 'error' }, ended)] : [
+      h('p', { class: 'downloads' }, buttons.filter((b) => b.classList.contains('primary'))),
+      h('p', { class: 'downloads' }, buttons.filter((b) => !b.classList.contains('primary')))]),
+    !ended && preparing.length ? h('p', { class: 'muted preparing' },
+      t('Being prepared: {what}. Open this page again in a little while.', { what: preparing.join(', ') })) : '',
     status,
     h('p', { class: 'muted' }, otherCode()));
 }

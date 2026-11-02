@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gunnaringe/sermon-studio/normalizer"
 )
 
 // downloadTest is a church with one finished sermon (an MP3 and a FLAC) and a download share of it.
@@ -22,13 +24,24 @@ func downloadTest(t *testing.T, body string) (*shareTest, string) {
 	os.MkdirAll(dir, 0o755)
 	os.WriteFile(filepath.Join(dir, "2026-10-18 Advent.mp3"), []byte("ID3 the mp3 file"), 0o644)
 	os.WriteFile(filepath.Join(dir, "2026-10-18 Advent.flac"), []byte("fLaC the flac file"), 0o644)
+	st.save(dir)
 	code, _ := st.makeShare(body)
 	return st, code
+}
+
+// save gives the recording in dir a saved version: only a saved sermon is shared.
+func (st *shareTest) save(dir string) {
+	st.t.Helper()
+	saved := sermonSettings{cutting: cutting{Sections: []span{{Start: 30, End: 3600}}, Cuts: []span{}}}
+	if _, err := st.app.tenants[0].srv.updateState(dir, func(s *folderState) error { s.Saved = &saved; return nil }); err != nil {
+		st.t.Fatal(err)
+	}
 }
 
 type downloadInfoView struct {
 	Kind, Title, Date, State string
 	DownloadsLeft            *int
+	Preparing                []string
 	Files                    []struct {
 		Format string
 		Size   int64
@@ -324,7 +337,7 @@ func TestSharesActive(t *testing.T) {
 func TestShareDownloadSermonOnly(t *testing.T) {
 	const body = `{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"sermonOnly":true,"label":"x"}`
 	st, _ := downloadTest(t, `{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":"x"}`)
-	if w := do(st.studio, "POST", "/api/shares", body); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "not been made") {
+	if w := do(st.studio, "POST", "/api/shares", body); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "without its intro and outro") {
 		t.Fatalf("a share of a sermon only that has not been made: %d %s", w.Code, w.Body)
 	}
 	dir := filepath.Join(st.church, "Taler", "2026", "2026-10-18 Advent")
@@ -340,4 +353,97 @@ func TestShareDownloadSermonOnly(t *testing.T) {
 	if string(got) != "ID3 the sermon only" || !strings.Contains(resp.Header.Get("Content-Disposition"), "_sermon.mp3") {
 		t.Errorf("downloaded %q as %q", got, resp.Header.Get("Content-Disposition"))
 	}
+}
+
+// Only a saved sermon is shared. A share of all formats gives what there is, also formats made later; one of
+// chosen formats needs them made. The transcript is given as text and captions, not counted as downloads.
+func TestShareDownloadAllFormatsAndTranscript(t *testing.T) {
+	modelsDir := t.TempDir()
+	writeModels(t, modelsDir, nbMedium)
+	st := newShareTestWith(t, RateLimits{RequestsPerIP: 1000, RequestsTotal: 1000}, func(c *AppConfig) {
+		c.Transcription = &TranscriptionConfig{ModelsDir: modelsDir}
+	})
+	dir := filepath.Join(st.church, "Taler", "2026", "2026-10-18")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "2026-10-18.mp3"), []byte("ID3 the mp3 file"), 0o644)
+	const rec = `"recording":"2026/2026-10-18","label":"x"`
+	refused := func(body, want string) {
+		t.Helper()
+		if w := do(st.studio, "POST", "/api/shares", `{"kind":"download",`+rec+`,`+body+`}`); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), want) {
+			t.Errorf("%s: %d %s", body, w.Code, w.Body)
+		}
+	}
+	refused(`"allFormats":true`, "save the sermon in the editor first")
+	st.save(dir)
+
+	code, view := st.makeShare(`{"kind":"download",` + rec + `,"allFormats":true,"maxDownloads":5}`)
+	if !view.AllFormats || strings.Join(view.Formats, ",") != "flac,mp3,opus" {
+		t.Errorf("view: %+v", view)
+	}
+	if info := st.info(code); len(info.Files) != 1 || info.Files[0].Format != "mp3" || len(info.Preparing) != 0 {
+		t.Errorf("info: %+v", info)
+	}
+	os.WriteFile(filepath.Join(dir, "2026-10-18.opus"), []byte("OggS"), 0o644)
+	if info := st.info(code); len(info.Files) != 2 {
+		t.Errorf("a format made later is given: %+v", info)
+	}
+	refused(`"formats":["flac","mp3"]`, "not made yet: FLAC (make it from the Download menu)")
+	refused(`"allFormats":true,"transcript":true`, "there is no transcript of this sermon yet")
+
+	// With a transcript there, the share gives its text and captions.
+	p, _ := normalizer.NewPaths(dir)
+	text, captions, data := transcriptPaths(p)
+	tf, _ := json.Marshal(transcriptFile{Language: "nb", Model: nbMedium, Segments: []segmentJSON{{0, 2, "Hei."}}})
+	os.WriteFile(data, tf, 0o644)
+	os.WriteFile(text, []byte("Hei.\n"), 0o644)
+	os.WriteFile(captions, []byte("WEBVTT\n"), 0o644)
+	code, view = st.makeShare(`{"kind":"download",` + rec + `,"allFormats":true,"transcript":true,"maxDownloads":5}`)
+	if !view.Transcript {
+		t.Errorf("view: %+v", view)
+	}
+	info := st.info(code)
+	var formats []string
+	for _, f := range info.Files {
+		formats = append(formats, f.Format)
+	}
+	if strings.Join(formats, ",") != "mp3,opus,txt,vtt" || *info.DownloadsLeft != 5 {
+		t.Fatalf("info: %+v", info)
+	}
+	c, addr := st.download(code, "1.1.1.1", "txt")
+	resp := st.fetch(addr, "")
+	got, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if c != http.StatusCreated || string(got) != "Hei.\n" || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
+		t.Errorf("text: %d %q %s", c, got, resp.Header.Get("Content-Type"))
+	}
+	if left := *st.info(code).DownloadsLeft; left != 5 {
+		t.Errorf("the transcript was counted: %d left", left)
+	}
+	st.download(code, "1.1.1.1", "mp3")
+	if left := *st.info(code).DownloadsLeft; left != 4 {
+		t.Errorf("the MP3 was not counted: %d left", left)
+	}
+	// A share without the transcript does not give it.
+	plain, _ := st.makeShare(`{"kind":"download",` + rec + `,"formats":["mp3"]}`)
+	if c, _ := st.download(plain, "1.1.1.1", "txt"); c != http.StatusBadRequest {
+		t.Errorf("the transcript from a share without it: %d", c)
+	}
+}
+
+// While a run of the recording is making a format the share gives, the share page says it is being prepared,
+// and does not offer the file that is being replaced.
+func TestShareDownloadPreparing(t *testing.T) {
+	st, code := downloadTest(t, `{"kind":"download","recording":"2026/2026-10-18 Advent","allFormats":true,"label":"x"}`)
+	dir := filepath.Join(st.church, "Taler", "2026", "2026-10-18 Advent")
+	os.WriteFile(filepath.Join(dir, "2026-10-18 Advent_raw.wav"), []byte("x"), 0o644)
+	srv := st.app.tenants[0].srv
+	srv.jobs.sem <- struct{}{} // another encode is running: this one stays queued
+	defer func() { <-srv.jobs.sem }()
+	if w := do(st.studio, "POST", "/api/make?path="+url.QueryEscape("2026/2026-10-18 Advent")+"&format=opus", ""); w.Code != http.StatusAccepted {
+		t.Fatalf("make: %d %s", w.Code, w.Body)
+	}
+	if info := st.info(code); len(info.Files) != 2 || strings.Join(info.Preparing, ",") != "opus" {
+		t.Errorf("info: %+v", info)
+	}
+	srv.jobs.active("2026/2026-10-18 Advent").cancel()
 }

@@ -27,15 +27,24 @@ type shareTest struct {
 }
 
 func newShareTest(t *testing.T, limits RateLimits) *shareTest {
+	return newShareTestWith(t, limits, nil)
+}
+
+// newShareTestWith is newShareTest with more of the app's configuration.
+func newShareTestWith(t *testing.T, limits RateLimits, configure func(*AppConfig)) *shareTest {
 	t.Helper()
 	data := t.TempDir()
 	church := filepath.Join(data, "kirke")
 	os.MkdirAll(filepath.Join(church, "Taler"), 0o755)
-	a, err := NewApp(AppConfig{
+	cfg := AppConfig{
 		Base:    Config{CacheDir: t.TempDir(), Logger: log.New(testLog{t}, "", 0)},
 		DataDir: data,
 		Share:   &ShareOptions{URL: "https://up.example/", IPHeader: "CF-Connecting-IP", Limits: limits},
-	})
+	}
+	if configure != nil {
+		configure(&cfg)
+	}
+	a, err := NewApp(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -687,6 +696,7 @@ func TestSharesOfARecording(t *testing.T) {
 	other := filepath.Join(st.church, "Taler", "2026", "2026-10-25")
 	os.MkdirAll(other, 0o755)
 	os.WriteFile(filepath.Join(other, "2026-10-25.mp3"), []byte("ID3 another"), 0o644)
+	st.save(other)
 	st.makeShare(`{"kind":"download","recording":"2026/2026-10-25","formats":["mp3"],"label":"Another"}`)
 	for path, want := range map[string]string{"2026/2026-10-18 Advent": "Advent", "2026/2026-10-25": "Another", "2026": ""} {
 		var got []string

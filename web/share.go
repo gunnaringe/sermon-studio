@@ -67,6 +67,8 @@ type Share struct {
 	Recording    string                     `json:"recording,omitempty"`
 	RecordingID  string                     `json:"recordingId,omitempty"`
 	Formats      []string                   `json:"formats,omitempty"`
+	AllFormats   bool                       `json:"allFormats,omitempty"` // every format, also ones made later (Formats unused)
+	Transcript   bool                       `json:"transcript,omitempty"` // and the transcript, its text and captions
 	SermonOnly   bool                       `json:"sermonOnly,omitempty"` // the sermon without its intro and outro (<date>_sermon.*)
 	MaxDownloads int                        `json:"maxDownloads,omitempty"`
 	Tickets      map[string]*downloadTicket `json:"tickets,omitempty"` // by ticket id
@@ -299,6 +301,8 @@ type shareView struct {
 
 	Recording    string   `json:"recording,omitempty"` // a download share's
 	Formats      []string `json:"formats,omitempty"`
+	AllFormats   bool     `json:"allFormats,omitempty"`
+	Transcript   bool     `json:"transcript,omitempty"`
 	SermonOnly   bool     `json:"sermonOnly,omitempty"`
 	MaxDownloads int      `json:"maxDownloads"`
 	Downloading  int      `json:"downloading"`       // files being sent now
@@ -320,8 +324,8 @@ func (sh *Share) view(now time.Time) shareView {
 		MaxUploads: sh.MaxUploads, MaxFileSize: sh.MaxFileSize, MaxTotal: sh.MaxTotal, Types: sh.types(), AllTypes: sh.AllTypes,
 		State: sh.state(now), Count: sh.Count, Bytes: sh.Bytes, Uploading: n, Log: log}
 	if sh.Kind == kindDownload {
-		v.Kind, v.Types, v.MaxFileSize, v.Recording, v.Formats, v.MaxDownloads = kindDownload, []string{}, 0, sh.Recording, sh.Formats, sh.MaxDownloads
-		v.SermonOnly = sh.SermonOnly
+		v.Kind, v.Types, v.MaxFileSize, v.Recording, v.Formats, v.MaxDownloads = kindDownload, []string{}, 0, sh.Recording, sh.formats(), sh.MaxDownloads
+		v.SermonOnly, v.AllFormats, v.Transcript = sh.SermonOnly, sh.AllFormats, sh.Transcript
 		for _, tk := range sh.Tickets {
 			if now.Before(tk.Expires) {
 				v.Resumable++
@@ -457,6 +461,8 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 		Kind         string     `json:"kind"` // "" or kindUpload, kindDownload
 		Recording    string     `json:"recording"`
 		Formats      []string   `json:"formats"`
+		AllFormats   bool       `json:"allFormats"`
+		Transcript   bool       `json:"transcript"`
 		SermonOnly   bool       `json:"sermonOnly"`
 		MaxDownloads int        `json:"maxDownloads"`
 		Label        string     `json:"label"`
@@ -473,7 +479,8 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	label := strings.Join(strings.Fields(q.Label), " ")
 	if q.Kind == kindDownload {
-		a.createDownloadShare(w, t, label, q.Recording, q.Formats, q.SermonOnly, q.MaxDownloads, q.Expires)
+		a.createDownloadShare(w, t, label, downloadRequest{Recording: q.Recording, Formats: q.Formats, AllFormats: q.AllFormats,
+			Transcript: q.Transcript, SermonOnly: q.SermonOnly, MaxDownloads: q.MaxDownloads, Expires: q.Expires})
 		return
 	}
 	if q.Kind != "" && q.Kind != kindUpload {

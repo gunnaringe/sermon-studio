@@ -246,33 +246,68 @@ export function sermonDetail(entry, ctx = {}) {
     return menu;
   }
 
-  // shareButton makes a download share of the files that have been made: a code and a link that let
-  // someone without a login download them on the public share page, as often as it allows.
+  // shareButton makes a download share of a saved sermon's files: a code and a link that let someone without a
+  // login download them on the public share page, as often as it allows. The recording, or with its transcript;
+  // all formats (also ones made later) unless limited. It makes nothing: Save in the editor makes the files.
   function shareButton(info) {
     return iconButton('button', SHARE_ICON, t('Share for download…'), { name: 'share-download', onclick: async () => {
-      const made = FORMATS.filter(([f]) => info.outputs.some((o) => o.format === f));
-      const boxes = made.map(([f]) => h('input', { type: 'checkbox', name: 'format', value: f, checked: f === 'mp3' || !made.some(([m]) => m === 'mp3') }));
+      const tx = info.transcript; // none when the studio makes no transcripts
+      const offerTranscript = Boolean(tx && tx.text);
+      let withTranscript = false;
+      const modeButton = (on, label) => h('button', { type: 'button', class: 'seg', 'aria-pressed': String(withTranscript === on),
+        onclick: (e) => {
+          withTranscript = on;
+          for (const b of e.currentTarget.parentElement.children) b.setAttribute('aria-pressed', String(b === e.currentTarget));
+          draw();
+        } }, label);
+      const mode = offerTranscript ? h('span', { class: 'mode share-mode', role: 'group', 'aria-label': t('What is shared') },
+        modeButton(false, t('Recording')), modeButton(true, t('Recording and transcript'))) : '';
+      const boxes = FORMATS.map(([f]) => h('input', { type: 'checkbox', name: 'format', value: f, checked: true, onchange: () => draw() }));
       // With an intro or outro, the share gives one of the two versions.
-      const version = sermonOnly(info).length ? h('select', { name: 'version', id: 'download-version' },
+      const version = sermonOnly(info).length ? h('select', { name: 'version', id: 'download-version', onchange: () => draw() },
         h('option', { value: '' }, t('With intro and outro')), h('option', { value: 'sermon' }, t('Sermon only'))) : null;
       const label = h('input', { type: 'text', name: 'label', id: 'download-label', maxlength: 80, value: entry.name });
       const max = h('input', { type: 'number', name: 'maxDownloads', min: 0, step: 1, placeholder: t('no limit') });
       const expires = expiryInput();
+      const what = h('div', { class: 'share-what wide', 'aria-live': 'polite' });
+      // draw says what the share gives: the files there, and those not made (shared once made, with all formats).
+      const draw = () => {
+        const suffix = version && version.value === 'sermon' ? SERMON_ONLY : '';
+        const names = (list) => list.map((f) => FORMATS.find(([x]) => x === f)[1]).join(', ');
+        const checked = boxes.filter((x) => x.checked).map((x) => x.value);
+        const ready = checked.filter((f) => info.outputs.some((o) => o.format === f + suffix));
+        const missing = checked.filter((f) => !ready.includes(f));
+        const lines = [];
+        if (ready.length) lines.push(h('p', {}, '✓ ' + t('Ready: {formats}', { formats: names(ready) })));
+        if (missing.length) {
+          lines.push(h('p', { class: 'warn' }, checked.length === FORMATS.length
+            ? t('Not made yet: {formats}. Shared once made (from the Download menu).', { formats: names(missing) })
+            : t('Not made yet: {formats}. Make them from the Download menu first.', { formats: names(missing) })));
+        }
+        if (withTranscript) lines.push(h('p', {}, '✓ ' + t('Transcript: ready')));
+        what.replaceChildren(...lines);
+      };
+      draw();
       for (;;) {
         const ok = await confirmDialog({ title: t('Share for download'), confirm: t('Make share'), body: [
           h('p', { class: 'muted' }, t('Makes a code and a link that let someone without a login download this sermon on the share page.')),
           h('div', { class: 'share-form' },
+            mode ? h('div', { class: 'wide' }, mode) : '',
+            what,
+            h('details', { class: 'wide share-formats' }, h('summary', {}, t('Limit formats')),
+              h('p', { class: 'muted' }, t('All formats are shared, also ones made later. Untick the ones not to share.')),
+              h('span', {}, boxes.map((b, i) => h('label', { class: 'check' }, b, ' ' + FORMATS[i][1] + ' ')))),
             h('label', { for: 'download-label' }, t('Name')), label,
-            h('span', {}, t('Formats')), h('span', {}, boxes.map((b, i) => h('label', { class: 'check' }, b, ' ' + made[i][1] + ' '))),
             version ? [h('label', { for: 'download-version' }, t('Version')), version] : '',
             h('label', {}, t('Max downloads')), max,
             h('span', {}, t('Expires')), expires.el),
         ] });
         if (!ok) return;
         try {
+          const formats = boxes.filter((b) => b.checked).map((b) => b.value);
           const done = await api('POST', 'api/shares', {
             kind: 'download', recording: entry.path, label: label.value,
-            formats: boxes.filter((b) => b.checked).map((b) => b.value),
+            allFormats: formats.length === FORMATS.length, formats, transcript: withTranscript,
             sermonOnly: Boolean(version && version.value === 'sermon'),
             maxDownloads: Number(max.value) || 0,
             expires: expires.value(),
@@ -329,7 +364,7 @@ export function sermonDetail(entry, ctx = {}) {
         h('audio', { class: 'player', controls: true, preload: 'none', src: fileURL(best), 'aria-label': t('The sermon') }),
         h('span', { class: 'muted player-what' }, t('Plays: {what}', { what: playing }))),
       h('div', { class: 'actions' }, downloadMenu(info, saved, status), iconButton('a', EDIT_ICON, t('Edit sermon'), { class: 'button', href: editURL }),
-        copyLink(), ctx.shares && info.outputs.length ? shareButton(info) : ''),
+        copyLink(), ctx.shares && info.outputs.length && saved ? shareButton(info) : ''), // only a saved sermon is shared
       transcriptPanel(entry.path, info).box,
       ctx.shares ? sharesBox : '',
     ];

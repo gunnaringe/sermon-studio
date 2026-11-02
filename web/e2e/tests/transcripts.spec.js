@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { editPage } from './pages.js';
+import { editPage, recordingPage } from './pages.js';
 
 const DATA = process.env.DATA;
 const shots = path.join(import.meta.dirname, '..', 'screenshots');
@@ -186,4 +186,36 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   await page.unroute(/api\/(folder|transcript)\?/);
   await bar.locator('button[name=stop-transcript]').click();
   await expect(bar).toHaveCount(0, { timeout: 30_000 });
+});
+
+test('transcripts: shared for download with the recording, as text and captions', async ({ page, context }) => {
+  await page.goto(recordingPage(folder));
+  const detail = page.locator('tr.detail-row');
+  await detail.getByRole('button', { name: 'Share for download…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Share for download' });
+  // Recording, or recording and transcript (the sermon has one); all formats unless limited.
+  await expect(dialog.getByRole('button', { name: 'Recording', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await dialog.getByRole('button', { name: 'Recording and transcript' }).click();
+  const what = dialog.locator('.share-what');
+  await expect(what).toContainText('Transcript: ready');
+  await expect(what).toContainText('Ready: ');
+  for (const f of ['FLAC', 'MP3', 'Opus']) await expect(dialog.getByLabel(f)).toBeChecked();
+  await dialog.locator('summary', { hasText: 'Limit formats' }).click();
+  await dialog.locator('input[name=label]').fill('For the homebound');
+  await page.screenshot({ path: path.join(shots, 'share-download-all.png') });
+  await dialog.getByRole('button', { name: 'Make share' }).click();
+  const made = page.getByRole('dialog', { name: 'Share made' });
+  const link = await made.locator('.share-link').textContent();
+  await made.getByRole('button', { name: 'OK' }).click();
+  await expect(detail.locator('.recording-shares')).toContainText('all formats + transcript');
+
+  // The share page: the files there, and the transcript as text and as captions.
+  const down = await context.newPage();
+  await down.goto(link);
+  await expect(down.getByRole('button', { name: /^Download Opus/ })).toBeVisible();
+  await expect(down.getByRole('button', { name: /^Download captions \(WebVTT\)/ })).toBeVisible();
+  const [file] = await Promise.all([down.waitForEvent('download'), down.getByRole('button', { name: /^Download the transcript/ }).click()]);
+  expect(file.suggestedFilename()).toBe(date + '.txt');
+  expect(fs.readFileSync(await file.path(), 'utf8')).toContain('Grace to you and peace');
+  await down.screenshot({ path: path.join(shots, 'share-download-transcript.png') });
 });
