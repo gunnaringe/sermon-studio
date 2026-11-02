@@ -55,10 +55,12 @@ type Config struct {
 	ClipsDir  string
 	Clips     *clipLibrary
 	SaveClips func(clipLibrary) error
-	// Transcript is the language of the church's transcripts ("" = none; transcribe.go), SaveTranscript
-	// stores a change (nil = kept in memory only).
-	Transcript     string
-	SaveTranscript func(string) error
+	// Transcript is the language of the church's transcripts ("" = none; transcribe.go), TranscriptModels
+	// the models' keys by language (none = the first for it); SaveTranscript stores a change (nil = kept in
+	// memory only).
+	Transcript       string
+	TranscriptModels map[string]string
+	SaveTranscript   func(lang string, models map[string]string) error
 
 	transcriber *transcriber // set by App: the speech models and the turn, shared; nil = no transcripts
 }
@@ -86,10 +88,12 @@ type Server struct {
 	working   atomic.Int32
 	lastChunk atomic.Int64
 
-	// transcriptMu guards the church's transcript language and the transcripts being made, by folder.
-	transcriptMu   sync.Mutex
-	transcriptLang string
-	transcripts    map[string]*transcriptWork
+	// transcriptMu guards the church's transcript language and model, and the transcripts being made, by
+	// folder.
+	transcriptMu     sync.Mutex
+	transcriptLang   string
+	transcriptModels map[string]string
+	transcripts      map[string]*transcriptWork
 
 	limits   *limits // shared by all churches: AppConfig.ParallelRuns encodes, one decode at a time
 	jobs     *jobs
@@ -144,7 +148,7 @@ func New(cfg Config) (*Server, error) {
 	if cfg.ClipsDir != "" {
 		s.clips.sweep()
 	}
-	s.transcriptLang, s.transcripts = cfg.Transcript, map[string]*transcriptWork{}
+	s.transcriptLang, s.transcriptModels, s.transcripts = cfg.Transcript, cfg.TranscriptModels, map[string]*transcriptWork{}
 	s.jobs = newJobs(s)
 	s.analyses = newAnalyses(s)
 	if cfg.Inbox != "" {

@@ -1,8 +1,8 @@
 # Transcripts
 
-A church can have a transcript of every sermon, as text to read and captions (WebVTT): **Settings → Processing →
-Transcripts**, the language of its sermons. It is made on the server after the files, from the sermon only (no intro or
-outro), by ffmpeg's `whisper` filter (whisper.cpp) with a speech model, on the CPU. Names and Bible references can come
+A sermon can have a transcript, as text to read and captions (WebVTT): **Transcript** in the editor, which starts as the
+church's default (**Settings → Processing → Transcripts**). It is made on the server after the files, from the files of
+the cut sermon only (no intro or outro, never the recording), by ffmpeg's `whisper` filter (whisper.cpp) with a speech model, on the CPU. Names and Bible references can come
 out wrong: read it before you publish it.
 
 ## Speech models
@@ -56,15 +56,21 @@ times as long as small. A newer server is several times faster. Pick the model b
 
 ## When it is made
 
-- **After a run**, when the church has a language and the sermon has no transcript yet. Never again by itself.
-- **Make transcript** / **Make again** in the editor's **Transcript**, for admins and members: in the language chosen
-  there (the church's, or the transcript's, to begin with) and with the model chosen from every installed one, filtered
-  by language, size (tiny … large-v3-turbo, from the model's name) and name. The one the studio would take for the
-  language is chosen first, and marked. Also on the recordings page (a sermon's details), in the transcript's language,
-  else the church's, with the model for it. A church without a language gets transcripts only this way.
+- **Save** in the editor makes it when **Transcript** is on and the one there is not of this cut, language and model:
+  after the files, when Save makes them, else at once. Transcript off deletes it, as a format turned off is. Nothing
+  makes one by itself.
+- **Transcript** starts as the recording has it (on, in its language and with its model) when it has one; else it is on
+  when the church has a language (**Settings → Processing → Transcripts**, *No transcripts* = off), in that language.
+- **The model** is the church's for the language: Settings has one for each language, the first for it in
+  `models.json` until the church chooses another under **Change model** (every installed model for the language,
+  filtered by size, tiny … large-v3-turbo from the model's name, and by name). A church's choice is kept by the
+  model's repository and file, so a new version of it is taken. The editor shows the model's name, and Change model
+  there makes this recording's transcript with another; the church's is marked *default*.
+- **Make transcript** / **Make again** on the recordings page (a sermon's details), in the transcript's language, else
+  the church's, with the church's model for it.
 - While one is made, a bar shows how far it is, with ✕ to stop it.
-- A transcript made **from an earlier cut** (the sermon was cut again since) or **with another model** than the one there
-  now says so, with **Make again**; it is not made again by itself.
+- A transcript made **from an earlier cut** (the sermon was cut again since) or **with another version of its model**
+  says so; it is not made again by itself.
 
 The files, next to the sermon's (see [outputs](outputs.md)):
 

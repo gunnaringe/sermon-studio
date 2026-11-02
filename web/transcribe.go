@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,10 +15,11 @@ import (
 	"github.com/gunnaringe/sermon-studio/normalizer"
 )
 
-// Transcripts: what is said in a sermon, made by ffmpeg's whisper filter from the files: by itself after a
-// run when the church has chosen the language its sermons are in (Settings → Processing → Transcripts), and
-// when asked, in the language and with the model asked for (the editor's Transcript; the church's language
-// and the model for it by default). The studio only uses
+// Transcripts: what is said in a sermon, made by ffmpeg's whisper filter from the files the run made of the
+// cut sermon, never from the recording: when asked, in the language and with the model asked for. The
+// editor's Transcript asks with Save, when it is on; it is on, in the language, that the church chose (Settings
+// → Processing → Transcripts), unless the recording has its own, and made with the church's model for the
+// language. A language without one of the church's gets the first model for it. The studio only uses
 // the models in the models folder (models.json, package models; `sermon-studio models pull` fills it),
 // read each time, so a model that arrives or changes is used from the next transcript on. A transcript is
 // never made again by itself: one made with another version of the model, or from an earlier cut, says so
@@ -87,7 +89,7 @@ type segmentJSON struct {
 // is (0..1), or the error it ended with ("failed").
 type transcriptWork struct {
 	Language string  `json:"-"` // what it is made in
-	Model    string  `json:"-"` // the file of the model asked for; "" = the one for the language
+	Model    string  `json:"-"` // the key of the model asked for; "" = the first for the language
 	State    string  `json:"state"`
 	Progress float64 `json:"progress,omitempty"`
 	Error    string  `json:"error,omitempty"`
@@ -120,7 +122,7 @@ type transcriptInfo struct {
 
 type modelInfo struct {
 	Name string     `json:"name"`
-	File string     `json:"file,omitempty"`
+	Key  string     `json:"key,omitempty"`
 	Date *time.Time `json:"date,omitempty"`
 }
 
@@ -142,12 +144,32 @@ func isTranscript(abs string) bool {
 
 // transcriptLanguage is the language the church's transcripts are in; "" = none are made.
 func (s *Server) transcriptLanguage() string {
+	lang, _ := s.transcriptChoice()
+	return lang
+}
+
+// transcriptChoice is the church's language and its models' keys by language.
+func (s *Server) transcriptChoice() (lang string, models map[string]string) {
 	if s.cfg.transcriber == nil {
-		return ""
+		return "", nil
 	}
 	s.transcriptMu.Lock()
 	defer s.transcriptMu.Unlock()
-	return s.transcriptLang
+	return s.transcriptLang, maps.Clone(s.transcriptModels)
+}
+
+// defaultModel is the key of the model a transcript in lang is made with when none is asked for: the church's
+// for the language while it is there; else "" (the first for the language).
+func (s *Server) defaultModel(lang string) string {
+	_, keys := s.transcriptChoice()
+	model := keys[lang]
+	if model == "" {
+		return ""
+	}
+	if _, err := pickModel(s.cfg.transcriber.installed(), lang, model); err != nil {
+		return ""
+	}
+	return model
 }
 
 // transcriptSource is the file a transcript is made from, and its record: the sermon without the intro and
@@ -188,7 +210,7 @@ func (s *Server) transcript(p normalizer.Paths, st *folderState) *transcriptInfo
 	if tf, err := readTranscript(data); err == nil {
 		info.State, info.Spoken = "done", tf.Language
 		info.Text, info.Captions = s.fileInfo(text), s.fileInfo(captions)
-		info.Model = &modelInfo{Name: tf.Model.Name, File: tf.Model.File, Date: tf.Model.Date}
+		info.Model = &modelInfo{Name: tf.Model.Name, Key: tf.Model.Key(), Date: tf.Model.Date}
 		// Another version of its model is there now, or (it is gone) another model for the language.
 		current, ok := models.Choose(installed, tf.Language)
 		for _, m := range installed {
@@ -223,16 +245,16 @@ var (
 	errNotForIt     = errors.New("this speech model is not for this language")
 )
 
-// pickModel is the model a transcript in lang is made with: the installed one in file, else the one for
-// the language.
-func pickModel(installed []models.Model, lang, file string) (models.Model, error) {
-	if file == "" {
+// pickModel is the model a transcript in lang is made with: the installed version of the one with the key,
+// else the first for the language.
+func pickModel(installed []models.Model, lang, key string) (models.Model, error) {
+	if key == "" {
 		if m, ok := models.Choose(installed, lang); ok {
 			return m, nil
 		}
 		return models.Model{}, errNoModel
 	}
-	m, ok := models.Find(installed, file)
+	m, ok := models.Find(installed, key)
 	switch {
 	case !ok:
 		return m, errors.New("this speech model is not installed")
@@ -242,9 +264,9 @@ func pickModel(installed []models.Model, lang, file string) (models.Model, error
 	return m, nil
 }
 
-// startTranscript makes the folder's transcript in lang with the model in file ("" = the one for lang) in
-// the background, unless it is being made.
-func (s *Server) startTranscript(folder, lang, file string) error {
+// startTranscript makes the folder's transcript in lang with the model with the key ("" = the church's for
+// its language, else the first for lang) in the background, unless it is being made.
+func (s *Server) startTranscript(folder, lang, key string) error {
 	if lang == "" {
 		return errNoTranscript
 	}
@@ -258,7 +280,10 @@ func (s *Server) startTranscript(folder, lang, file string) error {
 	if _, _, ok := transcriptSource(p, readState(folder)); !ok {
 		return errNoSource
 	}
-	if _, err := pickModel(s.cfg.transcriber.installed(), lang, file); err != nil {
+	if key == "" {
+		key = s.defaultModel(lang)
+	}
+	if _, err := pickModel(s.cfg.transcriber.installed(), lang, key); err != nil {
 		return err
 	}
 	s.transcriptMu.Lock()
@@ -267,11 +292,11 @@ func (s *Server) startTranscript(folder, lang, file string) error {
 		return nil
 	}
 	ctx, cancel := context.WithCancel(s.ctx)
-	w := &transcriptWork{Language: lang, Model: file, State: "waiting", cancel: cancel}
+	w := &transcriptWork{Language: lang, Model: key, State: "waiting", cancel: cancel}
 	s.transcripts[folder] = w
 	s.background(func() {
 		defer cancel()
-		err := s.makeTranscript(ctx, folder, lang, file, w)
+		err := s.makeTranscript(ctx, folder, lang, key, w)
 		s.transcriptMu.Lock()
 		defer s.transcriptMu.Unlock()
 		switch {
@@ -294,7 +319,7 @@ func (s *Server) setTranscript(fn func()) {
 
 // makeTranscript waits for its turn, transcribes the sermon and writes the transcript, its text and its
 // captions.
-func (s *Server) makeTranscript(ctx context.Context, folder, lang, file string, w *transcriptWork) error {
+func (s *Server) makeTranscript(ctx context.Context, folder, lang, key string, w *transcriptWork) error {
 	tr := s.cfg.transcriber
 	select {
 	case tr.sem <- struct{}{}:
@@ -312,7 +337,7 @@ func (s *Server) makeTranscript(ctx context.Context, folder, lang, file string, 
 	if !ok {
 		return errNoSource
 	}
-	model, err := pickModel(tr.installed(), lang, file)
+	model, err := pickModel(tr.installed(), lang, key)
 	if err != nil {
 		return err
 	}
@@ -361,27 +386,43 @@ func (s *Server) makeTranscript(ctx context.Context, folder, lang, file string, 
 	return err
 }
 
-// afterRun makes the first transcript once a run has made the files, when the church has transcripts and a
-// model for its language. One that is there is not made again: that is the user's choice (an earlier cut,
-// another model).
-func (s *Server) afterRun(folder string) {
-	if s.transcriptLanguage() == "" {
+// transcriptAsk is a transcript asked for with a run (runRequest.Transcript): the language and the model's key
+// ("" = the church's for its language, else the first for it).
+type transcriptAsk struct {
+	Language string `json:"language"`
+	Model    string `json:"model"`
+}
+
+// checkTranscript tells whether a transcript can be asked for: the studio makes them, and has the model.
+func (s *Server) checkTranscript(a transcriptAsk) error {
+	if s.cfg.transcriber == nil {
+		return errors.New("this studio makes no transcripts")
+	}
+	if a.Language != models.AnyLanguage && !normalizer.ValidLanguage(a.Language) {
+		return errNoTranscript
+	}
+	if a.Model == "" {
+		a.Model = s.defaultModel(a.Language)
+	}
+	_, err := pickModel(s.cfg.transcriber.installed(), a.Language, a.Model)
+	return err
+}
+
+// afterRun makes the transcript asked for with a run, from the files it made. None is made by itself: the
+// editor asks for one when its Transcript is on (the church's default for a recording) and the one there is
+// not of this cut, language and model.
+func (s *Server) afterRun(folder string, ask *transcriptAsk) {
+	if ask == nil {
 		return
 	}
-	p, err := normalizer.NewPaths(folder)
-	if err != nil {
-		return
-	}
-	if _, _, data := transcriptPaths(p); fileExists(data) {
-		return
-	}
-	if err := s.startTranscript(folder, s.transcriptLanguage(), ""); err != nil && !errors.Is(err, errNoModel) {
+	if err := s.startTranscript(folder, ask.Language, ask.Model); err != nil {
 		s.cfg.Logger.Printf("transcript of %s: %v", s.display(folder), err)
 	}
 }
 
 // handleTranscript makes the transcript (again): POST api/transcript?path=&language=&model=, in the church's
-// language when none is given, with the model in the file model= (one for the language), else the one for it.
+// language when none is given, with the model with the key model= (one for the language), else the church's
+// for its language, else the first for it.
 func (s *Server) handleTranscript(w http.ResponseWriter, r *http.Request) {
 	abs, ok := s.pathParam(w, r)
 	if !ok {
@@ -459,9 +500,9 @@ func (s *Server) writeFolder(w http.ResponseWriter, abs string) {
 	writeJSON(w, http.StatusOK, info)
 }
 
-// transcriptionSettings is what Settings → Processing shows of transcripts: whether the studio makes them,
-// the church's language, and the languages there are models for, with the model each one would use; and
-// for the editor's choice of a model, all of them.
+// transcriptionSettings is what Settings → Processing and the editor show of transcripts: whether the studio
+// makes them, the church's language and its models by language (defaults), the languages there are models
+// for, with the model each one would use, and all the models to choose from.
 func (s *Server) transcriptionSettings() map[string]any {
 	tr := s.cfg.transcriber
 	if tr == nil {
@@ -475,10 +516,14 @@ func (s *Server) transcriptionSettings() map[string]any {
 	}
 	list := []map[string]any{}
 	for _, m := range installed {
-		list = append(list, map[string]any{"name": m.Name, "file": m.File, "languages": m.Languages, "size": m.WhisperSize(),
+		list = append(list, map[string]any{"name": m.Name, "key": m.Key(), "languages": m.Languages, "size": m.WhisperSize(),
 			"bytes": m.Size, "date": m.Date, "repo": m.Repo})
 	}
-	return map[string]any{"available": true, "language": s.transcriptLanguage(), "languages": langs, "models": list}
+	lang, keys := s.transcriptChoice()
+	if keys == nil {
+		keys = map[string]string{}
+	}
+	return map[string]any{"available": true, "language": lang, "defaults": keys, "languages": langs, "models": list}
 }
 
 // handleTranscription is GET api/transcription: transcriptionSettings.
@@ -486,12 +531,15 @@ func (s *Server) handleTranscription(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.transcriptionSettings())
 }
 
-// handleTranscriptionPut chooses the language of the church's transcripts: PUT api/transcription
-// {"language": "nb"}; "" = none. A language must have a model now; one chosen earlier whose model has
-// gone stays chosen (its transcripts wait for one).
+// handleTranscriptionPut chooses the language of the church's transcripts and its models by language: PUT
+// api/transcription {"language": "nb", "defaults": {"nb": "NbAiLab/nb-whisper-medium/ggml-model-q5_0.bin"}};
+// language "" = none, a language without a model = the first for it. They must be there now; ones chosen
+// earlier whose model has gone stay chosen (the language's transcripts wait for one; another model is taken
+// instead of the church's).
 func (s *Server) handleTranscriptionPut(w http.ResponseWriter, r *http.Request) {
 	var q struct {
-		Language string `json:"language"`
+		Language string            `json:"language"`
+		Defaults map[string]string `json:"defaults"`
 	}
 	if err := decodeRequest(r, &q); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -506,21 +554,35 @@ func (s *Server) handleTranscriptionPut(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, fmt.Errorf("no speech model for %s is installed", q.Language))
 		return
 	}
-	if err := s.saveTranscriptLanguage(q.Language); err != nil {
+	_, before := s.transcriptChoice()
+	for lang, key := range q.Defaults {
+		if key == "" {
+			delete(q.Defaults, lang)
+			continue
+		}
+		if _, err := pickModel(tr.installed(), lang, key); err != nil && before[lang] != key {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("%s: %w", lang, err))
+			return
+		}
+	}
+	if len(q.Defaults) == 0 {
+		q.Defaults = nil
+	}
+	if err := s.saveTranscriptChoice(q.Language, q.Defaults); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, s.transcriptionSettings())
 }
 
-func (s *Server) saveTranscriptLanguage(lang string) error {
+func (s *Server) saveTranscriptChoice(lang string, keys map[string]string) error {
 	s.transcriptMu.Lock()
 	defer s.transcriptMu.Unlock()
 	if s.cfg.SaveTranscript != nil {
-		if err := s.cfg.SaveTranscript(lang); err != nil {
+		if err := s.cfg.SaveTranscript(lang, keys); err != nil {
 			return err
 		}
 	}
-	s.transcriptLang = lang
+	s.transcriptLang, s.transcriptModels = lang, keys
 	return nil
 }

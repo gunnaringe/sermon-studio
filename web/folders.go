@@ -459,6 +459,8 @@ type runRequest struct {
 	Title  *string `json:"title"`
 	Artist *string `json:"artist"`
 	Album  *string `json:"album"`
+	// Transcript, when given, is made from the files once the run has made them (transcribe.go).
+	Transcript *transcriptAsk `json:"transcript,omitempty"`
 }
 
 // requestFrom is the defaults of a run, without a sermon selected.
@@ -493,9 +495,12 @@ type plan struct {
 	Error   string                 `json:"error,omitempty"`
 	Notices []string               `json:"notices"`
 	Clips   runClips               `json:"clips"` // the intro and outro, as the run would use them
+	// Transcript is the transcript there, when there is one: Stale when it is of another cut than this.
+	Transcript *outputState `json:"transcript,omitempty"`
 
-	opt   normalizer.Options
-	paths normalizer.Paths
+	opt        normalizer.Options
+	paths      normalizer.Paths
+	transcript *transcriptAsk // made after the run
 }
 
 // check validates a run for a folder the way the pipeline would see it,
@@ -535,6 +540,16 @@ func (s *Server) check(abs string, q runRequest) plan {
 		return fail(errors.New("the recording is still being converted"))
 	}
 	pl.Outputs = s.outputStatus(paths, pl.opt, pl.Clips)
+	if _, _, data := transcriptPaths(paths); fileExists(data) {
+		m, ok := readState(abs).Outputs[transcriptFormat]
+		pl.Transcript = &outputState{Exists: true, Known: ok, Stale: ok && m.Cut != "" && m.Cut != cutOf(pl.opt)}
+	}
+	if q.Transcript != nil {
+		if err := s.checkTranscript(*q.Transcript); err != nil {
+			return fail(err)
+		}
+		pl.transcript = q.Transcript
+	}
 	// A run that writes no more than it replaces always goes, also when the church is over its quota.
 	var full errFull
 	if need := s.runNeeds(pl); need > 0 && errors.As(s.fits(need), &full) {

@@ -68,14 +68,18 @@ func (m Model) WhisperSize() string {
 	return ""
 }
 
-// Same tells whether o is the same model as m, in any version: the same file in the same repository, or
-// (written by hand) the same name.
-func (m Model) Same(o Model) bool {
-	if m.Repo != "" || o.Repo != "" {
-		return m.Repo == o.Repo && m.Path == o.Path
+// Key names the model in any version: its repository and the file in it ("NbAiLab/nb-whisper-medium/
+// ggml-model-q5_0.bin"), else (written by hand) its name. A new version has another file in the folder,
+// not another key.
+func (m Model) Key() string {
+	if m.Repo != "" {
+		return m.Repo + "/" + m.Path
 	}
-	return m.Name == o.Name
+	return m.Name
 }
+
+// Same tells whether o is the same model as m, in any version.
+func (m Model) Same(o Model) bool { return m.Key() == o.Key() }
 
 // Can tells whether the model can transcribe the language: it is for it, or for any language.
 func (m Model) Can(lang string) bool { return m.For(lang) || m.For(AnyLanguage) }
@@ -146,10 +150,10 @@ func Choose(installed []Model, lang string) (Model, bool) {
 	return Model{}, false
 }
 
-// Find is the installed model in file.
-func Find(installed []Model, file string) (Model, bool) {
+// Find is the installed version of the model with the key.
+func Find(installed []Model, key string) (Model, bool) {
 	for _, x := range installed {
-		if x.File == file {
+		if x.Key() == key {
 			return x, true
 		}
 	}

@@ -222,7 +222,7 @@ func (js *jobs) run(ctx context.Context, j *job, pl plan) {
 		js.s.dropSermonOnly(pl)
 	}
 	if err == nil {
-		js.s.afterRun(pl.paths.Folder)
+		js.s.afterRun(pl.paths.Folder, pl.transcript)
 	}
 	if oldKey != "" {
 		if raw := pl.paths.Source(); raw != "" {

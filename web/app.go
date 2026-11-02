@@ -72,8 +72,11 @@ type churchConfig struct {
 	EndedSharesDays *int `json:"endedSharesDays,omitempty"`
 	// Clips are the intro and outro clips (clips.go): the list, the defaults, the pause.
 	Clips *clipLibrary `json:"clips,omitempty"`
-	// Transcript is the language of the sermons' transcripts (transcribe.go); "" = none.
-	Transcript string `json:"transcript,omitempty"`
+	// Transcript is the language of the sermons' transcripts (transcribe.go); "" = none. TranscriptModels are
+	// the models they are made with, by language (models.Model.Key); a language without one gets the first
+	// model for it.
+	Transcript       string            `json:"transcript,omitempty"`
+	TranscriptModels map[string]string `json:"transcriptModels,omitempty"`
 }
 
 // TenantInfo is a church as listed in the UI.
@@ -287,8 +290,10 @@ func (a *App) start(id, dir string, cc churchConfig) (*tenant, error) {
 		cfg.SaveProcessing = func(p *processing) error { return a.update(t, func(c *churchConfig) { c.Processing = p }) }
 		cfg.ClipsDir, cfg.Clips = filepath.Join(dir, clipsDir), cc.Clips
 		cfg.SaveClips = func(l clipLibrary) error { return a.update(t, func(c *churchConfig) { c.Clips = &l }) }
-		cfg.Transcript = cc.Transcript
-		cfg.SaveTranscript = func(lang string) error { return a.update(t, func(c *churchConfig) { c.Transcript = lang }) }
+		cfg.Transcript, cfg.TranscriptModels = cc.Transcript, cc.TranscriptModels
+		cfg.SaveTranscript = func(lang string, models map[string]string) error {
+			return a.update(t, func(c *churchConfig) { c.Transcript, c.TranscriptModels = lang, models })
+		}
 	}
 	if dir != "" {
 		var err error

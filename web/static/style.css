@@ -639,12 +639,19 @@ input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(-
 .transcript-progress .x { flex: none; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 999px; box-shadow: none; background: none; color: var(--muted); font-size: 1rem; cursor: pointer; }
 .transcript-progress .x:hover { color: var(--error); background: var(--bg); }
 /* The editor's choice of the model: filters, then the models as a list to pick one from. */
-.model-picker .model-filters { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.5rem 1rem; margin-bottom: 0.75rem; }
-.model-picker .model-filters label { flex-direction: column; align-items: stretch; gap: 0.2rem; }
-.model-picker .model-filters label span.name { min-width: 0; }
-.model-picker .model-filters :is(input, select) { box-sizing: border-box; height: 2.3rem; }
+.model-filters { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.5rem 1rem; margin-bottom: 0.75rem; }
+.model-filters label { flex-direction: column; align-items: stretch; gap: 0.2rem; }
+.model-filters label span.name { min-width: 0; }
+.model-filters :is(input, select) { box-sizing: border-box; height: 2.3rem; width: 100%; }
 .model-picker .transcript:not(:empty) { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
 .transcript-log pre { max-height: 12rem; overflow: auto; }
+.model-field p { margin: 0.3rem 0; }
+.model-current .badge { margin-left: 0.5em; }
+.model-change > summary { cursor: pointer; color: var(--accent); width: max-content; }
+.model-change[open] > summary { margin-bottom: 0.5rem; }
+.model-defaults h4 { margin: 0 0 0.25rem; }
+.model-default { padding: 0.6rem 0; border-top: 1px solid var(--line); }
+.model-default > strong { display: block; }
 .model-list { display: grid; gap: 0.4rem; margin-bottom: 0.75rem; }
 .model-list .model { display: grid; grid-template-columns: auto 1fr; column-gap: 0.6rem; align-items: baseline; padding: 0.55rem 0.75rem; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .model-list .model.chosen { border-color: var(--accent); }
