@@ -1,0 +1,37 @@
+# The speech models for transcripts, in the studio's data (/data/.models, its default --models-dir), kept
+# up to date with Hugging Face: it looks once a week and downloads a model only when it changed (and Hugging
+# Face's scans call it safe). The studio uses a new one from the next transcript. A church turns transcripts
+# on in Settings → Processing. docs/transcripts.md.
+
+[Unit]
+Description=Sermon Studio: the speech models
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/sermon-studio/sermon-studio.env
+
+[Container]
+ContainerName=sermon-studio-models
+Image=ghcr.io/gunnaringe/sermon-studio:main
+AutoUpdate=registry
+# The first model for a language is its default (a church can choose another): Bokmål and Nynorsk from the
+# National Library's NB-Whisper (medium; small is about three times faster), Swedish from KBLab's
+# KB-Whisper, the rest (and "detect automatically") from OpenAI's large-v3-turbo. Change the list for the
+# languages of the churches on this host.
+Exec=models pull --dir=/data/.models --every=168h \
+  --model=nb,nn=NbAiLab/nb-whisper-medium/ggml-model-q5_0.bin \
+  --model=nb,nn=NbAiLab/nb-whisper-small/ggml-model-q5_0.bin \
+  --model=sv=KBLab/kb-whisper-medium/ggml-model-q5_0.bin \
+  --model=*=ggerganov/whisper.cpp/ggml-large-v3-turbo-q8_0.bin
+Volume=/srv/sermon-studio/data:/data
+UserNS=keep-id
+ReadOnly=true
+DropCapability=all
+NoNewPrivileges=true
+Memory=256m
+
+[Service]
+Restart=always
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

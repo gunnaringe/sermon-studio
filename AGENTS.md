@@ -230,6 +230,12 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   (`site/media/`) come from `scripts/site-shots.sh` (`web/e2e/site-shots/`: the real studio, `--no-login`, the sample speech;
   the video has a drawn pointer and captions); its test is `web/e2e/site/` (`scripts/test.sh site`, also the PR screenshots
   `site-*.png`). It knows nothing of the studio's code: copy what it needs (the logo), never link into `web/static`.
+- `deploy/`: a server of its own (docs/hosting.md): Ubuntu 26.04+, rootless Podman (Quadlet units in `quadlet/`, each app its
+  own user, `UserNS=keep-id`; `:uid=65532` for images that run as 65532), cloudflared the only way in, `egress.sh` (nftables by
+  the apps' uids). `deploy.sh <host>` sends it and runs `install.sh` (as root, idempotent) over one SSH connection. A
+  host's settings and secrets are only in its `/etc/sermon-studio/` (`env/*.example` here); nothing in `deploy/` names a host.
+  A health command for a distroless image is a JSON list (no shell). Pocket ID sees the machine's own address as the peer
+  (pasta), so `TRUST_PROXY=true`.
 - `demo/`: scripts that make the public demo's recording (`make-recording.sh`: the JFK speech with quiet and room noise
   around it) and its intro and outro (`make-jingles.sh`: music from ffmpeg via `jingle.py`, a line read by Piper's CC0 `joe`
   voice); tools from `demo/mise.toml`, the audio in `~/.cache/sermon-studio-samples/`, never in the repository (`demo/README.md`).

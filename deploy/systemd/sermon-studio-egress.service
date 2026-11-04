@@ -1,0 +1,15 @@
+# The apps' egress rules (deploy/egress.sh), in place before any app's user manager starts its containers.
+[Unit]
+Description=Sermon Studio: what the apps may reach
+Wants=network-online.target
+After=network-online.target
+Before=systemd-user-sessions.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/lib/sermon-studio/egress.sh
+ExecStop=/usr/sbin/nft delete table inet sermon_studio_egress
+
+[Install]
+WantedBy=multi-user.target

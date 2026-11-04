@@ -1,0 +1,16 @@
+# cloudflared's config, made from deploy/cloudflared.yml.in by deploy/install.sh: DOMAIN from
+# /etc/sermon-studio/cloudflared.env, TUNNEL_ID from the tunnel's credentials.json. Each host goes to its app's
+# port on 127.0.0.1; the first rule that matches wins, so the wildcard (my. and every church) comes last.
+# Cloudflare's edge has the certificates; the bare domain and www are not here (a website, if any, is elsewhere).
+tunnel: ${TUNNEL_ID}
+credentials-file: /etc/cloudflared/credentials.json
+ingress:
+  - hostname: id.${DOMAIN}
+    service: http://127.0.0.1:1411
+  - hostname: share.${DOMAIN}
+    service: http://127.0.0.1:8081
+  - hostname: demo.${DOMAIN}
+    service: http://127.0.0.1:8090
+  - hostname: "*.${DOMAIN}"
+    service: http://127.0.0.1:8080
+  - service: http_status:404

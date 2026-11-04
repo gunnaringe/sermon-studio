@@ -1,0 +1,9 @@
+# The demo starts afresh (its /data is a tmpfs): run by sermon-studio-demo-reset.timer, in the demo user's
+# own systemd (installed into /etc/systemd/user/, for that user only).
+[Unit]
+Description=Sermon Studio demo: start afresh
+ConditionUser=sermon-studio-demo
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user restart sermon-studio-demo.service

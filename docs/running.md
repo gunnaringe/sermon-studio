@@ -1,6 +1,7 @@
 # Running it
 
-The full reference: build, Docker, the data folder, flags. The short version is at the bottom of the [README](../README.md).
+The full reference: build, Docker, the data folder, flags. The short version is at the bottom of the [README](../README.md);
+a whole server, as sermon-studio.app runs, is in [hosting.md](hosting.md).
 
 ## Requirements
 

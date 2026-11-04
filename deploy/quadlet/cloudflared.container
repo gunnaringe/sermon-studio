@@ -1,0 +1,33 @@
+# cloudflared: the Cloudflare Tunnel, the only way in from the internet (the firewall lets in SSH only). It
+# connects out to Cloudflare and sends each host to its app on 127.0.0.1 (deploy/cloudflared.yml.in, made into
+# /etc/sermon-studio/cloudflared/config.yml by deploy/install.sh). Rootless, as the user cloudflared, in the
+# host's network, so it reaches the apps' ports on 127.0.0.1.
+
+[Unit]
+Description=cloudflared (Cloudflare Tunnel)
+Wants=network-online.target
+After=network-online.target
+# The tunnel's credentials (cloudflared tunnel create, docs/hosting.md) and the config made from them.
+ConditionPathExists=/etc/sermon-studio/cloudflared/credentials.json
+ConditionPathExists=/etc/sermon-studio/cloudflared/config.yml
+
+[Container]
+ContainerName=cloudflared
+Image=docker.io/cloudflare/cloudflared:latest
+AutoUpdate=registry
+Exec=tunnel --no-autoupdate --config /etc/cloudflared/config.yml --metrics 127.0.0.1:20241 run
+Volume=/etc/sermon-studio/cloudflared:/etc/cloudflared:ro
+Network=host
+# The image runs as 65532: that is the user cloudflared outside, which may read /etc/sermon-studio/cloudflared.
+UserNS=keep-id:uid=65532,gid=65532
+ReadOnly=true
+DropCapability=all
+NoNewPrivileges=true
+Memory=256m
+
+[Service]
+Restart=always
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target
