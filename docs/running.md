@@ -74,7 +74,7 @@ church and no right to add more sees just its name in the header; otherwise a qu
 | `--oidc-issuer` | | the OpenID Connect provider: the studio's own login; a church is for its members, who join with an invite link ([access](access.md)). This or `--no-login` is required |
 | `--no-login` | | no login and no access control: anyone who reaches the studio can use every church (the desktop, a trusted network). This or `--oidc-issuer` is required |
 | `--visitor-role` | `admin` | with `--no-login`: the role of every visitor; `demo` for a public demo ([access](access.md#a-public-demo)) |
-| `--oidc-client-id`, `--oidc-client-secret-file` | | the studio's client at the provider; no secret file = a public client (PKCE) |
+| `--oidc-client-id`, `--oidc-client-secret-file` | | the studio's client at the provider; the secret is a file, or itself in `SERMON_STUDIO_OIDC_CLIENT_SECRET` (an environment variable only, never a flag, which every user could see in the process list; the studio removes it from its environment before it runs anything); neither = a public client (PKCE) |
 | `--public-url` | | with `--oidc-issuer`: the studio's address as the browser sees it (the callback is `<public-url>/auth/callback`) |
 | `--oidc-signup-url` | | with `--oidc-issuer`: where someone without an account makes one (Pocket ID: `<issuer>/signup`); an invite link then offers Create an account next to Log in |
 | `--church-host` | | with `--oidc-issuer`: every church at a host of its own, like `{church}.example.org`; the login on `--public-url`'s host ([access](access.md#each-church-at-its-own-address)) |
