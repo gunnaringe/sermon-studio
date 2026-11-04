@@ -1,6 +1,8 @@
 # Builds the image (go vet + all tests with ffmpeg run inside the build) and
 # publishes it. Every main build gets a sortable main-<YYYYMMDDHHmmss UTC>-<sha>
-# tag, which Flux image automation in gunnaringe/clusters (kate) rolls out.
+# tag, which Flux image automation in gunnaringe/clusters (kate) rolls out, and
+# the moving tag main, which a host with podman auto-update follows (Flux's
+# filter on kate takes only the sortable tags).
 name: Image
 
 on:
@@ -43,6 +45,7 @@ jobs:
             type=ref,event=pr
             type=sha
             type=raw,value=main-{{date 'YYYYMMDDHHmmss' tz='UTC'}}-{{sha}},enable={{is_default_branch}}
+            type=raw,value=main,enable={{is_default_branch}}
             type=semver,pattern={{version}}
       - uses: docker/build-push-action@v7
         with:

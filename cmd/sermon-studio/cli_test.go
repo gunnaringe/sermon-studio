@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -57,12 +58,44 @@ func TestSettingsFromEnvironment(t *testing.T) {
 	}
 }
 
+// The client secret itself can be in the environment (never a flag): not as
+// well as the file, not empty, not with --no-login; and the studio takes it out
+// of its environment, so ffmpeg never inherits it.
+func TestClientSecretFromEnvironment(t *testing.T) {
+	login := func(more ...string) []string {
+		return append([]string{"--data-dir", "d", "--oidc-issuer", "https://id.example", "--oidc-client-id", "x"}, more...)
+	}
+	for _, c := range []struct {
+		secret string
+		args   []string
+		want   string // in the error; "" = no error
+	}{
+		{"s3cret", login(), ""},
+		{" \n", login(), "is empty"},
+		{"s3cret", login("--oidc-client-secret-file", "cli_test.go"), "both given"},
+		{"s3cret", []string{"--data-dir", "d", "--no-login"}, "OIDC settings are given"},
+	} {
+		t.Setenv(clientSecretEnv, c.secret)
+		_, err := parse(t, c.args...)
+		if c.want == "" && err != nil || c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)) {
+			t.Errorf("%q %v: %v, want %q", c.secret, c.args, err, c.want)
+		}
+	}
+	t.Setenv(clientSecretEnv, " s3cret\n")
+	if s, ok := takeClientSecret(); s != "s3cret" || !ok {
+		t.Errorf("takeClientSecret() = %q, %v", s, ok)
+	}
+	if _, ok := os.LookupEnv(clientSecretEnv); ok {
+		t.Error("the secret is still in the environment, for ffmpeg to inherit")
+	}
+}
+
 // A variable this version does not know is a warning, with the nearest name.
 func TestUnknownEnvironmentWarns(t *testing.T) {
 	var out bytes.Buffer
 	p, _ := newParser(&cli{}, &out, &out, func(int) {})
 	warnUnknownEnv(p, []string{"SERMON_STUDIO_OIDC_ISUER=x", "SERMON_STUDIO_NEXT_VERSION=1", "SERMON_STUDIO_DATA_DIR=/d", "HOME=/root",
-		"SERMON_STUDIO_SERVICE_HOST=10.0.0.1", "SERMON_STUDIO_PORT=tcp://10.0.0.1:8080", "SERMON_STUDIO_PORT_8080_TCP_ADDR=10.0.0.1"}, &out)
+		"SERMON_STUDIO_OIDC_CLIENT_SECRET=x", "SERMON_STUDIO_SERVICE_HOST=10.0.0.1", "SERMON_STUDIO_PORT=tcp://10.0.0.1:8080", "SERMON_STUDIO_PORT_8080_TCP_ADDR=10.0.0.1"}, &out)
 	got := out.String()
 	for _, want := range []string{"SERMON_STUDIO_OIDC_ISUER is not a setting of this version (did you mean SERMON_STUDIO_OIDC_ISSUER?)",
 		"SERMON_STUDIO_NEXT_VERSION is not a setting of this version; ignored"} {
@@ -70,7 +103,7 @@ func TestUnknownEnvironmentWarns(t *testing.T) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, "DATA_DIR") || strings.Contains(got, "HOME") || strings.Contains(got, "SERVICE") || strings.Contains(got, "_PORT") {
+	if strings.Contains(got, "DATA_DIR") || strings.Contains(got, "CLIENT_SECRET") || strings.Contains(got, "HOME") || strings.Contains(got, "SERVICE") || strings.Contains(got, "_PORT") {
 		t.Errorf("warned about a known or foreign variable:\n%s", got)
 	}
 }

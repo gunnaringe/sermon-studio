@@ -64,7 +64,9 @@ logs them in at Pocket ID, so **Log in** in the invite's tab then goes straight 
 
 ## The studio
 
-The studio's settings are flags or environment variables (`SERMON_STUDIO_<FLAG>`). The client secret goes in a file:
+The studio's settings are flags or environment variables (`SERMON_STUDIO_<FLAG>`). The client secret goes in a file,
+or itself in the environment variable `SERMON_STUDIO_OIDC_CLIENT_SECRET` (never a flag: every user on the machine could
+read it in the process list), e.g. in a systemd or Podman environment file with the other settings:
 
 ```bash
 sermon-studio --data-dir /data --public-url https://sermons.example.org/ \

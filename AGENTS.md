@@ -60,7 +60,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 
 - `cmd/sermon-studio/main.go`: the command line (kong: `serve`, the default, and `admin`), startup, shutdown. No logic. Every flag
   is also `SERMON_STUDIO_<FLAG>` (`kong.DefaultEnvars`); an unknown `SERMON_STUDIO_*` is a warning, not an error
-  (`warnUnknownEnv`). The login is required to be chosen: `--oidc-issuer` xor `--no-login`. `admin.go`: `sermon-studio admin …`
+  (`warnUnknownEnv`). The client secret is `--oidc-client-secret-file` or `SERMON_STUDIO_OIDC_CLIENT_SECRET` (`clientSecretEnv`,
+  read by `serve` itself and never a flag; `takeClientSecret` unsets it first, so ffmpeg never inherits it). The login is required to be chosen: `--oidc-issuer` xor `--no-login`. `admin.go`: `sermon-studio admin …`
   (church create/list/rename, members, invite, remove; `--json`), a client of the running studio's admin socket.
 - `cmd/sermon-studio-desktop/`: the desktop app (docs/desktop.md), a wrapper around `web.App`: `main.go`
   starts it; `internal/desktop/` has its folders and `settings.json`, the Host check (`Guard`), the window

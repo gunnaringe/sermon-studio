@@ -48,7 +48,7 @@ type serveCmd struct {
 	OIDCIssuer           string `name:"oidc-issuer" xor:"login" required:"" group:"Login (one of --oidc-issuer and --no-login is required)" help:"The OpenID Connect provider (its issuer URL): the studio's own login. A church is for its members, who join with an invite link."`
 	NoLogin              bool   `xor:"login" required:"" group:"Login (one of --oidc-issuer and --no-login is required)" help:"No login and no access control: anyone who reaches the studio can use every church and add churches. Only for the desktop, a trusted network, or behind a login proxy that lets only the right people through."`
 	OIDCClientID         string `name:"oidc-client-id" group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: the studio's client id at the provider."`
-	OIDCClientSecretFile string `name:"oidc-client-secret-file" type:"existingfile" group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: a file with the client secret (none = a public client, PKCE only)."`
+	OIDCClientSecretFile string `name:"oidc-client-secret-file" type:"existingfile" group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: a file with the client secret, or the secret itself in the environment variable SERMON_STUDIO_OIDC_CLIENT_SECRET (never a flag); neither = a public client, PKCE only."`
 	PublicURL            string `group:"Login (one of --oidc-issuer and --no-login is required)" help:"The studio's address as the browser sees it (with --oidc-issuer, the callback is <public-url>/auth/callback)."`
 	CookieDomain         string `group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: a parent domain for the session cookie, shared by the studio's hosts (default: this host only)."`
 	OIDCSignupURL        string `name:"oidc-signup-url" group:"Login (one of --oidc-issuer and --no-login is required)" help:"With --oidc-issuer: where someone without an account at the provider makes one (Pocket ID: <issuer>/signup); an invite link then offers Create an account next to Log in."`
@@ -89,10 +89,30 @@ func (s *serveCmd) Validate() error {
 	if !s.NoLogin && s.VisitorRole != "" {
 		return errors.New("--visitor-role is for --no-login: with the login, a church's members have their own roles")
 	}
-	if s.NoLogin && (s.OIDCClientID != "" || s.OIDCClientSecretFile != "" || s.CookieDomain != "" || s.OIDCSignupURL != "") {
+	secret, envSecret := os.LookupEnv(clientSecretEnv)
+	if s.NoLogin && (s.OIDCClientID != "" || s.OIDCClientSecretFile != "" || envSecret || s.CookieDomain != "" || s.OIDCSignupURL != "") {
 		return errors.New("--no-login, but OIDC settings are given: choose the login (--oidc-issuer) or none")
 	}
+	if envSecret && s.OIDCClientSecretFile != "" {
+		return errors.New("--oidc-client-secret-file and " + clientSecretEnv + " are both given: choose one")
+	}
+	if envSecret && strings.TrimSpace(secret) == "" {
+		return errors.New(clientSecretEnv + " is empty (for a public client, leave it out)")
+	}
 	return nil
+}
+
+// clientSecretEnv holds the OIDC client secret itself: an environment variable
+// only, never a flag (a flag is in the process list for every user to see).
+const clientSecretEnv = envPrefix + "_OIDC_CLIENT_SECRET"
+
+// takeClientSecret reads the client secret from the environment and removes it
+// there, so the processes the studio starts (ffmpeg, which reads files from the
+// public) never inherit it.
+func takeClientSecret() (string, bool) {
+	secret, ok := os.LookupEnv(clientSecretEnv)
+	os.Unsetenv(clientSecretEnv)
+	return strings.TrimSpace(secret), ok
 }
 
 func main() {
@@ -152,6 +172,7 @@ func warnUnknownEnv(parser *kong.Kong, environ []string, w io.Writer) {
 		}
 	}
 	walk(parser.Model.Node)
+	known[clientSecretEnv] = true // read by serve itself, not a flag
 	for _, kv := range environ {
 		name, _, _ := strings.Cut(kv, "=")
 		if !strings.HasPrefix(name, envPrefix+"_") || known[name] || serviceLink(name) {
@@ -206,6 +227,7 @@ func editDistance(a, b string) int {
 
 // Run starts the studio and serves until it is stopped.
 func (s *serveCmd) Run() error {
+	envSecret, hasEnvSecret := takeClientSecret() // first, before anything can start ffmpeg
 	bin, err := exec.LookPath(s.FFmpeg)
 	if err != nil {
 		return fmt.Errorf("cannot find %q in PATH (Linux: apt install ffmpeg)", s.FFmpeg)
@@ -222,6 +244,9 @@ func (s *serveCmd) Run() error {
 				return fmt.Errorf("--oidc-client-secret-file: %w", err)
 			}
 			oidc.ClientSecret = strings.TrimSpace(string(b))
+		}
+		if hasEnvSecret {
+			oidc.ClientSecret = envSecret
 		}
 	}
 	var share *web.ShareOptions
