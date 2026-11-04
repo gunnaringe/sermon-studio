@@ -7,6 +7,8 @@
 Description=Sermon Studio demo
 Wants=network-online.target
 After=network-online.target
+# Keep trying, however often it fails (systemd gives up after 5 quick failures by default).
+StartLimitIntervalSec=0
 
 [Container]
 ContainerName=sermon-studio-demo
@@ -37,6 +39,8 @@ StopTimeout=30
 
 [Service]
 Restart=always
+# A minute apart: a failing start must not keep downloading the recording.
+RestartSec=60s
 TimeoutStartSec=900
 
 [Install]

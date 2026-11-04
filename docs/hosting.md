@@ -94,7 +94,11 @@ ssh <host> sudo systemctl --user -M sermon-studio@ restart sermon-studio
 
 **Updates.** A new build of `main` (the image's `main` tag) is running within about 15 minutes; one that does
 not become healthy (`/healthz`) is rolled back to the image before. Pocket ID follows its `v2` and
-cloudflared its `latest`. A new major version of Pocket ID is a change in `deploy/quadlet/pocket-id.container`.
+cloudflared its `latest`. The studio, the demo and Pocket ID have a health check; the models and cloudflared do
+not, so a new image of theirs is rolled back only when it does not start. A new major version of Pocket ID is
+a change in `deploy/quadlet/pocket-id.container`. A service that fails is started again, without end: every
+10 seconds, or every minute for Pocket ID (a killed one holds its lock in the database for a while), the demo
+and the models.
 
 **The demo** starts afresh every night at 03:00, and with every restart. Its recording is downloaded once into
 `/srv/sermon-studio-demo/seed`; an intro and outro go in its `clips/` (`demo/README.md`).

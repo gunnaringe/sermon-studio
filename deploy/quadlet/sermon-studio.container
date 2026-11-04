@@ -9,6 +9,8 @@
 Description=Sermon Studio
 Wants=network-online.target
 After=network-online.target
+# Keep trying, however often it fails (systemd gives up after 5 quick failures by default).
+StartLimitIntervalSec=0
 # Only once its settings are there: a reboot never starts it half set up.
 ConditionPathExists=/etc/sermon-studio/sermon-studio.env
 
@@ -45,6 +47,7 @@ StopTimeout=60
 
 [Service]
 Restart=always
+RestartSec=10s
 # The first start pulls the image.
 TimeoutStartSec=600
 

@@ -7,6 +7,8 @@
 Description=cloudflared (Cloudflare Tunnel)
 Wants=network-online.target
 After=network-online.target
+# Keep trying, however often it fails (systemd gives up after 5 quick failures by default).
+StartLimitIntervalSec=0
 # The tunnel's credentials (cloudflared tunnel create, docs/hosting.md) and the config made from them.
 ConditionPathExists=/etc/sermon-studio/cloudflared/credentials.json
 ConditionPathExists=/etc/sermon-studio/cloudflared/config.yml
@@ -27,6 +29,7 @@ Memory=256m
 
 [Service]
 Restart=always
+RestartSec=10s
 TimeoutStartSec=600
 
 [Install]

@@ -10,6 +10,8 @@
 Description=Pocket ID
 Wants=network-online.target
 After=network-online.target
+# Keep trying, however often it fails (systemd gives up after 5 quick failures by default).
+StartLimitIntervalSec=0
 ConditionPathExists=/etc/sermon-studio/pocket-id.env
 
 [Container]
@@ -36,6 +38,8 @@ Notify=healthy
 
 [Service]
 Restart=always
+# A minute apart: a Pocket ID that was killed holds its one-instance lock in the database for a while.
+RestartSec=60s
 TimeoutStartSec=600
 
 [Install]
