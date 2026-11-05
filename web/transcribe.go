@@ -397,7 +397,7 @@ func (s *Server) queueTranscript(folder string, order transcriptOrder) {
 		if s.ctx.Err() == nil {
 			// Made, stopped (✕) or failed: the order is over. When the studio stops, it and the parts done stay.
 			if p, perr := normalizer.NewPaths(folder); perr == nil {
-				os.RemoveAll(transcriptParts(p))
+				normalizer.RemoveAll(transcriptParts(p))
 			}
 			if fileExists(statePath(folder)) {
 				s.updateState(folder, func(st *folderState) error {

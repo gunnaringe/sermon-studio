@@ -105,6 +105,17 @@ func Rename(oldpath, newpath string) error {
 
 func Remove(path string) error { return retry(func() error { return os.Remove(path) }) }
 
+// ReadFile is os.ReadFile, tried again while Windows says the file is in use: it is while another goroutine
+// renames a new version over it (writeFileAtomic), where Linux and macOS give the old one or the new.
+func ReadFile(path string) ([]byte, error) {
+	var data []byte
+	err := retry(func() (err error) {
+		data, err = os.ReadFile(path)
+		return err
+	})
+	return data, err
+}
+
 func RemoveAll(path string) error { return retry(func() error { return os.RemoveAll(path) }) }
 
 func retry(op func() error) error {

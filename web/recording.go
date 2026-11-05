@@ -102,7 +102,7 @@ func statePath(folder string) string { return filepath.Join(folder, stateName) }
 // or it cannot be read. A saved sermon that is not valid any more is dropped.
 func readState(folder string) *folderState {
 	st := &folderState{}
-	if data, err := os.ReadFile(statePath(folder)); err == nil && json.Unmarshal(data, st) != nil {
+	if data, err := normalizer.ReadFile(statePath(folder)); err == nil && json.Unmarshal(data, st) != nil {
 		st = &folderState{}
 	}
 	st.Saved = validSermon(st.Saved)
