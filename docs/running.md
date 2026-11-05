@@ -18,10 +18,10 @@ Checks and tests are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 # Docker (ffmpeg included)
 
-ffmpeg is a separate C program and cannot be built into the Go binary, so the image packages both. Its ffmpeg is the
-desktop app's: a small static LGPL build from [ffmpeg-lgpl](https://github.com/gunnaringe/ffmpeg-lgpl), the release named in
-`packaging/ffmpeg-release` and checked against `packaging/ffmpeg.sha256`, without network protocols (its licences are in
-`/usr/local/share/ffmpeg/LICENSES.txt`).
+ffmpeg is a separate C program and cannot be built into the Go binary, so the image packages both. It is Alpine's
+ffmpeg, with Alpine's whisper.cpp (`whisper-cli`) for transcripts ([transcripts.md](transcripts.md)), not pinned: the
+image is built again every week to bring Alpine's fixes. (The desktop app has its own small LGPL ffmpeg, see
+[desktop.md](desktop.md).)
 
 ```bash
 docker build -t sermon-studio .

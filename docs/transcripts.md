@@ -2,17 +2,16 @@
 
 A sermon can have a transcript, as text to read and captions (WebVTT): **Transcript** in the editor, which starts as the
 church's default (**Settings → Processing → Transcripts**). It is made on the server after the files, from the files of
-the cut sermon only (no intro or outro, never the recording), by ffmpeg's `whisper` filter (whisper.cpp) with a speech model, on the CPU. Names and Bible references can come
+the cut sermon only (no intro or outro, never the recording), by whisper.cpp's `whisper-cli` with a speech model, on the CPU. Names and Bible references can come
 out wrong: read it before you publish it.
 
 ## Speech models
 
 The studio only reads a models folder, `--models-dir` (default `<data-dir>/.models`): `models.json`, which lists the
 models and their languages, and the files it names. It reads it each time it needs it, so a model that arrives is used
-from the next transcript, with no restart. Without the folder, without a whisper filter in ffmpeg (use ffmpeg-lgpl's build, as the image and the desktop app do: FFmpeg's own filter
-crashes near the end of some recordings and is several times slower, see ffmpeg-lgpl's build.sh), or on an x86 processor
-without AVX and F16C (before 2012), the studio makes no transcripts and says why in its log; `--no-transcripts` turns
-them off.
+from the next transcript, with no restart. Without the folder, or without whisper.cpp's `whisper-cli` (`--whisper-cli`,
+default `whisper-cli` in `PATH`; the image has Alpine's), the studio makes no transcripts and says why in its log;
+`--no-transcripts` turns them off. The desktop app has none.
 
 `sermon-studio models pull` fills the folder from Hugging Face:
 
@@ -50,9 +49,11 @@ starts at once, and transcripts are offered once the first model is there.
 **Speed.** One transcript is made at a time, on all the cores the studio may use, after the files. It shares them
 with runs, at the lowest priority (`nice 19`): a run, or a page, while a transcript is being made goes first, and the
 transcript waits. In a container this only ranks the container's own work; against other containers, give the studio's
-a CPU limit if transcripts take too much of the machine (whisper then uses as many threads as the limit allows). On four cores of a desktop processor from 2014, whisper's small model takes a little longer than the sermon
-(half as long again when it finds the language itself), and a medium model, which makes fewer mistakes, about three
-times as long as small. A newer server is several times faster. Pick the model by what the server can keep up with.
+a CPU limit if transcripts take too much of the machine (whisper then uses as many threads as the limit allows). ffmpeg decodes the sermon to a 16 kHz mono WAV file next to it
+(about 115 MB an hour) for whisper-cli, which is removed afterwards. Alpine's whisper.cpp loads the CPU code for the
+processor it runs on (AVX2 and FMA on one from 2013 or later), so it runs on any x86-64 or arm64, faster on a newer one.
+On the studio's server (3 shared cores of an AMD EPYC from 2017), a medium model takes about five times as long as the
+sermon, and the small one roughly a third of that. Pick the model by what the server can keep up with.
 
 ## When it is made
 

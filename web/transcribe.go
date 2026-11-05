@@ -30,19 +30,22 @@ import (
 type TranscriptionConfig struct {
 	// ModelsDir is the models folder (models.json and the models).
 	ModelsDir string
+	// Whisper makes the transcripts.
+	Whisper normalizer.Whisper
 }
 
 // transcriber is what the churches share: the models folder and the one transcript made at a time.
 type transcriber struct {
-	dir string
-	sem chan struct{}
+	dir     string
+	whisper normalizer.Whisper
+	sem     chan struct{}
 }
 
 func newTranscriber(cfg TranscriptionConfig) (*transcriber, error) {
 	if cfg.ModelsDir == "" {
 		return nil, errors.New("transcripts need a models folder")
 	}
-	return &transcriber{dir: cfg.ModelsDir, sem: make(chan struct{}, 1)}, nil
+	return &transcriber{dir: cfg.ModelsDir, whisper: cfg.Whisper, sem: make(chan struct{}, 1)}, nil
 }
 
 // installed are the models there now (none when models.json cannot be read).
@@ -347,18 +350,12 @@ func (s *Server) makeTranscript(ctx context.Context, folder, lang, key string, w
 	if err != nil {
 		return err
 	}
-	seconds := 0.0
-	if pr, err := s.cfg.FFmpeg.ProbeFile(ctx, source); err == nil {
-		seconds = pr.Duration
-	}
 	s.setTranscript(func() { w.State, w.since = "running", time.Now() })
 	srt := filepath.Join(folder, "."+p.Date+".transcript.srt")
 	defer normalizer.Remove(srt)
 	t := normalizer.Transcription{Model: filepath.Join(tr.dir, model.File), Language: whisperLanguage(lang)}
-	err = s.cfg.FFmpeg.Transcribe(ctx, source, srt, t, func(done float64) {
-		if seconds > 0 {
-			s.setTranscript(func() { w.Progress = min(done/seconds, 1) })
-		}
+	err = tr.whisper.Transcribe(ctx, s.cfg.FFmpeg, source, srt, t, func(done float64) {
+		s.setTranscript(func() { w.Progress = done })
 	})
 	if err != nil {
 		return err

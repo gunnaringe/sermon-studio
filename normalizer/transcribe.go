@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -30,50 +31,98 @@ type Segment struct {
 }
 
 // vadModel is Silero VAD (v5.1.2, MIT; see models/README.md) as whisper.cpp reads it: it finds where
-// there is speech, so the whisper filter cuts the sound into pieces at pauses instead of in words.
+// there is speech, so whisper gets the speech in pieces cut at pauses, and no silence.
 //
 //go:embed models/silero-vad.bin
 var vadModel []byte
 
-// queueSeconds is how much sound the whisper filter gathers before it transcribes: whisper's own window.
-// ffmpeg-lgpl's filter waits until half of it is there, then cuts at the last pause (the VAD), so whisper
-// gets 15-30 s at a time; a piece per sentence, as ffmpeg's own filter does, is about six times slower.
-const queueSeconds = 30
+// Whisper runs whisper.cpp's whisper-cli (never through a shell), which makes the transcripts. The image
+// has Alpine's, whose CPU code comes in variants for each processor generation and loads the best one this
+// processor has (AVX2 and FMA on one from 2013 or later), so it runs on any x86-64 or arm64.
+type Whisper struct {
+	Bin string
+}
 
-// Transcribe writes what is said in the sound of in to dst as SubRip (.srt), with ffmpeg's whisper
-// filter (whisper.cpp, on the CPU). progress gets the seconds of sound done so far. It takes about as
-// long as the sound with a medium model on four cores, so it is slow work, done at the lowest priority;
-// ctx stops it. It runs on the
-// CPU, which needs AVX and F16C on x86 (CanTranscribe).
-func (f FFmpeg) Transcribe(ctx context.Context, in, dst string, t Transcription, progress func(seconds float64)) error {
+// Works tells whether whisper-cli is there and runs.
+func (w Whisper) Works(ctx context.Context) bool {
+	if w.Bin == "" {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	return exec.CommandContext(ctx, w.Bin, "-h").Run() == nil
+}
+
+// Transcribe writes what is said in the sound of in to dst as SubRip (.srt). ffmpeg (f) decodes the sound
+// to a 16 kHz mono WAV file next to dst, which whisper-cli reads, then it is removed. progress gets how much
+// is done, 0 to 1. On a small server it takes several times as long as the sound with a medium model, so
+// it runs at the lowest priority; ctx stops it.
+func (w Whisper) Transcribe(ctx context.Context, f FFmpeg, in, dst string, t Transcription, progress func(done float64)) error {
 	vad, err := embeddedFile("vad", ".bin", vadModel)
 	if err != nil {
 		return fmt.Errorf("the speech detection model: %w", err)
 	}
-	tmp := filepath.Join(filepath.Dir(dst), "."+filepath.Base(dst)+".partial")
-	filter := fmt.Sprintf("whisper=model=%s:language=%s:queue=%d:use_gpu=false:vad_model=%s:destination=%s:format=srt",
-		filterPath(t.Model), t.Language, queueSeconds, filterPath(vad), filterPath(tmp))
-	// As many threads as the cores it may use (in a container, its limit): ffmpeg's default is one more,
-	// and whisper.cpp's threads wait by spinning, so one too many makes it several times slower.
-	threads := strconv.Itoa(runtime.GOMAXPROCS(0))
+	base := filepath.Join(filepath.Dir(dst), "."+strings.TrimSuffix(filepath.Base(dst), filepath.Ext(dst)))
+	wav := base + ".whisper.wav"
+	defer Remove(wav)
 	f.background = true
-	args := []string{"-y", "-filter_threads", threads, "-i", in, "-map", "0:a:0", "-af", filter, "-f", "null", "-"}
-	if _, err := f.run(ctx, progress, args); err != nil {
-		Remove(tmp)
-		return err
+	if err := f.RunTo(ctx, wav, "-i", in, "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le"); err != nil {
+		return fmt.Errorf("the sound for whisper: %w", err)
 	}
-	if _, err := os.Stat(tmp); errors.Is(err, os.ErrNotExist) {
-		// Nothing was said: whisper's filter opens the file only with something to write.
-		if err := os.WriteFile(tmp, nil, 0o644); err != nil {
+	out := base + ".whisper" // whisper-cli adds .srt
+	defer Remove(out + ".srt")
+	// As many threads as the cores it may use (in a container, its limit): whisper.cpp's threads wait by
+	// spinning, so one too many makes it several times slower. -bs 1: one candidate at a time (greedy), not
+	// whisper-cli's beam search of five, which takes longer.
+	args := []string{"-np", "-pp", "-t", strconv.Itoa(runtime.GOMAXPROCS(0)), "-m", t.Model, "-l", t.Language,
+		"-bs", "1", "--vad", "-vm", vad, "-osrt", "-of", out, "-f", wav}
+	cmd := command(ctx, w.Bin, args, true)
+	stderr := &whisperProgress{fn: progress}
+	cmd.Stderr = stderr
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return fmt.Errorf("whisper-cli failed (%w):\n%s", err, lastLines(stderr.text.String(), 15))
+	}
+	if _, err := os.Stat(out + ".srt"); errors.Is(err, os.ErrNotExist) {
+		// Nothing was said.
+		if err := os.WriteFile(out+".srt", nil, 0o644); err != nil {
 			return err
 		}
 	}
-	return Rename(tmp, dst)
+	return Rename(out+".srt", dst)
 }
 
-// CanTranscribe tells whether this processor can run the whisper filter: ffmpeg-lgpl builds whisper.cpp for
-// x86 with AVX and F16C (2012 and later); on an older one it would stop with "Illegal instruction".
-func CanTranscribe() bool { return canTranscribe() }
+// whisperProgress reads whisper-cli's stderr: it keeps the text (for an error) and passes its
+// "progress = 42%" lines on as 0.42.
+type whisperProgress struct {
+	fn   func(done float64)
+	text bytes.Buffer
+	line []byte
+}
+
+var whisperPercent = regexp.MustCompile(`progress =\s*(\d+)%`)
+
+func (p *whisperProgress) Write(b []byte) (int, error) {
+	if p.text.Len() < 1<<20 {
+		p.text.Write(b)
+	}
+	p.line = append(p.line, b...)
+	for {
+		i := bytes.IndexByte(p.line, '\n')
+		if i < 0 {
+			break
+		}
+		if m := whisperPercent.FindSubmatch(p.line[:i]); m != nil && p.fn != nil {
+			if n, err := strconv.Atoi(string(m[1])); err == nil {
+				p.fn(min(float64(n)/100, 1))
+			}
+		}
+		p.line = p.line[i+1:]
+	}
+	return len(b), nil
+}
 
 // languageCode checks a whisper language code: two or three small letters.
 var languageCode = regexp.MustCompile(`^[a-z]{2,3}$`)

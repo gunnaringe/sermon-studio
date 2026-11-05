@@ -1,8 +1,8 @@
 # Builds the image (go vet + all tests with ffmpeg run inside the build) and
 # publishes it. Every main build gets a sortable main-<YYYYMMDDHHmmss UTC>-<sha>
-# tag, which Flux image automation in gunnaringe/clusters (kate) rolls out, and
-# the moving tag main, which a host with podman auto-update follows (Flux's
-# filter on kate takes only the sortable tags).
+# tag and the moving tag main, which the server's podman auto-update follows
+# (deploy/, docs/hosting.md). Once a week it is built again without a change,
+# so Alpine's fixes (ffmpeg, whisper.cpp and the rest) reach the server.
 name: Image
 
 on:
@@ -13,6 +13,9 @@ on:
   pull_request:
     branches: [main]
     paths-ignore: ['site/**']
+  schedule:
+    - cron: '17 2 * * 1' # Mondays 02:17 UTC
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -55,5 +58,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: VERSION=${{ github.sha }}
+          # the weekly build without the cache: a cached apk add would keep last week's packages
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

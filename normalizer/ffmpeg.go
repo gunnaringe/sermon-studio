@@ -39,15 +39,7 @@ func (f FFmpeg) run(ctx context.Context, progress func(seconds float64), args []
 		// Every 0.1 s instead of 0.5: on a fast machine a step can be over before the first report.
 		full = append(full, "-progress", "pipe:1", "-stats_period", "0.1")
 	}
-	bin, full := f.Bin, append(full, GuardInputs(args)...)
-	if f.background {
-		// Through nice, not by setting it on the process once started: it is per thread on Linux, and
-		// ffmpeg's threads start with what their creator has.
-		if nice, err := exec.LookPath("nice"); err == nil {
-			bin, full = nice, append([]string{"-n", "19", f.Bin}, full...)
-		}
-	}
-	cmd := exec.CommandContext(ctx, bin, full...)
+	cmd := command(ctx, f.Bin, append(full, GuardInputs(args)...), f.background)
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	if progress != nil {
@@ -67,18 +59,16 @@ func (f FFmpeg) run(ctx context.Context, progress func(seconds float64), args []
 	return res(), nil
 }
 
-// HasFilter tells whether this ffmpeg has the filter (the whisper filter needs ffmpeg built with whisper.cpp).
-func (f FFmpeg) HasFilter(ctx context.Context, name string) bool {
-	res, err := f.Run(ctx, "-filters")
-	if err != nil {
-		return false
-	}
-	for line := range strings.SplitSeq(res.Stdout, "\n") {
-		if fields := strings.Fields(line); len(fields) >= 2 && fields[1] == name {
-			return true
+// command is bin with args; background runs it at the lowest priority (nice 19), when the system has nice.
+// Through nice, not by setting it on the process once started: it is per thread on Linux, and the
+// program's threads start with what their creator has.
+func command(ctx context.Context, bin string, args []string, background bool) *exec.Cmd {
+	if background {
+		if nice, err := exec.LookPath("nice"); err == nil {
+			bin, args = nice, append([]string{"-n", "19", bin}, args...)
 		}
 	}
-	return false
+	return exec.CommandContext(ctx, bin, args...)
 }
 
 // inputFormats are the only containers ffmpeg may read a file as (-format_whitelist): what a recording, a
