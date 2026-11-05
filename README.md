@@ -89,6 +89,7 @@ public share page is a separate listener that reaches nothing but itself and the
 |---|---|
 | [User guide](docs/guide.md) | Uploading, cutting, saving, sharing: with pictures |
 | [Running it](docs/running.md) | Docker, the data folder, all flags |
+| [Hosting it on a server](docs/hosting.md) | Rootless Podman and a Cloudflare Tunnel, as sermon-studio.app runs |
 | [The desktop app](docs/desktop.md) | Sermon Studio on one computer, without a server |
 | [Access control](docs/access.md) | Which user sees which church |
 | [What a run makes](docs/outputs.md) | The files, loudness targets and options |

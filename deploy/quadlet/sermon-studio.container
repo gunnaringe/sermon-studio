@@ -1,0 +1,55 @@
+# The studio: every church at <church>.<domain>, the login and the church picker at my.<domain>, the
+# public share page at share.<domain>. Rootless, as the user sermon-studio; installed by deploy/install.sh
+# into /etc/containers/systemd/users/<uid>/ (docs/hosting.md).
+#
+# What differs between hosts is in /etc/sermon-studio/sermon-studio.env (deploy/env/sermon-studio.env.example),
+# never here: a flag would win over the file.
+
+[Unit]
+Description=Sermon Studio
+Wants=network-online.target
+After=network-online.target
+# Keep trying, however often it fails (systemd gives up after 5 quick failures by default).
+StartLimitIntervalSec=0
+# Only once its settings are there: a reboot never starts it half set up.
+ConditionPathExists=/etc/sermon-studio/sermon-studio.env
+
+[Container]
+ContainerName=sermon-studio
+Image=ghcr.io/gunnaringe/sermon-studio:main
+# podman auto-update (every 15 minutes, systemd/podman-auto-update.conf) pulls a new main build and goes
+# back to the previous image when the new one does not become healthy.
+AutoUpdate=registry
+EnvironmentFile=/etc/sermon-studio/sermon-studio.env
+# In the environment, not a flag, so `sermon-studio admin` in the container finds the studio too.
+Environment=SERMON_STUDIO_DATA_DIR=/data
+Exec=--listen=:8080 --share-listen=:8081 --cache-dir=/data/cache --share-ip-header=CF-Connecting-IP
+# One folder per church, the sessions and users, the speech models (.models) and the cache.
+Volume=/srv/sermon-studio/data:/data
+# Reached only from this machine (cloudflared); the container itself listens on all its addresses.
+PublishPort=127.0.0.1:8080:8080
+PublishPort=127.0.0.1:8081:8081
+# As the user sermon-studio inside too: the files in /srv/sermon-studio/data are that user's.
+UserNS=keep-id
+ReadOnly=true
+DropCapability=all
+NoNewPrivileges=true
+# ffmpeg on hour-long recordings, and a transcript's model.
+Memory=3g
+PidsLimit=1024
+HealthCmd=wget -q -O /dev/null http://127.0.0.1:8080/healthz
+HealthInterval=30s
+HealthStartPeriod=30s
+HealthOnFailure=kill
+Notify=healthy
+# A run in progress is cancelled and cleaned up on SIGTERM.
+StopTimeout=60
+
+[Service]
+Restart=always
+RestartSec=10s
+# The first start pulls the image.
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,10 @@
+#!/bin/sh
+# sermon-studio admin, in the running studio's container (installed as /usr/local/bin/sermon-studio-admin by
+# deploy/install.sh): churches, members and invites from the command line (docs/access.md), e.g.
+#   ssh <host> sudo sermon-studio-admin church list
+#   ssh <host> sudo sermon-studio-admin invite <church> --role admin
+set -eu
+uid=$(id -u sermon-studio)
+cd /
+exec runuser -u sermon-studio -- env XDG_RUNTIME_DIR="/run/user/$uid" \
+  podman exec -i sermon-studio sermon-studio admin "$@"

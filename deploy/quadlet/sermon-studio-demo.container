@@ -1,0 +1,47 @@
+# The public demo (demo.<domain>): no login, every visitor in the role demo, and fresh data on every start
+# (/data is a tmpfs). deploy/demo-start.sh makes its church, puts the recording in the inbox and starts the
+# studio; systemd/sermon-studio-demo-reset.timer restarts it every night. Rootless, as the user
+# sermon-studio-demo, which can reach nothing of the studio's (docs/hosting.md).
+
+[Unit]
+Description=Sermon Studio demo
+Wants=network-online.target
+After=network-online.target
+# Keep trying, however often it fails (systemd gives up after 5 quick failures by default).
+StartLimitIntervalSec=0
+
+[Container]
+ContainerName=sermon-studio-demo
+Image=ghcr.io/gunnaringe/sermon-studio:main
+AutoUpdate=registry
+Entrypoint=/bin/sh
+Exec=/usr/local/lib/sermon-studio/demo-start.sh
+Volume=/usr/local/lib/sermon-studio/demo-start.sh:/usr/local/lib/sermon-studio/demo-start.sh:ro
+# The recording, downloaded once, and the intro and outro when they are there (deploy/demo-start.sh).
+Volume=/srv/sermon-studio-demo/seed:/seed
+Tmpfs=/data:rw,size=2g,mode=0700,U
+PublishPort=127.0.0.1:8090:8080
+UserNS=keep-id
+ReadOnly=true
+DropCapability=all
+NoNewPrivileges=true
+Memory=1g
+PidsLimit=512
+# One run at a time, and no more than one core.
+PodmanArgs=--cpus=1
+HealthCmd=wget -q -O /dev/null http://127.0.0.1:8080/healthz
+HealthInterval=30s
+# The first start downloads the recording and makes the service from it (about a minute).
+HealthStartPeriod=5m
+HealthOnFailure=kill
+Notify=healthy
+StopTimeout=30
+
+[Service]
+Restart=always
+# A minute apart: a failing start must not keep downloading the recording.
+RestartSec=60s
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

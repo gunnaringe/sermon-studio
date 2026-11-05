@@ -1,0 +1,46 @@
+# Pocket ID (pocket-id.org), the studio's login provider, at id.<domain>: passkeys, accounts and the OIDC
+# client of the studio (docs/login-pocket-id.md). Rootless, as the user pocket-id; its settings, with the
+# encryption key of its database, in /etc/sermon-studio/pocket-id.env (deploy/env/pocket-id.env.example).
+#
+# An empty /srv/pocket-id/data makes a new Pocket ID whose first visitor sets up its admin: create the env
+# file only once its data is in place, or set up the admin through an SSH tunnel before cloudflared routes
+# id.<domain> here (docs/hosting.md).
+
+[Unit]
+Description=Pocket ID
+Wants=network-online.target
+After=network-online.target
+# Keep trying, however often it fails (systemd gives up after 5 quick failures by default).
+StartLimitIntervalSec=0
+ConditionPathExists=/etc/sermon-studio/pocket-id.env
+
+[Container]
+ContainerName=pocket-id
+# The newest v2 (a new major version is a choice, not an update).
+Image=ghcr.io/pocket-id/pocket-id:v2-distroless
+AutoUpdate=registry
+EnvironmentFile=/etc/sermon-studio/pocket-id.env
+Volume=/srv/pocket-id/data:/app/data
+PublishPort=127.0.0.1:1411:1411
+# The image runs as 65532: that is the user pocket-id outside, so the files in /srv/pocket-id/data are its.
+UserNS=keep-id:uid=65532,gid=65532
+ReadOnly=true
+DropCapability=all
+NoNewPrivileges=true
+Memory=512m
+PidsLimit=256
+# As a list: the distroless image has no shell for a plain command to run in.
+HealthCmd=["/app/pocket-id", "healthcheck"]
+HealthInterval=30s
+HealthStartPeriod=30s
+HealthOnFailure=kill
+Notify=healthy
+
+[Service]
+Restart=always
+# A minute apart: a Pocket ID that was killed holds its one-instance lock in the database for a while.
+RestartSec=60s
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

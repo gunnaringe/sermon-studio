@@ -1,0 +1,10 @@
+# Every night at 03:00 (the machine's time zone), the demo starts afresh.
+[Unit]
+Description=Sermon Studio demo: start afresh every night
+ConditionUser=sermon-studio-demo
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+
+[Install]
+WantedBy=timers.target
