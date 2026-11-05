@@ -16,10 +16,12 @@ ContainerName=sermon-studio-models
 Image=ghcr.io/gunnaringe/sermon-studio:main
 AutoUpdate=registry
 # The first model for a language is its default (a church can choose another): Bokmål and Nynorsk from the
-# National Library's NB-Whisper (medium; small is about three times faster), Swedish from KBLab's
-# KB-Whisper, the rest (and "detect automatically") from OpenAI's large-v3-turbo. Change the list for the
-# languages of the churches on this host.
+# National Library's NB-Whisper (large: on this server about 7.5 times as long as the sermon, overnight, and
+# the clearest text; medium takes 5 times and makes more mistakes, small is about three times faster than
+# medium), Swedish from KBLab's KB-Whisper, the rest (and "detect automatically") from OpenAI's
+# large-v3-turbo. Change the list for the languages of the churches on this host.
 Exec=models pull --dir=/data/.models --every=168h \
+  --model=nb,nn=NbAiLab/nb-whisper-large/ggml-model-q5_0.bin \
   --model=nb,nn=NbAiLab/nb-whisper-medium/ggml-model-q5_0.bin \
   --model=nb,nn=NbAiLab/nb-whisper-small/ggml-model-q5_0.bin \
   --model=sv=KBLab/kb-whisper-medium/ggml-model-q5_0.bin \

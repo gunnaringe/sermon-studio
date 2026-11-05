@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,6 +24,9 @@ import (
 type Transcription struct {
 	Model    string
 	Language string
+	// Key names what it is made from and with (the sound, the model's version, the language): the parts of
+	// one stopped earlier are used again only for the same key.
+	Key string
 }
 
 // Segment is a piece of a transcript: what is said from Start to End.
@@ -53,29 +58,175 @@ func (w Whisper) Works(ctx context.Context) bool {
 	return exec.CommandContext(ctx, w.Bin, "-h").Run() == nil
 }
 
-// Transcribe writes what is said in the sound of in to dst as SubRip (.srt). ffmpeg (f) decodes the sound
-// to a 16 kHz mono WAV file next to dst, which whisper-cli reads, then it is removed. progress gets how much
-// is done, 0 to 1. On a small server it takes several times as long as the sound with a medium model, so
-// it runs at the lowest priority; ctx stops it.
-func (w Whisper) Transcribe(ctx context.Context, f FFmpeg, in, dst string, t Transcription, progress func(done float64)) error {
+// partSeconds is about how long a part of the sermon is: Transcribe saves the transcript part by part, so one
+// stopped (a restart of the server) goes on from the first part not done. partWindow is how far from the mark
+// a part may end, at the pause nearest to it.
+var (
+	partSeconds = 600.0
+	partWindow  = 120.0
+)
+
+// partsPlan is <parts>/plan.json: what the parts are of, and where each one after the first begins.
+type partsPlan struct {
+	Key    string    `json:"key"`
+	Length float64   `json:"length"` // seconds
+	Starts []float64 `json:"starts"` // seconds, after 0
+}
+
+// Transcribe is what is said in the sound of in, with whisper-cli. It goes part by part (about ten minutes,
+// cut at a pause), each saved in the folder parts as it is done: a call for the same t.Key goes on from the
+// first part not done; parts of another key are thrown away. The caller removes parts when it has kept the
+// transcript, or wants no more of it. ffmpeg (f) gives whisper-cli each part as 16 kHz mono WAV; each part
+// starts with the last words of the one before as whisper's prompt, so it goes on in the same way.
+// progress gets how much is done, 0 to 1. On a small server it takes several times as long as the sound,
+// so all of it runs at the lowest priority; ctx stops it.
+func (w Whisper) Transcribe(ctx context.Context, f FFmpeg, in, parts string, t Transcription, progress func(done float64)) ([]Segment, error) {
+	if progress == nil {
+		progress = func(float64) {}
+	}
 	vad, err := embeddedFile("vad", ".bin", vadModel)
 	if err != nil {
-		return fmt.Errorf("the speech detection model: %w", err)
+		return nil, fmt.Errorf("the speech detection model: %w", err)
 	}
-	base := filepath.Join(filepath.Dir(dst), "."+strings.TrimSuffix(filepath.Base(dst), filepath.Ext(dst)))
-	wav := base + ".whisper.wav"
-	defer Remove(wav)
 	f.background = true
-	if err := f.RunTo(ctx, wav, "-i", in, "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le"); err != nil {
+	plan, err := f.planParts(ctx, in, parts, t.Key)
+	if err != nil {
+		return nil, err
+	}
+	bounds := append(append([]float64{0}, plan.Starts...), plan.Length)
+	var all []Segment
+	prompt := ""
+	for i := 0; i+1 < len(bounds); i++ {
+		start, end := bounds[i], bounds[i+1]
+		srt := filepath.Join(parts, fmt.Sprintf("%03d.srt", i))
+		if _, err := os.Stat(srt); err != nil {
+			report := func(done float64) { progress((start + done*(end-start)) / plan.Length) }
+			report(0)
+			if err := w.transcribePart(ctx, f, in, srt, start, end-start, t, vad, prompt, report); err != nil {
+				return nil, err
+			}
+		}
+		data, err := os.ReadFile(srt)
+		if err != nil {
+			return nil, err
+		}
+		segs, err := ReadSRT(data)
+		if err != nil {
+			return nil, err
+		}
+		offset := time.Duration(start * float64(time.Second))
+		texts := make([]string, 0, len(segs))
+		for _, sg := range segs {
+			sg.Start, sg.End = sg.Start+offset, sg.End+offset
+			all = append(all, sg)
+			texts = append(texts, sg.Text)
+		}
+		prompt = lastWords(strings.Join(texts, " "), 40)
+		progress(end / plan.Length)
+	}
+	return all, nil
+}
+
+// planParts reads the plan in parts, or (none, or for another key) empties the folder and makes one: the
+// sound's length, and a cut at the pause nearest to every partSeconds.
+func (f FFmpeg) planParts(ctx context.Context, in, parts, key string) (partsPlan, error) {
+	planFile := filepath.Join(parts, "plan.json")
+	var plan partsPlan
+	if data, err := os.ReadFile(planFile); err == nil && json.Unmarshal(data, &plan) == nil && plan.Key == key && plan.Length > 0 {
+		return plan, nil
+	}
+	if err := os.RemoveAll(parts); err != nil {
+		return plan, err
+	}
+	if err := os.MkdirAll(parts, 0o755); err != nil {
+		return plan, err
+	}
+	length, err := f.Duration(ctx, in)
+	if err != nil {
+		return plan, err
+	}
+	var pauses []Span
+	if length > partSeconds+partWindow {
+		if pauses, err = f.pauses(ctx, in); err != nil {
+			return plan, err
+		}
+	}
+	plan = partsPlan{Key: key, Length: length, Starts: partStarts(length, pauses)}
+	data, _ := json.Marshal(plan)
+	if err := os.WriteFile(planFile, data, 0o644); err != nil {
+		return plan, err
+	}
+	return plan, nil
+}
+
+// partStarts are where the parts after the first begin: at the middle of the pause nearest to each
+// partSeconds since the last, if one is within partWindow, else at the mark. The last part is no shorter
+// than partWindow.
+func partStarts(length float64, pauses []Span) []float64 {
+	var starts []float64
+	last := 0.0
+	for {
+		mark := last + partSeconds
+		if mark+partWindow >= length {
+			return starts
+		}
+		cut, best := mark, partWindow
+		for _, p := range pauses {
+			mid := (p.Start + p.End) / 2
+			if d := math.Abs(mid - mark); d <= best && mid > last+partWindow {
+				cut, best = mid, d
+			}
+		}
+		starts = append(starts, cut)
+		last = cut
+	}
+}
+
+// pauses are the quiet stretches of in of at least 0.3 s (ffmpeg's silencedetect, at -40 dB: the sermon's
+// files are loudness-normalised).
+func (f FFmpeg) pauses(ctx context.Context, in string) ([]Span, error) {
+	res, err := f.Run(ctx, "-i", in, "-map", "0:a:0", "-af", "silencedetect=noise=-40dB:d=0.3", "-f", "null", "-")
+	if err != nil {
+		return nil, err
+	}
+	var spans []Span
+	start := -1.0
+	for line := range strings.SplitSeq(res.Stderr, "\n") {
+		if _, v, ok := strings.Cut(line, "silence_start: "); ok {
+			if n, err := strconv.ParseFloat(strings.Fields(v)[0], 64); err == nil {
+				start = n
+			}
+		} else if _, v, ok := strings.Cut(line, "silence_end: "); ok && start >= 0 {
+			if n, err := strconv.ParseFloat(strings.Fields(v)[0], 64); err == nil {
+				spans = append(spans, Span{max(start, 0), n})
+			}
+			start = -1
+		}
+	}
+	return spans, nil
+}
+
+// transcribePart makes the SubRip of seconds of in from start, at srt (written whole or not at all).
+func (w Whisper) transcribePart(ctx context.Context, f FFmpeg, in, srt string, start, seconds float64, t Transcription,
+	vad, prompt string, progress func(done float64)) error {
+	base := strings.TrimSuffix(srt, ".srt")
+	wav := base + ".wav"
+	defer Remove(wav)
+	sec := func(v float64) string { return strconv.FormatFloat(v, 'f', 3, 64) }
+	if err := f.RunTo(ctx, wav, "-ss", sec(start), "-i", in, "-t", sec(seconds), "-map", "0:a:0", "-ac", "1", "-ar", "16000",
+		"-c:a", "pcm_s16le"); err != nil {
 		return fmt.Errorf("the sound for whisper: %w", err)
 	}
 	out := base + ".whisper" // whisper-cli adds .srt
 	defer Remove(out + ".srt")
 	// As many threads as the cores it may use (in a container, its limit): whisper.cpp's threads wait by
-	// spinning, so one too many makes it several times slower. -bs 1: one candidate at a time (greedy), not
-	// whisper-cli's beam search of five, which takes longer.
+	// spinning, so one too many makes it several times slower. -bs 1: one candidate at a time (greedy): beam
+	// search took 75 % longer for no better text with NB-Whisper large.
 	args := []string{"-np", "-pp", "-t", strconv.Itoa(runtime.GOMAXPROCS(0)), "-m", t.Model, "-l", t.Language,
 		"-bs", "1", "--vad", "-vm", vad, "-osrt", "-of", out, "-f", wav}
+	if prompt != "" {
+		args = append(args, "--prompt", prompt)
+	}
 	cmd := command(ctx, w.Bin, args, true)
 	stderr := &whisperProgress{fn: progress}
 	cmd.Stderr = stderr
@@ -86,12 +237,15 @@ func (w Whisper) Transcribe(ctx context.Context, f FFmpeg, in, dst string, t Tra
 		return fmt.Errorf("whisper-cli failed (%w):\n%s", err, lastLines(stderr.text.String(), 15))
 	}
 	if _, err := os.Stat(out + ".srt"); errors.Is(err, os.ErrNotExist) {
-		// Nothing was said.
-		if err := os.WriteFile(out+".srt", nil, 0o644); err != nil {
-			return err
-		}
+		return os.WriteFile(srt, nil, 0o644) // nothing was said
 	}
-	return Rename(out+".srt", dst)
+	return Rename(out+".srt", srt)
+}
+
+// lastWords is the last n words of s.
+func lastWords(s string, n int) string {
+	words := strings.Fields(s)
+	return strings.Join(words[max(len(words)-n, 0):], " ")
 }
 
 // whisperProgress reads whisper-cli's stderr: it keeps the text (for an error) and passes its

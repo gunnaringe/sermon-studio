@@ -272,7 +272,11 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - Transcripts: give whisper-cli `-t` = the cores (`GOMAXPROCS`); whisper.cpp's threads wait by spinning, so one more runs
   several times slower. It and its WAV's ffmpeg run at nice 19 (`command(…, background)`, through the `nice` command: nice
   is per thread on Linux), so runs and pages go first. The image's whisper-cli is Alpine's (`apk add whisper.cpp`), which
-  picks its CPU code at runtime: no processor check, no build of our own.
+  picks its CPU code at runtime: no processor check, no build of our own. `Whisper.Transcribe` goes in parts of ~10 min
+  cut at pauses (`partStarts`), saved in `.<date>.transcript.parts/` with a `plan.json` keyed by model version, language
+  and source, so a restart goes on from the first part not done. The order is `folderState.TranscriptOrder`
+  (`queueTranscript`, `resumeTranscripts` at start), and turns go by when it was asked for (`transcriber.turn`), across
+  churches. A stop of the studio keeps the order and the parts; ✕, a failure or the transcript made removes both.
 - Measure with `ebur128` (`FFmpeg.Measure`), not `loudnorm`.
 - Noise reduction has two methods (`NoiseMethod`): standard (`afftdn`, the default, `""`) and speech (`arnndn`, the model
   `normalizer/models/speech.rnnn` embedded and written to the temporary folder, `speech.go`; a path in a filter option goes

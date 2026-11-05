@@ -158,6 +158,9 @@ func New(cfg Config) (*Server, error) {
 	}
 	s.wg.Add(1)
 	go s.keepSweeping()
+	if cfg.transcriber != nil {
+		s.background(s.resumeTranscripts)
+	}
 	return s, nil
 }
 
