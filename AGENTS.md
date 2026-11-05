@@ -322,5 +322,4 @@ only to `site/`: `image.yml` and `test.yml` skip it, `site.yml` checks the websi
 and moves the `main` tag → `podman auto-update` on the Contabo server runs it within 15 minutes, back to the image
 before if it does not become healthy (`deploy/`, docs/hosting.md; `ssh contabo`, `deploy/deploy.sh contabo` after a
 change in `deploy/`; https://norkirken-melhus.sermon-studio.app, the login host https://my.sermon-studio.app). Its DNS is
-in `clusters/kate/dns/records.yaml` (kate's external-dns), and kate's Traefik still redirects the old addresses
-(`app.sermon-studio.app`, `*.haxxor.xyz`).
+in `clusters/kate/dns/records.yaml` (kate's external-dns); nothing else of it runs on kate.
