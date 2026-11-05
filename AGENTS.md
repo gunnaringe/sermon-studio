@@ -36,10 +36,10 @@ new checkout). `TestToolVersions` checks that `mise.toml`, `go.mod`, `scripts/li
 change them together. `demo/` has its own `mise.toml`.
 
 ffmpeg is not on the dev host; `all`/`e2e` run in podman, in images with ffmpeg that `test.sh` builds
-once (`scripts/test-images/`, retagged when the file, the base image or the ffmpeg release changes). Every ffmpeg the
-studio runs on, the image's, the desktop app's and these test images', is the ffmpeg-lgpl release in
-`packaging/ffmpeg-release` (checked against `packaging/ffmpeg.sha256`); the system's ffmpeg in the build stage and the
-test images is there only for ffprobe, which some tests use. CI on Windows and macOS still installs ffmpeg from
+once (`scripts/test-images/`, retagged when the file, the base image or the ffmpeg release changes). The desktop
+app's ffmpeg and these test images' is the ffmpeg-lgpl release in `packaging/ffmpeg-release` (checked against
+`packaging/ffmpeg.sha256`; the system's ffmpeg in the test images is there only for ffprobe, which some tests use). The
+image has Alpine's ffmpeg and whisper.cpp instead, and its build stage runs the tests against that ffmpeg. CI on Windows and macOS still installs ffmpeg from
 Chocolatey and Homebrew; ffmpeg-lgpl's own CI runs these tests against every build. The browser tests keep
 `node_modules` until the lock file changes, and the test recordings in `web/e2e/fixtures/made/` (delete the
 folder to make them again). With `FFMPEG_REQUIRED` set (CI, the image build, `all`) a missing ffmpeg fails
@@ -196,8 +196,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   made again by itself (`otherModel`, `earlierCut` only say so). `<date>.transcript.json` is the transcript (with the model's
   name, commit, sha256, date), `.txt`/`.vtt` come from it. The models are package `models`: `models.json` in `--models-dir`,
   read on each use; `sermon-studio models pull` (`cmd/sermon-studio/models.go`, `models/pull.go`) fills it from Hugging Face,
-  only files its scans call safe, checked by SHA-256. `normalizer/transcribe.go` runs ffmpeg's whisper filter. The desktop
-  app has none. `web/static/transcripts.js` is the settings section and a sermon's transcript panel.
+  only files its scans call safe, checked by SHA-256. `normalizer/transcribe.go` runs whisper.cpp's `whisper-cli` (`Whisper`, `--whisper-cli`) on a WAV
+  ffmpeg makes. The desktop app has none. `web/static/transcripts.js` is the settings section and a sermon's transcript panel.
 - `web/static/`: plain JS, no build. `app.js` = the router over the address (History API; `util.js` `href`/`go`, links in
   the page are followed without a reload): `c/<church>/` then the page, or without `c/<church>/` on a church host (the
   church is the host's); `''` the recordings, `recordings/<slug>` one opened, `recordings/<slug>/edit` the editor,
@@ -269,10 +269,10 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   Windows' device names (`nul`, `com1` ...) are not churches or kept file names (`windowsDevice`).
 - Every answer of the studio carries `securityHeaders` (`app.go`: no frames, `nosniff`, `Referrer-Policy: same-origin`, HSTS with the
   login on HTTPS); the share page has its own (`shareGuard`). Errors reach the page without server paths (`withoutPaths`).
-- Transcripts: give the whisper filter `-filter_threads` = the cores (`GOMAXPROCS`); ffmpeg's default is one more, and
-  whisper.cpp's spinning threads then run several times slower. It runs at nice 19 (`FFmpeg.background`, through the `nice`
-  command: nice is per thread on Linux), so runs and pages go first. ffmpeg-lgpl builds whisper.cpp for AVX + F16C on x86:
-  check `normalizer.CanTranscribe` before running it, or an older CPU stops with "Illegal instruction".
+- Transcripts: give whisper-cli `-t` = the cores (`GOMAXPROCS`); whisper.cpp's threads wait by spinning, so one more runs
+  several times slower. It and its WAV's ffmpeg run at nice 19 (`command(…, background)`, through the `nice` command: nice
+  is per thread on Linux), so runs and pages go first. The image's whisper-cli is Alpine's (`apk add whisper.cpp`), which
+  picks its CPU code at runtime: no processor check, no build of our own.
 - Measure with `ebur128` (`FFmpeg.Measure`), not `loudnorm`.
 - Noise reduction has two methods (`NoiseMethod`): standard (`afftdn`, the default, `""`) and speech (`arnndn`, the model
   `normalizer/models/speech.rnnn` embedded and written to the temporary folder, `speech.go`; a path in a filter option goes

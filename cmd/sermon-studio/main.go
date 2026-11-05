@@ -64,7 +64,8 @@ type serveCmd struct {
 	FFmpeg       string `name:"ffmpeg" default:"ffmpeg" help:"Path to ffmpeg."`
 	ParallelRuns int    `default:"1" help:"How many runs (making the files) can work at once, across all churches; each uses about one core."`
 
-	Transcripts bool   `default:"true" negatable:"" group:"Transcripts" help:"Let churches have transcripts of their sermons (Settings → Processing), made after the files by ffmpeg's whisper filter with the models in --models-dir (off without the filter). One at a time, on all cores."`
+	Transcripts bool   `default:"true" negatable:"" group:"Transcripts" help:"Let churches have transcripts of their sermons (Settings → Processing), made after the files by whisper.cpp's whisper-cli with the models in --models-dir (off without whisper-cli). One at a time, on all cores."`
+	WhisperCLI  string `name:"whisper-cli" default:"whisper-cli" group:"Transcripts" help:"Path to whisper.cpp's whisper-cli."`
 	ModelsDir   string `group:"Transcripts" help:"The speech models: models.json and the files it names (sermon-studio models pull fills it). Read each time, so a model that arrives is used at once. Default: <data-dir>/.models."`
 
 	ShareListen        string `group:"Share page" help:"Address for the public share page, where recordings are sent and finished sermons downloaded with a code made in the studio (Shares, in the header); empty = off."`
@@ -258,7 +259,7 @@ func (s *serveCmd) Run() error {
 	ff := normalizer.FFmpeg{Bin: bin}
 	var transcription *web.TranscriptionConfig
 	if s.Transcripts {
-		transcription, err = s.transcription(ff, logger)
+		transcription, err = s.transcription(logger)
 		if err != nil {
 			return err
 		}
@@ -341,9 +342,9 @@ func listenAdmin(path string) (net.Listener, error) {
 	return l, nil
 }
 
-// transcription is the setup of transcripts, or nil (said in the log) when this ffmpeg has no whisper filter
-// or there is nowhere to keep the models.
-func (s *serveCmd) transcription(ff normalizer.FFmpeg, logger *log.Logger) (*web.TranscriptionConfig, error) {
+// transcription is the setup of transcripts, or nil (said in the log) when there is no whisper-cli that runs
+// or nowhere to keep the models.
+func (s *serveCmd) transcription(logger *log.Logger) (*web.TranscriptionConfig, error) {
 	dir := s.ModelsDir
 	if dir == "" && s.DataDir != "" {
 		dir = filepath.Join(s.DataDir, ".models")
@@ -352,15 +353,17 @@ func (s *serveCmd) transcription(ff normalizer.FFmpeg, logger *log.Logger) (*web
 		logger.Printf("no transcripts: --root without --models-dir")
 		return nil, nil
 	}
-	if !ff.HasFilter(context.Background(), "whisper") {
-		logger.Printf("no transcripts: this ffmpeg has no whisper filter")
+	bin, err := exec.LookPath(s.WhisperCLI)
+	if err != nil {
+		logger.Printf("no transcripts: cannot find whisper.cpp's %q (--whisper-cli)", s.WhisperCLI)
 		return nil, nil
 	}
-	if !normalizer.CanTranscribe() {
-		logger.Printf("no transcripts: the processor has no AVX and F16C, which the whisper filter needs")
+	w := normalizer.Whisper{Bin: bin}
+	if !w.Works(context.Background()) {
+		logger.Printf("no transcripts: %s does not run", bin)
 		return nil, nil
 	}
-	return &web.TranscriptionConfig{ModelsDir: dir}, nil
+	return &web.TranscriptionConfig{ModelsDir: dir, Whisper: w}, nil
 }
 
 func defaultCacheDir() string {

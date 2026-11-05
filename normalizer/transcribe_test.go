@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// What the whisper filter writes (format=srt), with a cue of nothing between two of speech.
+// What whisper-cli writes (-osrt), with a cue of nothing between two of speech.
 const whisperSRT = "1\n00:00:00,000 --> 00:00:04,500\nI de dager\n\n2\n00:00:04,500 --> 00:00:07,250\nkom et bud fra keiser Augustus.\n\n" +
 	"3\n00:00:12,000 --> 00:01:02,040\nOg dette er den første innskrivningen.\n\n"
 
@@ -94,4 +94,89 @@ func TestBackgroundNice(t *testing.T) {
 	if bg, own := niceness(FFmpeg{Bin: bin, background: true}), niceness(FFmpeg{Bin: bin}); bg <= own || runtime.GOOS == "linux" && bg != 19 {
 		t.Errorf("nice: background %d, a run %d", bg, own)
 	}
+}
+
+// Transcribe gives whisper-cli the sound as 16 kHz mono WAV, at the lowest priority, passes its progress on and
+// puts its SubRip at dst; the WAV and whisper-cli's own file are gone afterwards.
+func TestTranscribeWhisperCLI(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake whisper-cli is a shell script")
+	}
+	ff := requireFFmpeg(t)
+	dir := t.TempDir()
+	in := filepath.Join(dir, "sermon.flac")
+	if _, err := ff.Run(context.Background(), "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-ac", "2", "-ar", "44100", in); err != nil {
+		t.Fatal(err)
+	}
+	// A whisper-cli that notes its arguments, priority and the WAV's format, says how far it is and writes a transcript.
+	notes := filepath.Join(dir, "notes")
+	bin := filepath.Join(dir, "whisper-cli")
+	script := `#!/bin/sh
+out= wav=
+while [ $# -gt 0 ]; do
+	case $1 in -of) out=$2; shift ;; -f) wav=$2; shift ;; esac
+	echo "arg $1" >>` + notes + `
+	shift
+done
+if [ -r /proc/$$/stat ]; then echo "nice $(cut -d' ' -f19 /proc/$$/stat)" >>` + notes + `; fi
+cp "$wav" ` + filepath.Join(dir, "seen") + `
+echo "whisper_print_progress_callback: progress =  50%" >&2
+echo "whisper_print_progress_callback: progress = 100%" >&2
+printf '1\n00:00:00,000 --> 00:00:01,500\nI de dager\n\n' >"$out.srt"
+`
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var progress []float64
+	dst := filepath.Join(dir, ".2026-11-01.transcript.srt")
+	err := Whisper{Bin: bin}.Transcribe(context.Background(), ff, in, dst, Transcription{Model: "/m/nb.bin", Language: "no"},
+		func(done float64) { progress = append(progress, done) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if segs, err := ReadSRT(must(os.ReadFile(dst))); err != nil || len(segs) != 1 || segs[0].Text != "I de dager" {
+		t.Errorf("transcript: %+v %v", segs, err)
+	}
+	if len(progress) != 2 || progress[0] != 0.5 || progress[1] != 1 {
+		t.Errorf("progress: %v", progress)
+	}
+	n := string(must(os.ReadFile(notes)))
+	for _, want := range []string{"arg -m\narg /m/nb.bin", "arg -l\narg no", "arg --vad", "arg -osrt"} {
+		if !strings.Contains(n, want) {
+			t.Errorf("whisper-cli got no %q:\n%s", want, n)
+		}
+	}
+	if p, err := ff.ProbeFile(context.Background(), filepath.Join(dir, "seen")); err != nil || p.SampleRate != 16000 || p.Channels != 1 {
+		t.Errorf("the sound whisper-cli got: %+v %v", p, err)
+	}
+	if _, err := exec.LookPath("nice"); err == nil && runtime.GOOS == "linux" && !strings.Contains(n, "nice 19") {
+		t.Errorf("not at nice 19:\n%s", n)
+	}
+	if left := listFiles(t, dir); strings.Join(left, " ") != ".2026-11-01.transcript.srt notes seen sermon.flac whisper-cli" {
+		t.Errorf("left behind: %v", left)
+	}
+}
+
+// Without whisper-cli, Transcribe fails and leaves no WAV behind.
+func TestTranscribeNoWhisperCLI(t *testing.T) {
+	ff := requireFFmpeg(t)
+	dir := t.TempDir()
+	in := filepath.Join(dir, "in.flac")
+	if _, err := ff.Run(context.Background(), "-f", "lavfi", "-i", "sine=duration=1", "-ac", "2", "-ar", "48000", in); err != nil {
+		t.Fatal(err)
+	}
+	err := Whisper{Bin: filepath.Join(dir, "no-whisper-cli")}.Transcribe(context.Background(), ff, in, filepath.Join(dir, "t.srt"), Transcription{}, nil)
+	if err == nil {
+		t.Fatal("no error without whisper-cli")
+	}
+	if left := listFiles(t, dir); strings.Join(left, " ") != "in.flac" {
+		t.Errorf("left behind: %v", left)
+	}
+}
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
