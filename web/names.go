@@ -164,9 +164,13 @@ func (s *Server) rename(src, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
+	moved := false
+	done := s.cfg.transcriber.moving(s.cfg.church, s.relPath(src), s.relPath(dst)) // its transcript waits
+	defer func() { done(moved) }()
 	if err := normalizer.Rename(src, dst); err != nil {
 		return err
 	}
+	moved = true
 	for _, dir := range []string{dst, filepath.Join(dst, normalizer.OriginalDir)} {
 		des, _ := os.ReadDir(dir)
 		for _, de := range des {

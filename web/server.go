@@ -56,13 +56,15 @@ type Config struct {
 	Clips     *clipLibrary
 	SaveClips func(clipLibrary) error
 	// Transcript is the language of the church's transcripts ("" = none; transcribe.go), TranscriptModels
-	// the models' keys by language (none = the first for it); SaveTranscript stores a change (nil = kept in
-	// memory only).
+	// the models' keys by language (none = the first for it), TranscriptWords the church's names and words for
+	// whisper's prompt; SaveTranscript stores a change (nil = kept in memory only).
 	Transcript       string
 	TranscriptModels map[string]string
-	SaveTranscript   func(lang string, models map[string]string) error
+	TranscriptWords  string
+	SaveTranscript   func(lang string, models map[string]string, words string) error
 
-	transcriber *transcriber // set by App: the speech models and the turn, shared; nil = no transcripts
+	transcriber *transcriber // set by App: the speech models and the queue, shared; nil = no transcripts
+	church      string       // set by App: the church's id, its jobs' in the queue ("" for --root)
 }
 
 // limits keeps the heavy work in check, across all churches: runs and samples (encode) up to runs at a time,
@@ -88,12 +90,13 @@ type Server struct {
 	working   atomic.Int32
 	lastChunk atomic.Int64
 
-	// transcriptMu guards the church's transcript language and model, and the transcripts being made, by
-	// folder.
-	transcriptMu     sync.Mutex
-	transcriptLang   string
-	transcriptModels map[string]string
-	transcripts      map[string]*transcriptWork
+	// transcriptMu guards the church's transcript language, models and words, and the transcripts that
+	// failed, by folder.
+	transcriptMu       sync.Mutex
+	transcriptLang     string
+	transcriptModels   map[string]string
+	transcriptWordsSet string
+	transcriptsFailed  map[string]*transcriptFailed
 
 	limits   *limits // shared by all churches: AppConfig.ParallelRuns encodes, one decode at a time
 	jobs     *jobs
@@ -148,7 +151,8 @@ func New(cfg Config) (*Server, error) {
 	if cfg.ClipsDir != "" {
 		s.clips.sweep()
 	}
-	s.transcriptLang, s.transcriptModels, s.transcripts = cfg.Transcript, cfg.TranscriptModels, map[string]*transcriptWork{}
+	s.transcriptLang, s.transcriptModels, s.transcriptWordsSet = cfg.Transcript, cfg.TranscriptModels, cfg.TranscriptWords
+	s.transcriptsFailed = map[string]*transcriptFailed{}
 	s.jobs = newJobs(s)
 	s.analyses = newAnalyses(s)
 	if cfg.Inbox != "" {
@@ -159,7 +163,10 @@ func New(cfg Config) (*Server, error) {
 	s.wg.Add(1)
 	go s.keepSweeping()
 	if cfg.transcriber != nil {
-		s.background(s.resumeTranscripts)
+		s.background(func() {
+			s.moveOrders()
+			cfg.transcriber.register(cfg.church, s)
+		})
 	}
 	return s, nil
 }
@@ -183,6 +190,9 @@ func realDir(dir string) (string, error) {
 func (s *Server) Close() {
 	s.cancel()
 	s.wg.Wait()
+	if s.cfg.transcriber != nil {
+		s.cfg.transcriber.unregister(s.cfg.church, s) // waits for its transcript being made to stop
+	}
 }
 
 // background runs fn in its own goroutine as background work: Close waits for it, Busy reports it, and the

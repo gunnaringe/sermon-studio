@@ -1,13 +1,13 @@
 package web
 
 import (
-	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sync"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,10 +21,11 @@ func newTranscriptServer(t *testing.T, list ...models.Model) (*testServer, strin
 	t.Helper()
 	dir := t.TempDir()
 	writeModels(t, dir, list...)
-	tr, err := newTranscriber(TranscriptionConfig{ModelsDir: dir})
+	tr, err := newTranscriber(TranscriptionConfig{ModelsDir: dir, QueueDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(tr.Close)
 	return newTestServerWith(t, normalizer.FFmpeg{}, func(c *Config) { c.transcriber = tr }), dir
 }
 
@@ -174,8 +175,8 @@ func TestTranscriptState(t *testing.T) {
 	}
 	// A run does not make it again.
 	ts.afterRun(folder, nil)
-	if len(ts.transcripts) != 0 {
-		t.Errorf("made again after a run: %v", ts.transcripts)
+	if _, ok := ts.cfg.transcriber.status("", "2026-10-04"); ok {
+		t.Error("made again after a run")
 	}
 	// Another version of the model is installed: it says so.
 	newer := nbMedium
@@ -310,95 +311,136 @@ func TestTranscriptSource(t *testing.T) {
 	}
 }
 
-// Transcripts take their turn in the order they were asked for, whatever order they start waiting in; one that
-// stops waiting leaves the queue.
-func TestTranscriberTurnOrder(t *testing.T) {
-	tr := &transcriber{}
-	ctx := context.Background()
-	end, err := tr.turn(ctx, time.Now())
+// The queue: first asked first made, across churches, kept in its file over a restart; a recording renamed
+// takes its job along, one deleted (or ✕) loses it with its parts, and parts of jobs not in the queue are
+// removed at start.
+func TestTranscriptQueue(t *testing.T) {
+	dir := t.TempDir()
+	cfg := TranscriptionConfig{ModelsDir: t.TempDir(), QueueDir: dir}
+	tr, err := newTranscriber(cfg) // no church is there: nothing runs
 	if err != nil {
 		t.Fatal(err)
 	}
 	base := time.Date(2026, 11, 5, 0, 0, 0, 0, time.UTC)
-	var mu sync.Mutex
-	var got []int
-	var wg sync.WaitGroup
-	gone, stop := context.WithCancel(ctx)
-	waiting := func(n int) bool {
-		tr.mu.Lock()
-		defer tr.mu.Unlock()
-		return len(tr.waiting) == n
-	}
-	for i, at := range []int{3, 1, 4, 2} {
-		wg.Add(1)
-		c := ctx
-		if at == 4 {
-			c = gone // stops waiting
-		}
-		go func() {
-			defer wg.Done()
-			done, err := tr.turn(c, base.Add(time.Duration(at)*time.Minute))
-			if err != nil {
-				return
-			}
-			mu.Lock()
-			got = append(got, at)
-			mu.Unlock()
-			done()
-		}()
-		for !waiting(i + 1) {
-			time.Sleep(time.Millisecond)
+	for _, j := range []transcriptJob{{Church: "a", Folder: "2026/2026-10-03", At: base.Add(3 * time.Minute)},
+		{Church: "b", Folder: "2026/2026-10-01", At: base.Add(time.Minute)},
+		{Church: "a", Folder: "2026/2026-10-02", At: base.Add(2 * time.Minute)}} {
+		if !tr.add(j) {
+			t.Fatalf("not added: %+v", j)
 		}
 	}
-	stop()
-	for !waiting(3) {
-		time.Sleep(time.Millisecond)
+	tr.add(transcriptJob{Church: "a", Folder: "2026/2026-10-02", At: base}) // asked again: keeps its place
+	if len(tr.queue) != 3 {
+		t.Error("added twice")
 	}
-	end()
-	wg.Wait()
-	if fmt.Sprint(got) != "[1 2 3]" {
-		t.Errorf("turns: %v", got)
+	ahead := func(tr *transcriber, church, folder string) int {
+		t.Helper()
+		st, ok := tr.status(church, folder)
+		if !ok || st.State != "waiting" {
+			t.Fatalf("%s %s: %+v %v", church, folder, st, ok)
+		}
+		return st.Ahead
 	}
-	if tr.busy || len(tr.waiting) != 0 {
-		t.Errorf("after all: busy %v, waiting %d", tr.busy, len(tr.waiting))
+	if ahead(tr, "b", "2026/2026-10-01") != 0 || ahead(tr, "a", "2026/2026-10-02") != 1 || ahead(tr, "a", "2026/2026-10-03") != 2 {
+		t.Error("the order")
 	}
-}
+	os.MkdirAll(tr.parts(tr.queue[0]), 0o755)
+	os.MkdirAll(filepath.Join(dir, "gone"), 0o755)
+	tr.Close()
 
-// A transcript asked for is kept in recording.json while it waits: when the studio stops, the order stays, and
-// when it starts again the order is queued; one that cannot be made then fails, and its order is gone.
-func TestTranscriptOrderKept(t *testing.T) {
-	ts, _ := newTranscriptServer(t, nbMedium)
-	folder := filepath.Dir(ts.file(t, "2026/2026-10-18/recording.json", "{}"))
-	tr := ts.cfg.transcriber
-	end, err := tr.turn(context.Background(), time.Now()) // another church's transcript is being made
+	// A restart keeps the queue and its parts; parts of no job are removed.
+	tr, err = newTranscriber(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	order := transcriptOrder{Language: "nb", At: time.Date(2026, 11, 5, 21, 0, 0, 0, time.UTC)}
-	ts.queueTranscript(folder, order)
-	ts.Close() // the studio stops while it waits
-	end()
-	if got := readState(folder).TranscriptOrder; got == nil || !got.At.Equal(order.At) {
-		t.Fatalf("after a stop: %+v", got)
+	defer tr.Close()
+	if ahead(tr, "a", "2026/2026-10-03") != 2 || !fileExists(tr.parts(tr.queue[0])) || fileExists(filepath.Join(dir, "gone")) {
+		t.Error("after a restart")
 	}
-	// It starts again: the order is queued, and fails (no files to make it from).
+	// Renamed (its year folder here): the job follows; a rename that fails leaves it.
+	tr.moving("a", "2026", "2027")(true)
+	tr.moving("a", "2027/2026-10-02", "2027/2026-10-09")(false)
+	if _, ok := tr.status("a", "2027/2026-10-02"); !ok {
+		t.Error("not moved")
+	}
+	if _, ok := tr.status("b", "2027/2026-10-01"); ok {
+		t.Error("another church's moved")
+	}
+	// Deleted: gone, with its parts.
+	parts := tr.parts(tr.queue[0])
+	if !tr.remove("b", "2026/2026-10-01") || fileExists(parts) || ahead(tr, "a", "2027/2026-10-03") != 1 {
+		t.Error("remove")
+	}
+	var saved []transcriptJob
+	data, _ := os.ReadFile(filepath.Join(dir, queueFile))
+	json.Unmarshal(data, &saved)
+	if len(saved) != 2 || saved[0].Folder != "2027/2026-10-02" {
+		t.Errorf("saved: %+v", saved)
+	}
+}
+
+// A failure is tried once more, then the job leaves the queue and the page says why; one without its files is
+// not tried again.
+func TestTranscriptRetry(t *testing.T) {
+	ts, _ := newTranscriptServer(t, nbMedium)
+	tr := ts.cfg.transcriber
+	idle(t, ts) // the test plays the worker
+	folder := filepath.Join(ts.root, "2026-10-04")
+	fail := func(j *transcriptJob, err error) {
+		tr.mu.Lock()
+		j.cancel, j.done = func() {}, make(chan struct{})
+		tr.running = j
+		tr.mu.Unlock()
+		tr.finish(j, ts.Server, err)
+	}
+	tr.add(transcriptJob{Folder: "2026-10-04", Language: "nb", At: time.Now()})
+	j := tr.queue[0]
+	fail(j, errors.New("whisper-cli: killed"))
+	if st, ok := tr.status("", "2026-10-04"); !ok || st.State != "waiting" || j.Attempts != 1 {
+		t.Fatalf("after one failure: %+v %v", st, ok)
+	}
+	fail(j, errors.New("whisper-cli: killed"))
+	if _, ok := tr.status("", "2026-10-04"); ok || ts.transcriptsFailed[folder] == nil {
+		t.Error("tried more than twice")
+	}
+	tr.add(transcriptJob{Folder: "2026-10-05", Language: "nb", At: time.Now()})
+	fail(tr.queue[0], fmt.Errorf("making it: %w", errNoSource))
+	if _, ok := tr.status("", "2026-10-05"); ok {
+		t.Error("no source was tried again")
+	}
+}
+
+// A transcript asked for in recording.json, as before the queue was the server's, moves to the queue when the
+// church starts (and here fails: there are no files to make it from), with the parts kept beside it removed.
+func TestTranscriptOrderMoved(t *testing.T) {
+	ts, _ := newTranscriptServer(t, nbMedium)
+	folder := filepath.Dir(ts.file(t, "2026/2026-10-18/recording.json", "{}"))
+	parts := filepath.Join(folder, ".2026-10-18.transcript.parts")
+	os.MkdirAll(parts, 0o755)
+	ts.updateState(folder, func(st *folderState) error {
+		st.TranscriptOrder = &transcriptOrder{Language: "nb", At: time.Now()}
+		return nil
+	})
+	ts.Close()
 	s, err := New(ts.cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer s.Close()
 	deadline := time.Now().Add(5 * time.Second)
-	for readState(folder).TranscriptOrder != nil && time.Now().Before(deadline) {
+	failed := func() *transcriptFailed {
+		s.transcriptMu.Lock()
+		defer s.transcriptMu.Unlock()
+		return s.transcriptsFailed[folder]
+	}
+	for failed() == nil && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
-	s.transcriptMu.Lock()
-	w := s.transcripts[folder]
-	s.transcriptMu.Unlock()
-	if w == nil || w.State != "failed" || w.Error != errNoSource.Error() {
-		t.Errorf("after the restart: %+v", w)
+	if f := failed(); f == nil || f.Error != errNoSource.Error() || f.Language != "nb" {
+		t.Errorf("after the restart: %+v", f)
 	}
-	if readState(folder).TranscriptOrder != nil {
-		t.Error("the order of a failed transcript is kept")
+	if readState(folder).TranscriptOrder != nil || fileExists(parts) {
+		t.Error("the old order is left")
 	}
 }
 
@@ -411,4 +453,108 @@ func TestRemainingFrom(t *testing.T) {
 	if remainingFrom(since, -1, 0.75) != 0 || remainingFrom(since, 0.5, 0.51) != 0 {
 		t.Error("known too soon")
 	}
+}
+
+// The church's words are kept with its choice (left out of a PUT = kept), at most normalizer.MaxWords; a
+// transcript asked for waits with them, and its page says how many are ahead.
+func TestTranscriptWords(t *testing.T) {
+	ts, _ := newTranscriptServer(t, nbMedium)
+	words := func() string {
+		t.Helper()
+		var got struct{ Words string }
+		json.Unmarshal(ts.do(t, "GET", "/api/transcription", nil).Body.Bytes(), &got)
+		return got.Words
+	}
+	if rec := ts.do(t, "PUT", "/api/transcription", map[string]any{"language": "nb", "words": " Melhus\n Peder Ås "}); rec.Code != http.StatusOK {
+		t.Fatalf("put: %d %s", rec.Code, rec.Body)
+	}
+	if ts.do(t, "PUT", "/api/transcription", map[string]any{"language": "nb"}); words() != "Melhus Peder Ås" {
+		t.Errorf("words: %q", words())
+	}
+	if rec := ts.do(t, "PUT", "/api/transcription", map[string]any{"language": "nb", "words": strings.Repeat("ord ", normalizer.MaxWords+1)}); rec.Code != http.StatusBadRequest {
+		t.Errorf("too many words: %d", rec.Code)
+	}
+	// Another church's transcript is ahead (no church is there: nothing runs).
+	tr := ts.cfg.transcriber
+	idle(t, ts)
+	tr.add(transcriptJob{Church: "other", Folder: "2026-10-01", At: time.Now().Add(-time.Hour)})
+	folder := filepath.Join(ts.root, "2026-10-04")
+	ts.file(t, "2026-10-04/2026-10-04.mp3", "mp3")
+	saved := &sermonSettings{Sections: []span{{Start: 10, End: 50}}}
+	ts.updateState(folder, func(st *folderState) error {
+		st.Saved = saved
+		st.Outputs["mp3"] = outputMade{From: "sound-1", Cut: savedCut(*saved)}
+		return nil
+	})
+	if rec := ts.do(t, "POST", "/api/transcript?path=2026-10-04", nil); rec.Code != http.StatusOK {
+		t.Fatalf("ask: %d %s", rec.Code, rec.Body)
+	}
+	info := decode[folderInfo](t, ts.do(t, "GET", "/api/folder?path=2026-10-04", nil)).Transcript
+	if info.State != "waiting" || info.Ahead != 1 {
+		t.Errorf("waiting: %+v", info)
+	}
+	tr.mu.Lock()
+	j := tr.find("", "2026-10-04")
+	tr.mu.Unlock()
+	if j == nil || j.Words != "Melhus Peder Ås" || j.Language != "nb" {
+		t.Errorf("the job: %+v", j)
+	}
+	// ✕ takes it out of the queue.
+	ts.do(t, "POST", "/api/transcript/cancel?path=2026-10-04", nil)
+	if _, ok := tr.status("", "2026-10-04"); ok {
+		t.Error("still waiting after ✕")
+	}
+}
+
+// idle takes the test church out of the transcriber once it is in: its transcripts wait, and none runs.
+func idle(t *testing.T, ts *testServer) {
+	t.Helper()
+	tr := ts.cfg.transcriber
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
+		tr.mu.Lock()
+		there := tr.churches[""] != nil
+		tr.mu.Unlock()
+		if there {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the church is not in the transcriber")
+		}
+	}
+	tr.unregister("", ts.Server)
+}
+
+// A recording being renamed holds the queue: its job goes first when it is done, not the next one. One waiting
+// asked for again keeps its place, in the language asked for now.
+func TestTranscriptQueueHeld(t *testing.T) {
+	ts, _ := newTranscriptServer(t, nbMedium)
+	tr := ts.cfg.transcriber
+	idle(t, ts)
+	tr.add(transcriptJob{Folder: "2026/2026-10-01", Language: "nb", At: time.Now().Add(-time.Minute)})
+	tr.add(transcriptJob{Folder: "2026/2026-10-02", Language: "nb", At: time.Now()})
+	tr.mu.Lock()
+	tr.churches[""] = ts.Server // in again, by hand: next is called by the test, not the worker
+	tr.mu.Unlock()
+	done := tr.moving("", "2026/2026-10-01", "2026/2026-10-08")
+	if j, _ := tr.next(); j != nil {
+		t.Fatalf("started while the first is held: %s", j.Folder)
+	}
+	done(true)
+	j, _ := tr.next()
+	if j == nil || j.Folder != "2026/2026-10-08" {
+		t.Fatalf("after the rename: %+v", j)
+	}
+	tr.mu.Lock()
+	delete(tr.churches, "")
+	tr.mu.Unlock()
+	if tr.add(transcriptJob{Folder: "2026/2026-10-08", Language: "nn", At: time.Now()}) {
+		t.Error("another language for the one being made")
+	}
+	if !tr.add(transcriptJob{Folder: "2026/2026-10-02", Language: "nn", Words: "Ås", At: time.Now()}) {
+		t.Error("asked again")
+	}
+	if st, _ := tr.status("", "2026/2026-10-02"); st.Language != "nn" || st.Ahead != 1 {
+		t.Errorf("asked again: %+v", st)
+	}
+	tr.finish(j, ts.Server, nil)
 }

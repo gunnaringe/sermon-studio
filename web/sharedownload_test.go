@@ -361,7 +361,7 @@ func TestShareDownloadAllFormatsAndTranscript(t *testing.T) {
 	modelsDir := t.TempDir()
 	writeModels(t, modelsDir, nbMedium)
 	st := newShareTestWith(t, RateLimits{RequestsPerIP: 1000, RequestsTotal: 1000}, func(c *AppConfig) {
-		c.Transcription = &TranscriptionConfig{ModelsDir: modelsDir}
+		c.Transcription = &TranscriptionConfig{ModelsDir: modelsDir, QueueDir: t.TempDir()}
 	})
 	dir := filepath.Join(st.church, "Taler", "2026", "2026-10-18")
 	os.MkdirAll(dir, 0o755)

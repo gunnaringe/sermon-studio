@@ -3,6 +3,7 @@ package normalizer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -216,13 +217,27 @@ func TestTranscribeParts(t *testing.T) {
 	if !strings.Contains(n, "arg --prompt\narg Del 000.") || !strings.Contains(n, "arg --prompt\narg Del 001.") {
 		t.Errorf("no prompt from the part before:\n%s", n)
 	}
-	// Another key: all of it again.
-	tr.Key = "two"
-	if _, err := (Whisper{Bin: bin}).Transcribe(context.Background(), ff, in, parts, tr, nil); err != nil {
-		t.Fatal(err)
+	// Another key: all of it again. The church's words start every part's prompt; Check is asked before each
+	// part, and its error stops it.
+	os.Remove(filepath.Join(dir, "notes"))
+	tr.Key, tr.Words = "two", " Melhus  Peder "
+	stop := errors.New("changed")
+	checks := 0
+	tr.Check = func() error {
+		if checks++; checks == 3 {
+			return stop
+		}
+		return nil
 	}
-	if n := string(must(os.ReadFile(filepath.Join(dir, "notes")))); strings.Count(n, "call 000") != 2 {
-		t.Errorf("parts of another key used:\n%s", n)
+	if _, err := (Whisper{Bin: bin}).Transcribe(context.Background(), ff, in, parts, tr, nil); !errors.Is(err, stop) {
+		t.Fatalf("not stopped by Check: %v", err)
+	}
+	n = string(must(os.ReadFile(filepath.Join(dir, "notes"))))
+	if strings.Count(n, "call 000") != 1 || strings.Count(n, "call 001") != 1 || strings.Contains(n, "call 002") {
+		t.Errorf("parts of another key used, or made after Check:\n%s", n)
+	}
+	if !strings.Contains(n, "arg --prompt\narg Melhus  Peder\n") || !strings.Contains(n, "arg --prompt\narg Melhus  Peder Del 000.") {
+		t.Errorf("the words are not in the prompt:\n%s", n)
 	}
 }
 

@@ -64,11 +64,25 @@ On the studio's server (3 shared cores of an AMD EPYC from 2017), measured on a 
 So a sermon of 40 minutes takes about 5 hours with large: it is there the next morning. Beam search (five candidates
 instead of one) took 75 % longer with large for the same text, so whisper takes one (greedy).
 
-**In parts, kept across restarts.** The sermon is transcribed in parts of about ten minutes, cut at a pause, each saved
-as it is done (in a hidden `.<date>.transcript.parts` folder next to it, removed when the transcript is there); each part
-starts with the last words of the one before as whisper's prompt. A transcript asked for is kept in the recording's
-`recording.json` until it is made, stopped or fails: when the studio stops (an update, a restart of the server), the
-ones waiting are queued again when it starts, in their order, and the one being made goes on from its last part done.
+**The queue, kept across restarts.** The transcripts asked for wait in the studio's queue, shared by its churches:
+`<data-dir>/.transcripts/queue.json` (with `--root`, `.transcripts` in the models folder), first asked first made. The
+page says how many are ahead. The sermon is transcribed in parts of about ten minutes, cut at a pause, each saved as it
+is done (in `.transcripts/<job>/`, removed with the job). When the studio stops (an update, a restart of the server),
+the queue stays: the ones waiting wait again in their order, and the one being made goes on from its last part done.
+A recording renamed or moved takes its place in the queue along; one deleted, or ✕, takes it out. Nothing about the
+queue is in the recording's folder.
+
+**Made from the files there.** Before each part the studio checks that the sermon's files are the ones it began with;
+if they were made again (the sermon cut again and saved), it starts over from the new ones.
+
+**When it fails.** A transcript that fails is tried once more, at its turn; the second time, it leaves the queue and
+its page says why (with **Make again**). One that cannot be made (no files to make it from, no model for its
+language) is not tried again.
+
+**Names and words.** Whisper writes what it hears, and spells names as it guesses. **Names and words** in **Settings →
+Processing → Transcripts** are the church's names, places and words (at most 300), spelled as they should be: they start
+whisper's prompt for every part, followed by the last words of the part before, which helps it spell them right. A
+transcript waiting keeps the words it was asked with.
 
 ## When it is made
 
@@ -86,7 +100,8 @@ ones waiting are queued again when it starts, in their order, and the one being 
   church's is marked *default*.
 - **Make transcript** / **Make again** on the recordings page (a sermon's details), in the transcript's language, else
   the church's, with the church's model for it.
-- While one is made, a bar shows how far it is, with ✕ to stop it.
+- While one waits, it says how many are ahead; while one is made, a bar shows how far it is. ✕ stops it or takes it
+  out of the queue.
 - A transcript made **from an earlier cut** (the sermon was cut again since) or **with another version of its model**
   says so; it is not made again by itself.
 
