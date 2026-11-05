@@ -191,8 +191,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `sermons.js`). It finds its recording by `id` in `recording.json` (given when the share is made; the path is a hint that follows a
   rename, a recording in the trash is not found). `POST api/share/downloads` counts one and hands out a ticket (`GET api/share/downloads/{id}`,
   no code, Range, `ticketFor`); the same file from the same address while its ticket lasts counts nothing.
-- `web/transcribe.go`: transcripts (docs/transcripts.md): a church's language (`transcript` in `church.json`, `api/transcription`),
-  one made at a time (`transcriber.sem`) after a run only when there is none (`afterRun`), or by `POST api/transcript`; never
+- `web/transcribe.go`: transcripts (docs/transcripts.md): a church's language and words (`transcript`, `transcriptWords` in
+  `church.json`, `api/transcription`), one made at a time (the queue, `transcriptqueue.go`) after a run only when there is none (`afterRun`), or by `POST api/transcript`; never
   made again by itself (`otherModel`, `earlierCut` only say so). `<date>.transcript.json` is the transcript (with the model's
   name, commit, sha256, date), `.txt`/`.vtt` come from it. The models are package `models`: `models.json` in `--models-dir`,
   read on each use; `sermon-studio models pull` (`cmd/sermon-studio/models.go`, `models/pull.go`) fills it from Hugging Face,
@@ -273,10 +273,14 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   several times slower. It and its WAV's ffmpeg run at nice 19 (`command(…, background)`, through the `nice` command: nice
   is per thread on Linux), so runs and pages go first. The image's whisper-cli is Alpine's (`apk add whisper.cpp`), which
   picks its CPU code at runtime: no processor check, no build of our own. `Whisper.Transcribe` goes in parts of ~10 min
-  cut at pauses (`partStarts`), saved in `.<date>.transcript.parts/` with a `plan.json` keyed by model version, language
-  and source, so a restart goes on from the first part not done. The order is `folderState.TranscriptOrder`
-  (`queueTranscript`, `resumeTranscripts` at start), and turns go by when it was asked for (`transcriber.turn`), across
-  churches. A stop of the studio keeps the order and the parts; ✕, a failure or the transcript made removes both.
+  cut at pauses (`partStarts`), each part's prompt the church's words (`Transcription.Words`) and the last words before;
+  `Check` before each part stops it when the source was made again (`errSourceChanged`: started over). The queue is the
+  server's (`web/transcriptqueue.go`): `<data-dir>/.transcripts/queue.json`, one worker, first asked first made across
+  churches, each job's parts in `.transcripts/<id>/` with a `plan.json` keyed by model version, language, source and
+  words, so a restart goes on from the first part not done. Jobs are by church id + slash path: `names.go` `rename` holds
+  and moves them (`moving`), the trash and ✕ remove them. A failure is tried once more (`retryable`), then leaves the
+  queue (`transcriptsFailed`, in memory). `folderState.TranscriptOrder` is the old place of the queue, moved over at
+  start (`moveOrders`).
 - Measure with `ebur128` (`FFmpeg.Measure`), not `loudnorm`.
 - Noise reduction has two methods (`NoiseMethod`): standard (`afftdn`, the default, `""`) and speech (`arnndn`, the model
   `normalizer/models/speech.rnnn` embedded and written to the temporary folder, `speech.go`; a path in a filter option goes

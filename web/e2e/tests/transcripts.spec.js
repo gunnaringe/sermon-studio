@@ -88,6 +88,13 @@ test('transcripts: the default in the settings, a sermon\'s transcript, made wit
   await others.locator('summary').click();
   await expect(others.locator('th')).toHaveText(['Norwegian Nynorsk', 'Detect automatically']);
   await expect(others.locator('tr[data-language=nn] .model-current')).toHaveText('Model: nb-whisper-medium from 2025-03-02.');
+  // The church's names and words, for the speech model: saved when left.
+  const words = box.locator('textarea[name=transcript-words]');
+  await words.fill('Kari Nordmann, Fjellheim church,\nHabakkuk');
+  await words.blur();
+  await expect(box.getByRole('status')).toHaveText('Saved.');
+  await expect.poll(async () => (await (await page.request.get('api/transcription')).json()).words).toBe('Kari Nordmann, Fjellheim church, Habakkuk');
+  await expect(box.locator('textarea[name=transcript-words]')).toHaveValue('Kari Nordmann, Fjellheim church, Habakkuk');
   await box.screenshot({ path: path.join(shots, 'transcript-settings.png') });
 
   await page.goto('c/first-church/');
@@ -160,10 +167,11 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   await box.screenshot({ path: path.join(shots, 'transcript-picker.png') });
 
   // Being made: a bar with ✕ (the work is not real here: the folder says so).
+  let made = { state: 'waiting', ahead: 2 };
   const running = async (route) => {
     const res = await route.fetch();
     const info = await res.json();
-    info.transcript = { ...info.transcript, state: 'running', progress: 0.42, remaining: 200 };
+    info.transcript = { ...info.transcript, ...made };
     await route.fulfill({ response: res, json: info });
   };
   await page.route(/api\/(folder|transcript)\?/, running);
@@ -173,8 +181,12 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   if (req.url().includes('api/run?')) expect(req.postDataJSON().transcript).toEqual({ language: 'nb', model: NB });
   else expect(req.url()).toContain('language=nb&model=' + encodeURIComponent(NB));
   const bar = box.locator('.transcript-progress');
+  // Waiting, with how many are made before it (across the churches).
+  await expect(bar).toContainText('Waiting for its turn… (2 ahead)', { timeout: 60_000 }); // after the run, when there is one
+  await box.screenshot({ path: path.join(shots, 'transcript-waiting.png') });
+  made = { state: 'running', progress: 0.42, remaining: 200, ahead: 0 };
   // How far it is shows on hover; the time left and that it runs in the background are said.
-  await expect(bar).toContainText('Transcribing… · about 3 minutes left', { timeout: 60_000 }); // after the run, when there is one
+  await expect(bar).toContainText('Transcribing… · about 3 minutes left', { timeout: 30_000 });
   await expect(bar).not.toContainText('%');
   await expect(bar.locator('progress')).toHaveJSProperty('value', 0.42);
   await expect(bar.locator('progress')).toHaveAttribute('title', '42% done');

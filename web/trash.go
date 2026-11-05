@@ -106,6 +106,8 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	if parent := filepath.Dir(abs); parent != s.root {
 		normalizer.Remove(parent) // the year, if it is empty now
 	}
+	s.cfg.transcriber.remove(s.cfg.church, s.relPath(abs)) // its transcript, waiting or being made
+	s.setTranscriptFailed(abs, "", nil)
 	s.cfg.Logger.Printf("trash: %s moved to the trash as %s", rel, id)
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "days": s.trashDays()})
 }

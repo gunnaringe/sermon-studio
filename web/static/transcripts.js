@@ -40,7 +40,7 @@ export async function transcriptSettings(box) {
   const save = async () => {
     status.textContent = '';
     try {
-      Object.assign(data, await api('PUT', 'api/transcription', { language, defaults }));
+      Object.assign(data, await api('PUT', 'api/transcription', { language, defaults, words: data.words || '' }));
       status.textContent = t('Saved.');
     } catch (err) { status.textContent = err.message; }
     draw();
@@ -75,7 +75,19 @@ export async function transcriptSettings(box) {
         h('label', {}, h('span', { class: 'name' }, t('Language of the sermons')), h('span', {}, select, ' ', status)),
         has && language && langs.includes(language)
           ? modelLine(data, { lang: language, key: defaults[language] || '', church: true, onChange: setModel(language) }).el : '',
+        has && language ? wordsField() : '',
         has && others.length ? otherModels : '') : '');
+  }
+
+  // The church's names and words, saved when it is left changed.
+  function wordsField() {
+    return h('label', { class: 'transcript-words' },
+      h('span', { class: 'name' }, t('Names and words')),
+      h('span', {},
+        h('textarea', { name: 'transcript-words', rows: 3, maxlength: 3000,
+          placeholder: t('Kari Nordmann, Fjellheim church, Habakkuk'),
+          onchange: (e) => { data.words = e.target.value; save(); } }, data.words || ''),
+        h('span', { class: 'muted' }, t('Names, places and words the sermons use, spelled as they should be. They help the speech model write them right. Keep it short: at most {n} words.', { n: data.maxWords }))));
   }
   draw();
 }
@@ -123,7 +135,9 @@ export function transcriptPanel(path, info, { chosen = false, onDraw = (_tx) => 
   // waits), ✕ to stop it, and that nobody needs to wait for it.
   function progressBar(tx) {
     const left = timeLeft(tx.remaining);
-    const what = tx.state === 'waiting' ? t('Waiting for its turn…') : t('Transcribing…') + (left ? ' · ' + left : '');
+    const what = tx.state === 'waiting'
+      ? (tx.ahead ? t('Waiting for its turn… ({n} ahead)', { n: tx.ahead }) : t('Waiting for its turn…'))
+      : t('Transcribing…') + (left ? ' · ' + left : '');
     const bar = liveBar(tx.progress, tx.state === 'running', t('Transcript'));
     return h('div', { class: 'transcript-progress', 'aria-live': 'polite' },
       h('span', { class: 'what' }, chosen ? '' : [h('strong', {}, t('Transcript')), ' '], h('span', { class: 'muted' }, what)),

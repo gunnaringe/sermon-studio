@@ -363,7 +363,13 @@ func (s *serveCmd) transcription(logger *log.Logger) (*web.TranscriptionConfig, 
 		logger.Printf("no transcripts: %s does not run", bin)
 		return nil, nil
 	}
-	return &web.TranscriptionConfig{ModelsDir: dir, Whisper: w}, nil
+	// The queue and the parts of the transcript being made: in the data dir (hidden, not a church), else with the
+	// models (--root).
+	queue := filepath.Join(dir, ".transcripts")
+	if s.DataDir != "" {
+		queue = filepath.Join(s.DataDir, ".transcripts")
+	}
+	return &web.TranscriptionConfig{ModelsDir: dir, Whisper: w, QueueDir: queue}, nil
 }
 
 func defaultCacheDir() string {

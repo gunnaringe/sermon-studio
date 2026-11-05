@@ -77,6 +77,8 @@ type churchConfig struct {
 	// model for it.
 	Transcript       string            `json:"transcript,omitempty"`
 	TranscriptModels map[string]string `json:"transcriptModels,omitempty"`
+	// TranscriptWords are the church's names and words that start whisper's prompt (normalizer.Transcription).
+	TranscriptWords string `json:"transcriptWords,omitempty"`
 }
 
 // TenantInfo is a church as listed in the UI.
@@ -275,7 +277,7 @@ func writeChurch(dir string, cc churchConfig) error {
 // start brings up the Server of one church and adds it to the list.
 func (a *App) start(id, dir string, cc churchConfig) (*tenant, error) {
 	cfg := a.cfg.Base
-	cfg.limits, cfg.transcriber = a.limits, a.transcriber
+	cfg.limits, cfg.transcriber, cfg.church = a.limits, a.transcriber, id
 	t := &tenant{id: id, dir: dir, cfg: cc}
 	if dir != "" {
 		cfg.Root, cfg.Inbox = filepath.Join(dir, tenantRoot), filepath.Join(dir, tenantInbox)
@@ -290,9 +292,9 @@ func (a *App) start(id, dir string, cc churchConfig) (*tenant, error) {
 		cfg.SaveProcessing = func(p *processing) error { return a.update(t, func(c *churchConfig) { c.Processing = p }) }
 		cfg.ClipsDir, cfg.Clips = filepath.Join(dir, clipsDir), cc.Clips
 		cfg.SaveClips = func(l clipLibrary) error { return a.update(t, func(c *churchConfig) { c.Clips = &l }) }
-		cfg.Transcript, cfg.TranscriptModels = cc.Transcript, cc.TranscriptModels
-		cfg.SaveTranscript = func(lang string, models map[string]string) error {
-			return a.update(t, func(c *churchConfig) { c.Transcript, c.TranscriptModels = lang, models })
+		cfg.Transcript, cfg.TranscriptModels, cfg.TranscriptWords = cc.Transcript, cc.TranscriptModels, cc.TranscriptWords
+		cfg.SaveTranscript = func(lang string, models map[string]string, words string) error {
+			return a.update(t, func(c *churchConfig) { c.Transcript, c.TranscriptModels, c.TranscriptWords = lang, models, words })
 		}
 	}
 	if dir != "" {
@@ -361,6 +363,9 @@ func (a *App) Close() {
 		if t.srv != nil {
 			t.srv.Close()
 		}
+	}
+	if a.transcriber != nil {
+		a.transcriber.Close()
 	}
 }
 

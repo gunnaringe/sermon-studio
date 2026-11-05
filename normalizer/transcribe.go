@@ -24,9 +24,15 @@ import (
 type Transcription struct {
 	Model    string
 	Language string
-	// Key names what it is made from and with (the sound, the model's version, the language): the parts of
-	// one stopped earlier are used again only for the same key.
+	// Words are names and words whisper should know (a church's: its name, its pastors, places), at the start of
+	// every part's prompt.
+	Words string
+	// Key names what it is made from and with (the sound, the model's version, the language, the words): the
+	// parts of one stopped earlier are used again only for the same key.
 	Key string
+	// Check, when set, is asked before each part whether it can go on: an error stops Transcribe with it (the
+	// sound it is made from changed).
+	Check func() error
 }
 
 // Segment is a piece of a transcript: what is said from Start to End.
@@ -100,9 +106,14 @@ func (w Whisper) Transcribe(ctx context.Context, f FFmpeg, in, parts string, t T
 		start, end := bounds[i], bounds[i+1]
 		srt := filepath.Join(parts, fmt.Sprintf("%03d.srt", i))
 		if _, err := os.Stat(srt); err != nil {
+			if t.Check != nil {
+				if err := t.Check(); err != nil {
+					return nil, err
+				}
+			}
 			report := func(done float64) { progress((start + done*(end-start)) / plan.Length) }
 			report(0)
-			if err := w.transcribePart(ctx, f, in, srt, start, end-start, t, vad, prompt, report); err != nil {
+			if err := w.transcribePart(ctx, f, in, srt, start, end-start, t, vad, partPrompt(t.Words, prompt), report); err != nil {
 				return nil, err
 			}
 		}
@@ -121,7 +132,7 @@ func (w Whisper) Transcribe(ctx context.Context, f FFmpeg, in, parts string, t T
 			all = append(all, sg)
 			texts = append(texts, sg.Text)
 		}
-		prompt = lastWords(strings.Join(texts, " "), 40)
+		prompt = lastWords(strings.Join(texts, " "), promptWords)
 		progress(end / plan.Length)
 	}
 	return all, nil
@@ -240,6 +251,18 @@ func (w Whisper) transcribePart(ctx context.Context, f FFmpeg, in, srt string, s
 		return os.WriteFile(srt, nil, 0o644) // nothing was said
 	}
 	return Rename(out+".srt", srt)
+}
+
+// promptWords is how many of the last words of a part go on to the next one's prompt. whisper reads about 220
+// tokens of prompt and keeps its end; with a church's words (at most MaxWords characters) before them, both fit.
+const promptWords = 30
+
+// MaxWords is how long a church's words may be (Transcription.Words), in characters.
+const MaxWords = 300
+
+// partPrompt is a part's prompt: the church's words, then the last words of the part before.
+func partPrompt(words, before string) string {
+	return strings.TrimSpace(strings.TrimSpace(words) + " " + before)
 }
 
 // lastWords is the last n words of s.
