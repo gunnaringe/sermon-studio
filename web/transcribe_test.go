@@ -329,7 +329,8 @@ func TestTranscriptQueue(t *testing.T) {
 			t.Fatalf("not added: %+v", j)
 		}
 	}
-	if tr.add(transcriptJob{Church: "a", Folder: "2026/2026-10-02", At: base}) {
+	tr.add(transcriptJob{Church: "a", Folder: "2026/2026-10-02", At: base}) // asked again: keeps its place
+	if len(tr.queue) != 3 {
 		t.Error("added twice")
 	}
 	ahead := func(tr *transcriber, church, folder string) int {
@@ -521,4 +522,39 @@ func idle(t *testing.T, ts *testServer) {
 		}
 	}
 	tr.unregister("", ts.Server)
+}
+
+// A recording being renamed holds the queue: its job goes first when it is done, not the next one. One waiting
+// asked for again keeps its place, in the language asked for now.
+func TestTranscriptQueueHeld(t *testing.T) {
+	ts, _ := newTranscriptServer(t, nbMedium)
+	tr := ts.cfg.transcriber
+	idle(t, ts)
+	tr.add(transcriptJob{Folder: "2026/2026-10-01", Language: "nb", At: time.Now().Add(-time.Minute)})
+	tr.add(transcriptJob{Folder: "2026/2026-10-02", Language: "nb", At: time.Now()})
+	tr.mu.Lock()
+	tr.churches[""] = ts.Server // in again, by hand: next is called by the test, not the worker
+	tr.mu.Unlock()
+	done := tr.moving("", "2026/2026-10-01", "2026/2026-10-08")
+	if j, _ := tr.next(); j != nil {
+		t.Fatalf("started while the first is held: %s", j.Folder)
+	}
+	done(true)
+	j, _ := tr.next()
+	if j == nil || j.Folder != "2026/2026-10-08" {
+		t.Fatalf("after the rename: %+v", j)
+	}
+	tr.mu.Lock()
+	delete(tr.churches, "")
+	tr.mu.Unlock()
+	if tr.add(transcriptJob{Folder: "2026/2026-10-08", Language: "nn", At: time.Now()}) {
+		t.Error("another language for the one being made")
+	}
+	if !tr.add(transcriptJob{Folder: "2026/2026-10-02", Language: "nn", Words: "Ås", At: time.Now()}) {
+		t.Error("asked again")
+	}
+	if st, _ := tr.status("", "2026/2026-10-02"); st.Language != "nn" || st.Ahead != 1 {
+		t.Errorf("asked again: %+v", st)
+	}
+	tr.finish(j, ts.Server, nil)
 }

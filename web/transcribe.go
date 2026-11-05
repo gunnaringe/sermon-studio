@@ -307,8 +307,10 @@ func (s *Server) startTranscript(folder, lang, key string) error {
 		return err
 	}
 	s.setTranscriptFailed(folder, "", nil)
-	s.cfg.transcriber.add(transcriptJob{Church: s.cfg.church, Folder: s.relPath(folder), Language: lang, Model: key,
-		Words: s.transcriptWords(), At: time.Now().UTC()})
+	if !s.cfg.transcriber.add(transcriptJob{Church: s.cfg.church, Folder: s.relPath(folder), Language: lang, Model: key,
+		Words: s.transcriptWords(), At: time.Now().UTC()}) {
+		return errBusy // one in another language or with another model is being made
+	}
 	return nil
 }
 

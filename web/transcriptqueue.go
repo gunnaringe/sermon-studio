@@ -162,12 +162,19 @@ func (tr *transcriber) poke() {
 	}
 }
 
-// add queues a transcript, unless the recording has one waiting or being made; it tells whether it did.
+// add queues a transcript. One the recording has waiting is asked for again: it keeps its place, in the
+// language, with the model and words asked for now. One being made stays as it is: add tells whether it is
+// the transcript asked for (false: another language or model).
 func (tr *transcriber) add(j transcriptJob) bool {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
-	if tr.find(j.Church, j.Folder) != nil {
-		return false
+	if q := tr.find(j.Church, j.Folder); q != nil {
+		if q == tr.running {
+			return q.Language == j.Language && q.Model == j.Model
+		}
+		q.Language, q.Model, q.Words, q.Attempts = j.Language, j.Model, j.Words, 0
+		tr.save()
+		return true
 	}
 	if j.ID == "" {
 		b := make([]byte, 8)
@@ -320,7 +327,10 @@ func (tr *transcriber) next() (*transcriptJob, *Server) {
 		return nil, nil
 	}
 	for _, j := range tr.queue {
-		if s := tr.churches[j.Church]; s != nil && s.ctx.Err() == nil && !j.held {
+		if s := tr.churches[j.Church]; s != nil && s.ctx.Err() == nil {
+			if j.held { // being renamed: it goes first when it is done (moving pokes)
+				return nil, nil
+			}
 			ctx, cancel := context.WithCancel(tr.ctx)
 			stopWith := context.AfterFunc(s.ctx, cancel) // the church stops
 			j.cancel = func() { stopWith(); cancel() }
@@ -385,7 +395,7 @@ func (tr *transcriber) finish(j *transcriptJob, s *Server, err error) {
 		s.cfg.Logger.Printf("transcript of %s: %v", s.display(folder), err)
 	}
 	if s.ctx.Err() == nil {
-		s.background(func() {}) // the church's storage is measured again
+		s.storageChanged() // the church's storage is measured again
 	}
 }
 
