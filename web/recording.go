@@ -48,6 +48,9 @@ type folderState struct {
 	// OriginalDeleted is when the original recording was deleted to free the space (handleDeleteOriginal):
 	// the files made are kept, but the sermon cannot be edited or made again.
 	OriginalDeleted *time.Time `json:"originalDeleted,omitempty"`
+	// TranscriptOrder is a transcript asked for and not made yet: kept until it is made, stopped or fails, so
+	// one waiting or being made when the studio stops is made when it starts again (resumeTranscripts).
+	TranscriptOrder *transcriptOrder `json:"transcriptOrder,omitempty"`
 }
 
 // recStamp tells whether a file is still the one that was looked at.

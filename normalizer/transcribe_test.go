@@ -2,6 +2,8 @@ package normalizer
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -96,8 +98,34 @@ func TestBackgroundNice(t *testing.T) {
 	}
 }
 
-// Transcribe gives whisper-cli the sound as 16 kHz mono WAV, at the lowest priority, passes its progress on and
-// puts its SubRip at dst; the WAV and whisper-cli's own file are gone afterwards.
+// fakeWhisper writes a whisper-cli that notes its arguments (one per line, after "call <-of>"), its priority
+// and keeps the WAV it got (seen-<part>.wav); it says how far it is and writes one cue, "Del <part>.", 0-1.5 s. It
+// fails for a part while dir/fail-<part> is there.
+func fakeWhisper(t *testing.T, dir string) string {
+	t.Helper()
+	notes := filepath.Join(dir, "notes")
+	bin := filepath.Join(dir, "whisper-cli")
+	script := `#!/bin/sh
+out= wav=
+for a in "$@"; do prev=$cur; cur=$a; [ "$prev" = -of ] && out=$a; [ "$prev" = -f ] && wav=$a; done
+part=$(basename "$out" .whisper)
+echo "call $part" >>` + notes + `
+for a in "$@"; do echo "arg $a" >>` + notes + `; done
+if [ -r /proc/$$/stat ]; then echo "nice $(cut -d' ' -f19 /proc/$$/stat)" >>` + notes + `; fi
+cp "$wav" ` + dir + `/seen-$part.wav
+[ -e ` + dir + `/fail-$part ] && { echo "error: no" >&2; exit 1; }
+echo "whisper_print_progress_callback: progress =  50%" >&2
+echo "whisper_print_progress_callback: progress = 100%" >&2
+printf '1\n00:00:00,000 --> 00:00:01,500\nDel %s.\n\n' "$part" >"$out.srt"
+`
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return bin
+}
+
+// Transcribe gives whisper-cli the sound as 16 kHz mono WAV, at the lowest priority, with the model, the
+// language and the VAD, and passes its progress on; what is left is the parts folder (the caller's to remove).
 func TestTranscribeWhisperCLI(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the fake whisper-cli is a shell script")
@@ -108,52 +136,108 @@ func TestTranscribeWhisperCLI(t *testing.T) {
 	if _, err := ff.Run(context.Background(), "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-ac", "2", "-ar", "44100", in); err != nil {
 		t.Fatal(err)
 	}
-	// A whisper-cli that notes its arguments, priority and the WAV's format, says how far it is and writes a transcript.
-	notes := filepath.Join(dir, "notes")
-	bin := filepath.Join(dir, "whisper-cli")
-	script := `#!/bin/sh
-out= wav=
-while [ $# -gt 0 ]; do
-	case $1 in -of) out=$2; shift ;; -f) wav=$2; shift ;; esac
-	echo "arg $1" >>` + notes + `
-	shift
-done
-if [ -r /proc/$$/stat ]; then echo "nice $(cut -d' ' -f19 /proc/$$/stat)" >>` + notes + `; fi
-cp "$wav" ` + filepath.Join(dir, "seen") + `
-echo "whisper_print_progress_callback: progress =  50%" >&2
-echo "whisper_print_progress_callback: progress = 100%" >&2
-printf '1\n00:00:00,000 --> 00:00:01,500\nI de dager\n\n' >"$out.srt"
-`
-	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	bin := fakeWhisper(t, dir)
 	var progress []float64
-	dst := filepath.Join(dir, ".2026-11-01.transcript.srt")
-	err := Whisper{Bin: bin}.Transcribe(context.Background(), ff, in, dst, Transcription{Model: "/m/nb.bin", Language: "no"},
+	parts := filepath.Join(dir, ".parts")
+	segs, err := Whisper{Bin: bin}.Transcribe(context.Background(), ff, in, parts, Transcription{Model: "/m/nb.bin", Language: "no", Key: "k"},
 		func(done float64) { progress = append(progress, done) })
 	if err != nil {
 		t.Fatal(err)
 	}
-	if segs, err := ReadSRT(must(os.ReadFile(dst))); err != nil || len(segs) != 1 || segs[0].Text != "I de dager" {
-		t.Errorf("transcript: %+v %v", segs, err)
+	if len(segs) != 1 || segs[0].Text != "Del 000." || segs[0].End != 1500*time.Millisecond {
+		t.Errorf("transcript: %+v", segs)
 	}
-	if len(progress) != 2 || progress[0] != 0.5 || progress[1] != 1 {
+	if strings.Trim(fmt.Sprint(progress), "[]") != "0 0.5 1 1" {
 		t.Errorf("progress: %v", progress)
 	}
-	n := string(must(os.ReadFile(notes)))
-	for _, want := range []string{"arg -m\narg /m/nb.bin", "arg -l\narg no", "arg --vad", "arg -osrt"} {
+	n := string(must(os.ReadFile(filepath.Join(dir, "notes"))))
+	for _, want := range []string{"arg -m\narg /m/nb.bin", "arg -l\narg no", "arg --vad", "arg -osrt", "arg -bs\narg 1"} {
 		if !strings.Contains(n, want) {
 			t.Errorf("whisper-cli got no %q:\n%s", want, n)
 		}
 	}
-	if p, err := ff.ProbeFile(context.Background(), filepath.Join(dir, "seen")); err != nil || p.SampleRate != 16000 || p.Channels != 1 {
+	if strings.Contains(n, "--prompt") {
+		t.Errorf("a prompt for the first part:\n%s", n)
+	}
+	if p, err := ff.ProbeFile(context.Background(), filepath.Join(dir, "seen-000.wav")); err != nil || p.SampleRate != 16000 || p.Channels != 1 {
 		t.Errorf("the sound whisper-cli got: %+v %v", p, err)
 	}
 	if _, err := exec.LookPath("nice"); err == nil && runtime.GOOS == "linux" && !strings.Contains(n, "nice 19") {
 		t.Errorf("not at nice 19:\n%s", n)
 	}
-	if left := listFiles(t, dir); strings.Join(left, " ") != ".2026-11-01.transcript.srt notes seen sermon.flac whisper-cli" {
-		t.Errorf("left behind: %v", left)
+	if left := listFiles(t, parts); strings.Join(left, " ") != "000.srt plan.json" {
+		t.Errorf("in the parts folder: %v", left)
+	}
+}
+
+// A long sermon goes in parts cut at pauses, each with the end of the one before as the prompt; one stopped
+// goes on from the first part not done, and parts made for another key are made again.
+func TestTranscribeParts(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake whisper-cli is a shell script")
+	}
+	ff := requireFFmpeg(t)
+	defer func(s, w float64) { partSeconds, partWindow = s, w }(partSeconds, partWindow)
+	partSeconds, partWindow = 3, 1
+	dir := t.TempDir()
+	in := filepath.Join(dir, "sermon.flac")
+	// 2 s of sound, 1 s of silence, ten seconds: pauses at 2-3, 5-6 and 8-9, so four parts.
+	if _, err := ff.Run(context.Background(), "-f", "lavfi", "-i", "aevalsrc='if(lt(mod(t,3),2),0.5*sin(2*PI*440*t),0)':d=10:s=44100", in); err != nil {
+		t.Fatal(err)
+	}
+	bin := fakeWhisper(t, dir)
+	parts := filepath.Join(dir, ".parts")
+	tr := Transcription{Model: "m", Language: "no", Key: "one"}
+	os.WriteFile(filepath.Join(dir, "fail-001"), nil, 0o644)
+	if _, err := (Whisper{Bin: bin}).Transcribe(context.Background(), ff, in, parts, tr, nil); err == nil {
+		t.Fatal("no error from the failing part")
+	}
+	os.Remove(filepath.Join(dir, "fail-001"))
+	segs, err := Whisper{Bin: bin}.Transcribe(context.Background(), ff, in, parts, tr, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan partsPlan
+	json.Unmarshal(must(os.ReadFile(filepath.Join(parts, "plan.json"))), &plan)
+	if len(plan.Starts) != 3 || !near(plan.Starts[0], 2.5, 0.2) || !near(plan.Starts[1], 5.5, 0.2) || !near(plan.Starts[2], 8.5, 0.2) ||
+		!near(plan.Length, 10, 0.1) {
+		t.Fatalf("plan: %+v", plan)
+	}
+	if len(segs) != 4 || segs[0].Text != "Del 000." || segs[3].Text != "Del 003." || !near(segs[1].Start.Seconds(), plan.Starts[0], 0.01) {
+		t.Errorf("transcript: %+v", segs)
+	}
+	if d, err := ff.Duration(context.Background(), filepath.Join(dir, "seen-003.wav")); err != nil || !near(d, 10-plan.Starts[2], 0.1) {
+		t.Errorf("the last part is %v s (%v)", d, err)
+	}
+	n := string(must(os.ReadFile(filepath.Join(dir, "notes"))))
+	if strings.Count(n, "call 000") != 1 || strings.Count(n, "call 001") != 2 || strings.Count(n, "call 003") != 1 {
+		t.Errorf("the parts made:\n%s", n)
+	}
+	if !strings.Contains(n, "arg --prompt\narg Del 000.") || !strings.Contains(n, "arg --prompt\narg Del 001.") {
+		t.Errorf("no prompt from the part before:\n%s", n)
+	}
+	// Another key: all of it again.
+	tr.Key = "two"
+	if _, err := (Whisper{Bin: bin}).Transcribe(context.Background(), ff, in, parts, tr, nil); err != nil {
+		t.Fatal(err)
+	}
+	if n := string(must(os.ReadFile(filepath.Join(dir, "notes")))); strings.Count(n, "call 000") != 2 {
+		t.Errorf("parts of another key used:\n%s", n)
+	}
+}
+
+// Cuts go at the pause nearest each mark within the window, else at the mark; the last part is not tiny.
+func TestPartStarts(t *testing.T) {
+	pauses := []Span{{590, 592}, {650, 651}, {1150, 1152}}
+	got := partStarts(1800, pauses)
+	if fmt.Sprint(got) != "[591 1151]" {
+		t.Errorf("starts: %v", got)
+	}
+	if got := partStarts(700, pauses); len(got) != 0 {
+		t.Errorf("a short sermon: %v", got)
+	}
+	if got := partStarts(1500, nil); fmt.Sprint(got) != "[600 1200]" {
+		t.Errorf("no pauses: %v", got)
 	}
 }
 
@@ -165,11 +249,12 @@ func TestTranscribeNoWhisperCLI(t *testing.T) {
 	if _, err := ff.Run(context.Background(), "-f", "lavfi", "-i", "sine=duration=1", "-ac", "2", "-ar", "48000", in); err != nil {
 		t.Fatal(err)
 	}
-	err := Whisper{Bin: filepath.Join(dir, "no-whisper-cli")}.Transcribe(context.Background(), ff, in, filepath.Join(dir, "t.srt"), Transcription{}, nil)
+	parts := filepath.Join(dir, "parts")
+	_, err := Whisper{Bin: filepath.Join(dir, "no-whisper-cli")}.Transcribe(context.Background(), ff, in, parts, Transcription{Key: "k"}, nil)
 	if err == nil {
 		t.Fatal("no error without whisper-cli")
 	}
-	if left := listFiles(t, dir); strings.Join(left, " ") != "in.flac" {
+	if left := listFiles(t, dir); strings.Join(left, " ") != "in.flac parts/plan.json" {
 		t.Errorf("left behind: %v", left)
 	}
 }

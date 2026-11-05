@@ -46,14 +46,29 @@ starts at once, and transcripts are offered once the first model is there.
   volumeMounts: [{name: data, mountPath: /data}]
 ```
 
-**Speed.** One transcript is made at a time, on all the cores the studio may use, after the files. It shares them
-with runs, at the lowest priority (`nice 19`): a run, or a page, while a transcript is being made goes first, and the
-transcript waits. In a container this only ranks the container's own work; against other containers, give the studio's
-a CPU limit if transcripts take too much of the machine (whisper then uses as many threads as the limit allows). ffmpeg decodes the sermon to a 16 kHz mono WAV file next to it
-(about 115 MB an hour) for whisper-cli, which is removed afterwards. Alpine's whisper.cpp loads the CPU code for the
+**Speed.** One transcript is made at a time, on all the cores the studio may use, after the files, in the order
+they were asked for (across all churches). It shares the cores with runs, at the lowest priority (`nice 19`): a run, or
+a page, while a transcript is being made goes first, and the transcript waits. In a container this only ranks the
+container's own work; against other containers, give the studio's a CPU limit if transcripts take too much of the
+machine (whisper then uses as many threads as the limit allows). Alpine's whisper.cpp loads the CPU code for the
 processor it runs on (AVX2 and FMA on one from 2013 or later), so it runs on any x86-64 or arm64, faster on a newer one.
-On the studio's server (3 shared cores of an AMD EPYC from 2017), a medium model takes about five times as long as the
-sermon, and the small one roughly a third of that. Pick the model by what the server can keep up with.
+
+On the studio's server (3 shared cores of an AMD EPYC from 2017), measured on a sermon:
+
+| Model | Time, as many times the sermon | |
+|---|---|---|
+| NB-Whisper large | 7.5 | the clearest text: the default for Bokmål and Nynorsk there |
+| NB-Whisper medium | 5 | sentences missing and garbled in places |
+| NB-Whisper small | about 1.5 (from medium; not measured) | |
+
+So a sermon of 40 minutes takes about 5 hours with large: it is there the next morning. Beam search (five candidates
+instead of one) took 75 % longer with large for the same text, so whisper takes one (greedy).
+
+**In parts, kept across restarts.** The sermon is transcribed in parts of about ten minutes, cut at a pause, each saved
+as it is done (in a hidden `.<date>.transcript.parts` folder next to it, removed when the transcript is there); each part
+starts with the last words of the one before as whisper's prompt. A transcript asked for is kept in the recording's
+`recording.json` until it is made, stopped or fails: when the studio stops (an update, a restart of the server), the
+ones waiting are queued again when it starts, in their order, and the one being made goes on from its last part done.
 
 ## When it is made
 

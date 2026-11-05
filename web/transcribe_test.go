@@ -1,10 +1,13 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -304,5 +307,108 @@ func TestTranscriptSource(t *testing.T) {
 	}
 	if whisperLanguage("nb") != "no" || whisperLanguage("nn") != "nn" || whisperLanguage("*") != "auto" {
 		t.Error("whisperLanguage")
+	}
+}
+
+// Transcripts take their turn in the order they were asked for, whatever order they start waiting in; one that
+// stops waiting leaves the queue.
+func TestTranscriberTurnOrder(t *testing.T) {
+	tr := &transcriber{}
+	ctx := context.Background()
+	end, err := tr.turn(ctx, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Date(2026, 11, 5, 0, 0, 0, 0, time.UTC)
+	var mu sync.Mutex
+	var got []int
+	var wg sync.WaitGroup
+	gone, stop := context.WithCancel(ctx)
+	waiting := func(n int) bool {
+		tr.mu.Lock()
+		defer tr.mu.Unlock()
+		return len(tr.waiting) == n
+	}
+	for i, at := range []int{3, 1, 4, 2} {
+		wg.Add(1)
+		c := ctx
+		if at == 4 {
+			c = gone // stops waiting
+		}
+		go func() {
+			defer wg.Done()
+			done, err := tr.turn(c, base.Add(time.Duration(at)*time.Minute))
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			got = append(got, at)
+			mu.Unlock()
+			done()
+		}()
+		for !waiting(i + 1) {
+			time.Sleep(time.Millisecond)
+		}
+	}
+	stop()
+	for !waiting(3) {
+		time.Sleep(time.Millisecond)
+	}
+	end()
+	wg.Wait()
+	if fmt.Sprint(got) != "[1 2 3]" {
+		t.Errorf("turns: %v", got)
+	}
+	if tr.busy || len(tr.waiting) != 0 {
+		t.Errorf("after all: busy %v, waiting %d", tr.busy, len(tr.waiting))
+	}
+}
+
+// A transcript asked for is kept in recording.json while it waits: when the studio stops, the order stays, and
+// when it starts again the order is queued; one that cannot be made then fails, and its order is gone.
+func TestTranscriptOrderKept(t *testing.T) {
+	ts, _ := newTranscriptServer(t, nbMedium)
+	folder := filepath.Dir(ts.file(t, "2026/2026-10-18/recording.json", "{}"))
+	tr := ts.cfg.transcriber
+	end, err := tr.turn(context.Background(), time.Now()) // another church's transcript is being made
+	if err != nil {
+		t.Fatal(err)
+	}
+	order := transcriptOrder{Language: "nb", At: time.Date(2026, 11, 5, 21, 0, 0, 0, time.UTC)}
+	ts.queueTranscript(folder, order)
+	ts.Close() // the studio stops while it waits
+	end()
+	if got := readState(folder).TranscriptOrder; got == nil || !got.At.Equal(order.At) {
+		t.Fatalf("after a stop: %+v", got)
+	}
+	// It starts again: the order is queued, and fails (no files to make it from).
+	s, err := New(ts.cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	deadline := time.Now().Add(5 * time.Second)
+	for readState(folder).TranscriptOrder != nil && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	s.transcriptMu.Lock()
+	w := s.transcripts[folder]
+	s.transcriptMu.Unlock()
+	if w == nil || w.State != "failed" || w.Error != errNoSource.Error() {
+		t.Errorf("after the restart: %+v", w)
+	}
+	if readState(folder).TranscriptOrder != nil {
+		t.Error("the order of a failed transcript is kept")
+	}
+}
+
+// The time left of a transcript that went on after a restart counts from where it began this time.
+func TestRemainingFrom(t *testing.T) {
+	since := time.Now().Add(-100 * time.Second)
+	if got := remainingFrom(since, 0.5, 0.75); got != 100 {
+		t.Errorf("remaining: %v", got)
+	}
+	if remainingFrom(since, -1, 0.75) != 0 || remainingFrom(since, 0.5, 0.51) != 0 {
+		t.Error("known too soon")
 	}
 }

@@ -19,10 +19,10 @@ ARG VERSION=dev
 ARG TARGETOS TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /sermon-studio ./cmd/sermon-studio
 
-FROM alpine:3.24
+FROM alpine:3.24 AS image
 # Alpine's ffmpeg, and whisper.cpp's whisper-cli for transcripts: its CPU code comes in a variant per processor
 # generation, and it loads the best one there (haswell, with AVX2 and FMA, on a processor from 2013 or later).
-# Not pinned: a rebuild (image.yml runs one every week) brings Alpine's fixes.
+# Not pinned: every build of main installs them afresh (image.yml), with Alpine's fixes.
 RUN apk add --no-cache ffmpeg whisper.cpp
 # The encoders the studio uses are there, and whisper-cli runs (on arm64, this runs emulated in CI).
 RUN ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "libopus|libmp3lame" | wc -l | grep -qx 2 && whisper-cli -h >/dev/null 2>&1

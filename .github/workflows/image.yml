@@ -1,8 +1,9 @@
 # Builds the image (go vet + all tests with ffmpeg run inside the build) and
 # publishes it. Every main build gets a sortable main-<YYYYMMDDHHmmss UTC>-<sha>
 # tag and the moving tag main, which the server's podman auto-update follows
-# (deploy/, docs/hosting.md). Once a week it is built again without a change,
-# so Alpine's fixes (ffmpeg, whisper.cpp and the rest) reach the server.
+# (deploy/, docs/hosting.md). The final stage is never taken from the cache, so
+# every build installs Alpine's packages afresh, with their fixes (ffmpeg,
+# whisper.cpp ...); Run workflow builds main again, for a fix without a change here.
 name: Image
 
 on:
@@ -13,8 +14,6 @@ on:
   pull_request:
     branches: [main]
     paths-ignore: ['site/**']
-  schedule:
-    - cron: '17 2 * * 1' # Mondays 02:17 UTC
   workflow_dispatch:
 
 permissions:
@@ -58,7 +57,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: VERSION=${{ github.sha }}
-          # the weekly build without the cache: a cached apk add would keep last week's packages
-          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          # a cached apk add would keep the packages of the first build
+          no-cache-filters: image
           cache-from: type=gha
           cache-to: type=gha,mode=max
