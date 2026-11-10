@@ -449,6 +449,28 @@ test('a recording not cut yet starts with the sermon set to all of it but the si
 const pill = (page, label) => page.locator(`.pill[data-format=${label.toLowerCase()}]`);
 const pick = (page, label) => pill(page, label).locator('button.pick');
 
+test('the steps seldom changed are folded: the heading opens one, a line says what is set', async ({ page }) => {
+  await openEditor(page, '2026/2026-10-04');
+  await page.evaluate(() => localStorage.removeItem('editorOpen')); // as a browser that has not opened any
+  await page.reload();
+  const step = (id) => page.locator(`section[aria-labelledby=step-${id}]`);
+  await expect(step('processing').locator('.fold-summary')).toContainText(/^(Mono|Stereo) · /, { timeout: 60_000 });
+  await expect(step('processing').getByRole('button', { name: 'Hear a sample' })).toBeHidden();
+  await expect(step('metadata').locator('input[name=title]')).toBeHidden();
+  await expect(step('delete').getByRole('button', { name: 'Delete recording…' })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Output' })).toBeVisible();
+  await page.screenshot({ path: path.join(shots, 'editor-folded.png'), fullPage: true });
+  // Open one: it stays open after a reload; the summary is gone while it is open.
+  await step('metadata').getByRole('button', { name: 'Metadata added to the file' }).click();
+  await expect(step('metadata').locator('input[name=title]')).toBeVisible();
+  await expect(step('metadata').locator('.fold-summary')).toBeHidden();
+  await page.reload();
+  await expect(step('metadata').locator('input[name=title]')).toBeVisible({ timeout: 60_000 });
+  await expect(step('processing').getByRole('button', { name: 'Hear a sample' })).toBeHidden();
+  await step('metadata').getByRole('button', { name: 'Metadata added to the file' }).click();
+  await expect(step('metadata').locator('input[name=title]')).toBeHidden();
+});
+
 test('the page: Input file, Edit, Metadata, Processing, Intro and outro, Output, Delete', async ({ page }) => {
   await openEditor(page, '2026/2026-10-04');
   await expect(page.locator('section.step > h2')).toHaveText(['Input file', 'Edit', 'Metadata added to the file', 'Processing', 'Intro and outro', 'Output', 'Delete']);

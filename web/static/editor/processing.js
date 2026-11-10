@@ -203,5 +203,5 @@ export function processingPart(ed) {
     channelWarning.hidden = !warn;
   }
 
-  return { metadataEl: metadataPanel(), processingEl, channelWarning, redrawProcessing, showDefaults, setStereo, showChannelWarning };
+  return { metadataEl: metadataPanel(), processingEl, channelWarning, defaultsNote, redrawProcessing, showDefaults, setStereo, showChannelWarning };
 }

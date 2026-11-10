@@ -93,18 +93,62 @@ export async function editorView(view, slug, config) {
   history.revertButton.classList.add('revert');
   const saveBar = h('div', { class: 'save-bar' }, history.saveState, output.saveWhat,
     h('div', { class: 'save-actions' }, history.undoButton, history.redoButton, history.revertButton, saveMore, output.saveButton));
+  // The steps set once and seldom changed are folded: the heading opens one, and a line under it says what is set.
+  // Which are open is kept in this browser (localStorage editorOpen), as Settings keeps its groups.
+  const opened = new Set(JSON.parse(localStorage.getItem('editorOpen') || 'null') ?? []);
+  function foldable(section, summarize, mustShow = () => false) {
+    const head = section.querySelector('h2');
+    const summary = h('p', { class: 'muted fold-summary' });
+    const toggle = h('button', { type: 'button', class: 'fold-toggle', onclick: () => {
+      if (opened.has(head.id)) opened.delete(head.id); else opened.add(head.id);
+      localStorage.setItem('editorOpen', JSON.stringify([...opened]));
+      draw();
+    } }, ...head.childNodes);
+    head.replaceChildren(toggle);
+    head.after(summary);
+    section.classList.add('fold');
+    let drawing = false;
+    function draw() {
+      if (drawing) return;
+      drawing = true;
+      const open = opened.has(head.id) || mustShow(); // a warning inside is never folded away
+      section.classList.toggle('folded', !open);
+      toggle.setAttribute('aria-expanded', String(open));
+      const text = open ? '' : summarize();
+      if (summary.textContent !== text) summary.textContent = text;
+      queueMicrotask(() => { drawing = false; });
+    }
+    // What is set changes by typing, by undo and by what the server answers: follow the step itself.
+    section.addEventListener('input', draw);
+    section.addEventListener('change', draw);
+    const watch = new MutationObserver(draw);
+    watch.observe(section, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'aria-pressed'] });
+    cleanups.push(() => watch.disconnect());
+    draw();
+    return section;
+  }
+  const step = (id, title, ...body) => h('section', { class: 'step', 'aria-labelledby': id }, h('h2', { id }, title), ...body);
+  const metadataStep = foldable(step('step-metadata', t('Metadata added to the file'), processing.metadataEl),
+    () => ['title', 'artist', 'album'].map((k) => tags[k]).filter(Boolean).join(' · ') || t('No tags'));
+  const processingStep = foldable(step('step-processing', t('Processing'), processing.processingEl),
+    () => [opts.stereo ? t('Stereo') : t('Mono'), processing.defaultsNote.textContent].filter(Boolean).join(' · '),
+    () => !processing.channelWarning.hidden);
+  foldable(clips.clipsSection, () => [...clips.clipsSection.querySelectorAll('select')]
+    .map((sel) => sel.getAttribute('aria-label') + ': ' + (sel.selectedOptions[0]?.textContent || '')).join(' · '));
+  const deleteStep = can('recording.delete') ? foldable(step('step-delete', t('Delete'), inputFile.deletePanel), () => '') : '';
+
   view.replaceChildren(
     h('div', { class: 'crumbs' }, h('a', { href: href('recordings', own) }, t('← Recordings'))),
     h('h1', {}, info.date, ' ', renameButton),
     renamePanel,
     h('section', { class: 'step', 'aria-labelledby': 'step-input' }, h('h2', { id: 'step-input' }, t('Input file')), inputFile.inputPanel),
     h('section', { class: 'step', 'aria-labelledby': 'step-edit' }, h('h2', { id: 'step-edit' }, t('Edit')), waveform.waveSection),
-    h('section', { class: 'step', 'aria-labelledby': 'step-metadata' }, h('h2', { id: 'step-metadata' }, t('Metadata added to the file')), processing.metadataEl),
-    h('section', { class: 'step', 'aria-labelledby': 'step-processing' }, h('h2', { id: 'step-processing' }, t('Processing')), processing.processingEl),
+    metadataStep,
+    processingStep,
     clips.clipsSection,
     output.outputEl,
     transcript.transcriptEl,
-    can('recording.delete') ? h('section', { class: 'step', 'aria-labelledby': 'step-delete' }, h('h2', { id: 'step-delete' }, t('Delete')), inputFile.deletePanel) : '',
+    deleteStep,
     saveBar,
   );
 
@@ -117,7 +161,7 @@ export async function editorView(view, slug, config) {
   // Without the original there is nothing left to edit: the page has what it was made into, and Delete.
   const gone = !info.raw && info.originalDeleted;
   if (gone) {
-    for (const id of ['step-edit', 'step-metadata', 'step-processing', 'step-clips']) view.querySelector('#' + id).parentElement.remove();
+    for (const id of ['step-edit', 'step-metadata', 'step-processing', 'step-clips']) view.querySelector('#' + id).closest('section').remove();
     saveBar.remove();
   }
   ed.renderVersion();
