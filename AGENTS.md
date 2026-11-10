@@ -213,7 +213,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   what the others call — `waveform.js` (playing, zoom, keys), `sections.js` (and the selection), `cuts.js`, `fades.js`, `history.js`
   (keeping the edit, versions, undo), `output.js` (check, Save, the job), `processing.js`, `clips.js`, `info.js` (the input file,
   Delete); `spans.js` is the sermon in time without the page (tested in `web/e2e/tests/spans.spec.js`). A new function one part
-  calls on another goes in `Editor`. `dialog.js` = confirm/alert/prompt in the app's look
+  calls on another goes in `Editor`. The steps seldom changed (Metadata, Processing, Intro and outro, Delete) fold (`foldable` in `editor.js`;
+  which are open is in localStorage `editorOpen`; the Playwright configs start them open). `dialog.js` = confirm/alert/prompt in the app's look
   (never use the browser's `confirm`/`alert`/`prompt`). One player plays at a time: a play event of any `<audio>`/`<video>` pauses the others (`util.js`;
   the editor's waveform, not in the page, is added with `soloPlayer`). `vendor/wavesurfer/` is wavesurfer.js
   8.0.4, unmodified.
