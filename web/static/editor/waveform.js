@@ -65,6 +65,7 @@ export function waveformPart(ed) {
   function buildWaveform(data, previewURL) {
     ed.duration = data.duration;
     silenceEdges = data.silences.flatMap((s) => [s.start, s.end]);
+    const phone = matchMedia('(max-width: 640px)').matches; // less height, so the controls under it are in view
     const minimapEl = h('div', { id: 'minimap' });
     const waveEl = h('div', { id: 'waveform' });
     const zoom = h('input', { type: 'range', min: 0, max: 100, step: 'any', value: 0, 'aria-label': t('Zoom'), oninput: () => applyZoom() });
@@ -76,28 +77,36 @@ export function waveformPart(ed) {
       playMode = e.target.checked ? 'published' : 'recording';
       localStorage.setItem('playMode', playMode);
     } });
+    // A phone shows the first row only (play, the silence edges, the time); More opens the rest.
+    const navigate = h('div', { class: 'group navigate' });
+    const moreButton = h('button', { type: 'button', class: 'narrow-only more', 'aria-expanded': 'false', 'aria-label': t('More'), title: t('More'), onclick: () => {
+      moreButton.setAttribute('aria-expanded', String(navigate.classList.toggle('open')));
+    } }, '⋯');
+    const extra = (el) => { el.classList.add('extra'); return el; };
+    navigate.append(
+      h('strong', {}, t('Navigate')),
+      h('div', { class: 'toolbar' },
+        playButton,
+        extra(h('label', { class: 'check play-skip', title: t('On: Play jumps over the cuts and the parts between the sections, and waits out the pauses, as the sermon will be published. Off: the recording plays as it is.') },
+          skipBox, ' ', t('Skip what is left out'))),
+        h('span', { class: 'sep' }),
+        button(t('◀ silence'), t('Previous silence edge ([)'), () => jump(-1)),
+        button(t('silence ▶'), t('Next silence edge (])'), () => jump(1)),
+        moreButton,
+        h('span', { class: 'sep' }),
+        extra(button(t('Hear start'), t('Play 5 s from the start of the sermon'), hearStart)),
+        extra(button(t('Hear end'), t('Play the last 5 s of the sermon'), hearEnd)),
+        extra(button(t('Hear the whole sermon'), t('Play all the sections as they will be published (p)'), playSelection)),
+        h('span', { class: 'sep' }),
+        extra(h('span', { class: 'zoom' },
+          button('−', t('Zoom out (-)'), () => { zoom.value = Math.max(0, +zoom.value - 10); applyZoom(); }),
+          zoom,
+          button('+', t('Zoom in (+)'), () => { zoom.value = Math.min(100, +zoom.value + 10); applyZoom(); }))),
+        clock));
     waveSection.replaceChildren(
-      minimapEl, waveEl,
+      // On a phone these stay under the header while the sections and cuts scroll (.wave-stick).
+      h('div', { class: 'wave-stick' }, minimapEl, waveEl, navigate),
       h('div', { class: 'controls' },
-        h('div', { class: 'group wide' },
-          h('strong', {}, t('Navigate')),
-          h('div', { class: 'toolbar' },
-            playButton,
-            h('label', { class: 'check play-skip', title: t('On: Play jumps over the cuts and the parts between the sections, and waits out the pauses, as the sermon will be published. Off: the recording plays as it is.') },
-              skipBox, ' ', t('Skip what is left out')),
-            h('span', { class: 'sep' }),
-            button(t('◀ silence'), t('Previous silence edge ([)'), () => jump(-1)),
-            button(t('silence ▶'), t('Next silence edge (])'), () => jump(1)),
-            h('span', { class: 'sep' }),
-            button(t('Hear start'), t('Play 5 s from the start of the sermon'), hearStart),
-            button(t('Hear end'), t('Play the last 5 s of the sermon'), hearEnd),
-            button(t('Hear the whole sermon'), t('Play all the sections as they will be published (p)'), playSelection),
-            h('span', { class: 'sep' }),
-            h('span', { class: 'zoom' },
-              button('−', t('Zoom out (-)'), () => { zoom.value = Math.max(0, +zoom.value - 10); applyZoom(); }),
-              zoom,
-              button('+', t('Zoom in (+)'), () => { zoom.value = Math.min(100, +zoom.value + 10); applyZoom(); })),
-            clock)),
         ed.sectionsGroup(),
         ed.cutsGroup()),
       h('p', { class: 'touch-hint' },
@@ -111,7 +120,7 @@ export function waveformPart(ed) {
     const regions = ed.regions = RegionsPlugin.create();
     const ws = ed.ws = WaveSurfer.create({
       container: waveEl,
-      height: 180,
+      height: phone ? 120 : 180,
       waveColor: css('--wave'),
       progressColor: css('--wave-progress'),
       cursorColor: css('--fg'),
@@ -122,7 +131,7 @@ export function waveformPart(ed) {
       plugins: [
         regions,
         TimelinePlugin.create({ formatTimeCallback: (s) => formatTime(s, 0) }),
-        MinimapPlugin.create({ container: minimapEl, height: 40, waveColor: css('--wave'), progressColor: css('--wave-progress'), overlayColor: 'rgba(128,128,128,0.25)' }),
+        MinimapPlugin.create({ container: minimapEl, height: phone ? 28 : 40, waveColor: css('--wave'), progressColor: css('--wave-progress'), overlayColor: 'rgba(128,128,128,0.25)' }),
         HoverPlugin.create({ formatTimeCallback: (s) => formatTime(s, 1), lineColor: css('--muted'), labelBackground: css('--panel'), labelColor: css('--fg') }),
       ],
     });
