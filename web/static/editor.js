@@ -87,8 +87,12 @@ export async function editorView(view, slug, config) {
 
   // The bar under the page: what the edit is (saved or not), what Save does, Revert and Save. It sticks to
   // the bottom of the window, so Save is at hand wherever the page is scrolled.
+  // A phone shows one line (the state, undo, redo, Save); the button opens the rest (what Save does, Revert).
+  const saveMore = h('button', { type: 'button', class: 'narrow-only more', 'aria-expanded': 'false', 'aria-label': t('More'), title: t('More'),
+    onclick: () => saveMore.setAttribute('aria-expanded', String(saveBar.classList.toggle('open'))) }, '⋯');
+  history.revertButton.classList.add('revert');
   const saveBar = h('div', { class: 'save-bar' }, history.saveState, output.saveWhat,
-    h('div', { class: 'save-actions' }, history.undoButton, history.redoButton, history.revertButton, output.saveButton));
+    h('div', { class: 'save-actions' }, history.undoButton, history.redoButton, history.revertButton, saveMore, output.saveButton));
   view.replaceChildren(
     h('div', { class: 'crumbs' }, h('a', { href: href('recordings', own) }, t('← Recordings'))),
     h('h1', {}, info.date, ' ', renameButton),

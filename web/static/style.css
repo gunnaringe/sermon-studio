@@ -244,6 +244,8 @@ table.list tr.row:hover { background: color-mix(in srgb, var(--accent) 7%, var(-
 .toolbar .zoom { display: inline-flex; align-items: center; gap: 0.4rem; }
 .toolbar .clock { margin-left: auto; font-family: ui-monospace, Menlo, Consolas, monospace; }
 #minimap { margin-bottom: 0.3rem; }
+.wave-stick .group { margin-top: 0.6rem; }
+.narrow-only { display: none; }
 /* A finger drag on the waveform selects; scrolling the page still works up and down. */
 #waveform { border: 1px solid var(--line); border-radius: var(--radius-inner); background: linear-gradient(180deg, var(--panel-2), var(--bg)); touch-action: pan-y; }
 #minimap { touch-action: pan-y; }
@@ -626,13 +628,36 @@ input.pause { width: 4.5em; }
 .save-what p { margin: 0.15rem 0; }
 .save-actions { display: flex; gap: 0.5rem; margin-left: auto; }
 @media (max-width: 640px) {
-  /* a phone: small text above, the buttons on their own row, flush with the bottom of the screen */
-  .save-bar { bottom: 0; gap: 0.15rem 0.6rem; padding: 0.4rem 0.7rem 0.5rem; border-radius: 12px 12px 0 0; font-size: 0.85rem; }
-  .save-what { flex-basis: 100%; font-size: 1em; }
+  /* a phone: one line, flush with the bottom of the screen: the state, undo, redo, Save. The ⋯ button opens the rest. */
+  .narrow-only { display: inline-flex; }
+  .save-bar { bottom: 0; gap: 0.3rem 0.5rem; padding: 0.4rem 0.7rem 0.5rem; border-radius: 12px 12px 0 0; font-size: 0.85rem; }
+  .save-state { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .save-what { flex-basis: 100%; font-size: 1em; display: none; }
+  .save-bar:has(.save-what .error) .save-what, .save-bar.open .save-what { display: block; } /* what stops Save is always shown */
+  .save-bar.open .save-state { flex-basis: 100%; white-space: normal; }
+  .save-bar:not(.open) .revert { display: none; }
   .save-actions { gap: 0.4rem; }
-  .save-actions button { padding: 0.4rem 0.75rem; }
+  .save-actions button { padding: 0.4rem 0.6rem; }
   .save-actions .wide-only { display: none; } /* undo and redo: the arrows only */
 }
+/* A phone held upright: the waveform and its first row of buttons stay under the header while the sections and
+   cuts scroll, so a start or a cut is set with the waveform in view. */
+@media (max-width: 640px) and (min-height: 560px) {
+  .wave-stick { position: sticky; top: var(--header-h, 3.7rem); z-index: 8; margin: 0 -1rem; padding: 0.3rem 1rem 0.4rem;
+    background: var(--bg); border-bottom: 1px solid var(--line); }
+}
+@media (max-width: 640px) {
+  .navigate { position: relative; padding: 0.4rem 0.6rem; }
+  .navigate .toolbar { gap: 0.35rem; margin: 0.3rem 0 0.1rem; }
+  .navigate .toolbar .sep { display: none; }
+  .navigate .toolbar button { padding: 0.5rem 0.65rem; }
+  .navigate .clock { position: absolute; top: 0.35rem; right: 0.6rem; font-size: 0.85rem; }
+  .navigate .more { margin-left: auto; }
+  .more[aria-expanded=true] { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+  .navigate .extra { order: 2; } /* what More opens comes after the first row */
+  .navigate:not(.open) .extra { display: none; }
+}
+@media (max-width: 350px) { .navigate .toolbar button { padding: 0.5rem 0.4rem; font-size: 0.9em; } } /* the first row stays one row */
 
 /* sliders and boxes to tick in the app's colour */
 input[type=range], input[type=checkbox], input[type=radio] { accent-color: var(--accent); }

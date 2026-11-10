@@ -486,6 +486,8 @@ const demoBanner = h('p', { class: 'demo-banner', role: 'note', hidden: true },
   t('This is a demo. Anyone can see your changes, and everything is reset every night.'), ' ',
   h('a', { href: 'https://sermon-studio.app/' }, t('About Sermon Studio')));
 document.querySelector('header').after(demoBanner);
+// What sticks under the header (the editor's waveform on a phone) needs its height.
+new ResizeObserver(([e]) => document.documentElement.style.setProperty('--header-h', e.target.offsetHeight + 'px')).observe(document.querySelector('header'));
 // A church that keeps its whole quota is told to its admins on every page, with where to make room.
 const fullBanner = h('p', { class: 'demo-banner full-banner', role: 'alert', hidden: true },
   t('The church has used all its storage: new recordings and files are refused.'), ' ',

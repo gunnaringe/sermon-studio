@@ -92,7 +92,18 @@ test('phone: the editor by touch', async ({ page }) => {
   await page.evaluate(() => window.__editor.ws.setTime(45));
   await page.getByRole('button', { name: 'End the cut here' }).tap();
   await expect(page.getByLabel('Cut 1 from')).toBeVisible();
+  // The waveform stays under the header while the page scrolls; the zoom is behind More.
+  await page.getByRole('button', { name: 'End the cut here' }).or(page.getByRole('button', { name: 'Cut out here' })).scrollIntoViewIfNeeded();
+  await expect(page.locator('#waveform')).toBeInViewport();
+  await expect(page.getByRole('button', { name: '+', exact: true })).toBeHidden();
+  await page.locator('.navigate').getByRole('button', { name: 'More' }).tap();
   await page.getByRole('button', { name: '+', exact: true }).tap();
+  // The bar is one line; what Save does and Revert are behind its button.
+  await expect(page.locator('.save-what')).toBeHidden();
+  await page.screenshot({ path: path.join(shots, 'phone-editor-pinned.png') });
+  await page.locator('.save-bar').getByRole('button', { name: 'More' }).tap();
+  await expect(page.locator('.save-what')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Revert…' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
   await fits(page, 'editor');
 });
