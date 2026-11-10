@@ -25,11 +25,13 @@ const COPY_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="
   + '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 
-// iconButton is a round button with only an icon; label is its name and its tooltip.
-function iconButton(tag, icon, label, attrs = {}) {
+// iconButton is a round button with only an icon; label is its name and its tooltip. With text, the main
+// actions' form, the text is shown beside the icon (a touch screen has no tooltip to say what an icon does).
+function iconButton(tag, icon, label, attrs = {}, text = '') {
   const el = h(tag, { ...(tag === 'button' ? { type: 'button' } : {}), ...attrs,
-    class: 'icon-button' + (attrs.class ? ' ' + attrs.class : ''), 'aria-label': label, title: label });
+    class: 'icon-button' + (text ? ' labelled' : '') + (attrs.class ? ' ' + attrs.class : ''), 'aria-label': label, title: label });
   el.innerHTML = icon;
+  if (text) el.append(h('span', {}, text));
   return el;
 }
 
@@ -237,7 +239,7 @@ export function sermonDetail(entry, ctx = {}) {
       } }, label);
     draw();
     const menu = h('details', { class: 'menu download-menu', open: menuOpen },
-      Object.assign(h('summary', { class: 'button primary icon-button', 'aria-label': t('Download'), title: t('Download') }), { innerHTML: DOWNLOAD_ICON }),
+      iconButton('summary', DOWNLOAD_ICON, t('Download'), { class: 'button primary' }, t('Download')),
       h('div', { class: 'menu-panel' },
         only ? h('span', { class: 'mode', role: 'group', 'aria-label': t('Version') },
           versionButton('', t('With intro and outro')), versionButton(SERMON_ONLY, t('Sermon only'))) : '',
@@ -328,7 +330,7 @@ export function sermonDetail(entry, ctx = {}) {
   function unprocessed(info) {
     return [
       labelEditor(),
-      h('p', { class: 'actions' }, iconButton('a', EDIT_ICON, t('Open in the editor'), { class: 'button', href: editURL }), copyLink()),
+      h('p', { class: 'actions' }, iconButton('a', EDIT_ICON, t('Open in the editor'), { class: 'button primary', href: editURL }, t('Open in the editor')), copyLink()),
     ];
   }
 
@@ -363,7 +365,7 @@ export function sermonDetail(entry, ctx = {}) {
       h('div', { class: 'player-row' },
         h('audio', { class: 'player', controls: true, preload: 'none', src: fileURL(best), 'aria-label': t('The sermon') }),
         h('span', { class: 'muted player-what' }, t('Plays: {what}', { what: playing }))),
-      h('div', { class: 'actions' }, downloadMenu(info, saved, status), iconButton('a', EDIT_ICON, t('Edit sermon'), { class: 'button', href: editURL }),
+      h('div', { class: 'actions' }, downloadMenu(info, saved, status), iconButton('a', EDIT_ICON, t('Edit sermon'), { class: 'button', href: editURL }, t('Edit')),
         copyLink(), ctx.shares && info.outputs.length && saved ? shareButton(info) : ''), // only a saved sermon is shared
       transcriptPanel(entry.path, info).box,
       ctx.shares ? sharesBox : '',
