@@ -387,6 +387,25 @@ details.settings-group > summary .muted { font-size: 0.9em; }
 
 main.narrow { max-width: 44rem; }
 main.narrow > h1, main.narrow > .panel:first-of-type { margin-top: 1rem; }
+/* The small pages (the share page, the start, an invite): one card in the middle of the page. */
+body.card-page main.narrow { flex: 0 0 auto; width: calc(100% - 2rem); max-width: 36rem; margin: 3rem auto 2rem; padding: 1.8rem 2rem 1.6rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+body.card-page main.narrow > :first-child { margin-top: 0; }
+body.card-page main.narrow > :last-child { margin-bottom: 0; }
+body.card-page main.narrow > h1 { margin-top: 0; }
+body.card-page footer { margin-top: auto; }
+.card-church { margin: 0 0 0.3rem; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+body.card-page .files li { box-shadow: none; background: var(--panel-2); }
+.drop.big { padding: 2.2rem 1.5rem; }
+.drop-icon { display: block; margin: 0 auto 0.6rem; color: var(--muted); line-height: 0; }
+.drop-icon svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* a download share's files: one wide button each, its size at the end */
+body.card-page .downloads { flex-direction: column; }
+body.card-page .downloads button { display: flex; justify-content: space-between; gap: 1rem; width: 100%; padding: 0.75rem 1rem; text-align: left; }
+body.card-page .downloads button .size { font-weight: 400; opacity: 0.85; }
+@media (max-width: 640px) {
+  body.card-page main.narrow { margin: 1rem auto; padding: 1.2rem 1.1rem; }
+}
 .code-form { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .code-form input { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1.1rem; letter-spacing: 0.06em; width: 16em; text-transform: uppercase; }
 .files { list-style: none; padding: 0; margin: 0.8rem 0; display: grid; gap: 0.6rem; }

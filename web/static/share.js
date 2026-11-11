@@ -133,7 +133,9 @@ function showUpload() {
   showLogo();
   const input = h('input', { type: 'file', multiple: true, accept: info.types.join(','), hidden: true });
   const list = h('ul', { class: 'files' });
-  const drop = h('div', { class: 'drop' },
+  const icon = h('span', { class: 'drop-icon', 'aria-hidden': 'true' });
+  icon.innerHTML = '<svg viewBox="0 0 24 24" width="28" height="28"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'; // Feather's upload (MIT)
+  const drop = h('div', { class: 'drop big' }, icon,
     t('Drop the recording here, or'), ' ',
     h('a', { href: '#', onclick: (e) => { e.preventDefault(); input.click(); } }, t('choose a file')), '.');
   const add = (files) => {
@@ -153,6 +155,7 @@ function showUpload() {
     add([...e.dataTransfer.files]);
   });
   view.replaceChildren(
+    h('p', { class: 'card-church' }, info.church),
     h('h1', {}, info.label),
     limitsLine = h('p', { class: 'muted' }, t('For {church}. {limits}.', { church: info.church, limits: limitsText() })),
     info.state ? h('p', { class: 'error' }, t('This code cannot be used any more.')) : drop,
@@ -168,7 +171,7 @@ const downloadName = (format) => format === 'txt' ? t('Download the transcript')
 
 function downloadLimits() {
   const parts = [];
-  if (info.downloadsLeft !== undefined) parts.push(tn(info.downloadsLeft, '{n} more download', '{n} more downloads'));
+  if (info.downloadsLeft !== undefined) parts.push(info.downloadsLeft ? tn(info.downloadsLeft, '{n} more download', '{n} more downloads') : t('no downloads left'));
   if (info.expires) parts.push(t('until {time}', { time: formatDateTime(info.expires) }));
   return t('From {church}.', { church: info.church }) + (parts.length ? ' ' + parts.join(' · ') + '.' : '');
 }
@@ -204,7 +207,7 @@ function showDownload() {
   const buttons = info.files.map((f) => {
     const audio = Boolean(FORMAT_NAMES[f.format]);
     const b = h('button', { type: 'button', class: audio ? 'primary' : '', name: 'download-' + f.format },
-      downloadName(f.format), ' · ', formatSize(f.size));
+      h('span', {}, downloadName(f.format)), h('span', { class: 'size' }, formatSize(f.size)));
     b.addEventListener('click', () => press(f, b));
     return b;
   });
@@ -217,6 +220,7 @@ function showDownload() {
     : info.state ? t('This code cannot be used any more.')
       : !buttons.length && !preparing.length ? t('This sermon is no longer available.') : '';
   view.replaceChildren(
+    h('p', { class: 'card-church' }, info.church),
     h('h1', {}, info.title || info.label),
     what ? h('p', {}, what) : '',
     limits,
@@ -239,7 +243,7 @@ async function run() {
     row.status.textContent = t('Uploading…');
     try {
       await sendFile(row.file, (p) => { row.progress.value = p; });
-      row.progress.value = 1;
+      row.progress.hidden = true; // done: the line under it says so
       row.status.className = 'ok';
       row.status.textContent = t('✓ Received. Thank you!');
     } catch (e) {
