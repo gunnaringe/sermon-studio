@@ -525,11 +525,13 @@ details.menu > summary.icon-button.labelled { gap: 0.45rem; }
 /* the edit page: Input file, Edit, Options, Output */
 /* a step that folds (editor.js foldable): its heading is the button, a line under it says what is set */
 section.step.fold > h2 > .fold-toggle { all: unset; display: block; width: 100%; cursor: pointer; }
-section.step.fold > h2 > .fold-toggle::before { content: "▾"; display: inline-block; width: 1.3em; color: var(--muted); font-size: 0.85em; }
-section.step.folded > h2 > .fold-toggle::before { content: "▸"; }
+section.step.fold > h2 > .fold-toggle::before { content: "▾" / ""; /* not part of the name */ display: inline-block; width: 1.3em; color: var(--muted); font-size: 0.85em; }
+section.step.folded > h2 > .fold-toggle::before { content: "▸" / ""; }
 section.step.fold > h2 > .fold-toggle:hover { color: var(--accent); }
 section.step.fold > h2 > .fold-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 section.step.folded > :not(h2, .fold-summary) { display: none; }
+/* Edit, folded, keeps its width: the waveform is drawn to it */
+section.step.folded.keep > :not(h2, .fold-summary) { display: block; height: 0; overflow: hidden; visibility: hidden; margin: 0; padding: 0; border: 0; }
 section.step .fold-summary { margin: 0.3rem 0 0 1.55rem; }
 section.step .fold-summary:empty, section.step:not(.folded) > .fold-summary { display: none; }
 section.step > h2 { font-size: 1.2rem; margin: 1.8rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--line); }
@@ -710,8 +712,23 @@ span.background-note { display: block; margin-top: 0.2rem; }
 .model-line .badge { margin-left: 0.5em; }
 button.link { background: none; box-shadow: none; border: 0; padding: 0; min-height: 0; font: inherit; color: var(--accent); cursor: pointer; }
 button.link:hover { text-decoration: underline; }
-/* the title's Rename is an action beside the name, not part of it */
-h1 > button.link { margin-left: 0.5rem; font-size: 0.9rem; font-weight: 500; letter-spacing: 0; vertical-align: middle; }
+/* the title's Rename: a pencil beside the name */
+h1 > .title-action { margin-left: 0.4rem; padding: 0.35rem; border: 0; background: none; box-shadow: none; color: var(--muted); border-radius: 8px; vertical-align: middle; line-height: 0; cursor: pointer; }
+h1 > .title-action:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+h1 > .title-action svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* a small form in a dialog: a label over each field */
+.form-rows { display: grid; gap: 0.7rem; margin: 0.6rem 0; }
+.form-rows label { display: grid; gap: 0.2rem; }
+.form-rows label > span { font-size: 0.9em; color: var(--muted); }
+.form-rows input { width: 100%; }
+.dialog .error:empty { display: none; }
+/* the danger zone: what deletes, each with what it does; red around it */
+.delete-panel { border-color: color-mix(in srgb, var(--error) 45%, var(--line)); padding: 0 1.1rem; }
+.danger-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1.5rem; padding: 0.9rem 0; }
+.danger-row + .danger-row { border-top: 1px solid var(--line); }
+.danger-row > div { flex: 1 1 18rem; min-width: 0; }
+.danger-row p { margin: 0.15rem 0 0; }
+.danger-row button.delete { border-color: color-mix(in srgb, var(--error) 45%, var(--line)); flex: none; }
 .model-others { margin-top: 0.75rem; }
 .model-others > summary { cursor: pointer; color: var(--accent); width: max-content; }
 .model-table { border-collapse: collapse; width: 100%; }

@@ -2,6 +2,7 @@
 // Its parts are in editor/, each given the editor (ed, Editor in editor/common.js): this puts them together.
 import { t } from './i18n.js';
 import { api, q, h, href, go, dateInput, can } from './util.js';
+import { formDialog } from './dialog.js';
 import { CLIP_KEYS, FORMAT_KEYS } from './editor/common.js';
 import { keptLength, activePauses } from './editor/spans.js';
 import { infoPart } from './editor/info.js';
@@ -40,25 +41,23 @@ export async function editorView(view, slug, config) {
   const tags = { title: '', artist: '', album: '', ...(info.tags || {}) };
   const sections = [], cuts = [];
 
-  // Another date or name for this sermon: renames the folder and its files.
-  const renamePanel = h('div', { class: 'panel', hidden: true });
-  const renameButton = h('button', { class: 'link', title: t('Change the date or name of this sermon'), onclick: () => {
+  // Another date or name for this sermon: renames the folder and its files. A pencil beside the title, a dialog.
+  const renameButton = h('button', { type: 'button', class: 'title-action', title: t('Change the date or name of this sermon'), 'aria-label': t('Rename…'), onclick: async () => {
     const [, d = '', n = ''] = info.date.match(/^(\d{4}-\d{2}-\d{2})(?: (.*))?$/) || [];
     const date = dateInput({ name: 'date', value: d, required: true, 'aria-label': t('Date') });
     const name = h('input', { type: 'text', value: n, maxlength: 60, placeholder: t('optional, e.g. Evening'), 'aria-label': t('Name') });
-    const msg = h('span', { class: 'error' });
-    const save = h('button', { class: 'primary', onclick: async () => {
-      try {
-        const res = await api('POST', 'api/rename?path=' + q(path), { date: date.value, name: name.value });
-        go(href('recordings', res.slug + '/edit'), true);
-      } catch (err) { msg.textContent = err.message; }
-    } }, t('Rename'));
-    renamePanel.replaceChildren(
-      h('label', {}, t('Date'), ' ', date), ' ', h('label', {}, t('Name'), ' ', name), ' ', save, ' ',
-      h('button', { onclick: () => { renamePanel.hidden = true; } }, t('Cancel')), ' ', msg,
-      h('p', { class: 'muted' }, t('The folder and its files are renamed. Files already made keep their tags.')));
-    renamePanel.hidden = false;
-  } }, t('Rename…'));
+    const res = await formDialog({
+      title: t('Change the date or name of this sermon'),
+      body: [
+        h('div', { class: 'form-rows' }, h('label', {}, h('span', {}, t('Date')), date), h('label', {}, h('span', {}, t('Name')), name)),
+        h('p', { class: 'muted' }, t('The folder and its files are renamed. Files already made keep their tags.')),
+      ],
+      confirm: t('Rename'),
+      submit: () => api('POST', 'api/rename?path=' + q(path), { date: date.value, name: name.value }),
+    });
+    if (res) go(href('recordings', res.slug + '/edit'), true);
+  } });
+  renameButton.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>'; // Feather's edit-2 (MIT)
 
   const ed = /** @type {import('./editor/common.js').Editor} */ ({
     view, path, info, config, opts, tags, cleanups, sections, cuts,
@@ -96,22 +95,28 @@ export async function editorView(view, slug, config) {
   // The steps set once and seldom changed are folded: the heading opens one, and a line under it says what is set.
   // Which are open is kept in this browser (localStorage editorOpen), as Settings keeps its groups.
   const opened = new Set(JSON.parse(localStorage.getItem('editorOpen') || 'null') ?? []);
-  function foldable(section, summarize, mustShow = () => false) {
+  // own: a step whose folding is its own (Edit, by the recording's state), not kept in the browser. keep: folded, it
+  // keeps its width (the waveform is drawn to it) and is only out of sight.
+  function foldable(section, summarize, mustShow = () => false, { own = null, keep = false } = {}) {
     const head = section.querySelector('h2');
     const summary = h('p', { class: 'muted fold-summary' });
     const toggle = h('button', { type: 'button', class: 'fold-toggle', onclick: () => {
-      if (opened.has(head.id)) opened.delete(head.id); else opened.add(head.id);
-      localStorage.setItem('editorOpen', JSON.stringify([...opened]));
+      if (own) own.open = !own.open;
+      else {
+        if (opened.has(head.id)) opened.delete(head.id); else opened.add(head.id);
+        localStorage.setItem('editorOpen', JSON.stringify([...opened]));
+      }
       draw();
     } }, ...head.childNodes);
     head.replaceChildren(toggle);
     head.after(summary);
     section.classList.add('fold');
+    if (keep) section.classList.add('keep');
     let drawing = false;
     function draw() {
       if (drawing) return;
       drawing = true;
-      const open = opened.has(head.id) || mustShow(); // a warning inside is never folded away
+      const open = (own ? own.open : false) || opened.has(head.id) || mustShow(); // a warning inside is never folded away
       section.classList.toggle('folded', !open);
       toggle.setAttribute('aria-expanded', String(open));
       const text = open ? '' : summarize();
@@ -135,14 +140,21 @@ export async function editorView(view, slug, config) {
     () => !processing.channelWarning.hidden);
   foldable(clips.clipsSection, () => [...clips.clipsSection.querySelectorAll('select')]
     .map((sel) => sel.getAttribute('aria-label') + ': ' + (sel.selectedOptions[0]?.textContent || '')).join(' · '));
-  const deleteStep = can('recording.delete') ? foldable(step('step-delete', t('Delete'), inputFile.deletePanel), () => '') : '';
+  const deleteStep = can('recording.delete') ? foldable(step('step-delete', t('Danger zone'), inputFile.deletePanel), () => '') : '';
+  // Edit is open while there is something to do in it: nothing saved yet, adjustments not saved, or files that
+  // are out of date. Otherwise the page starts at what was made. Decided when the page opens: it does not fold
+  // under the one editing when Save ends.
+  const version = info.sermon || {};
+  const editOpen = { open: !version.saved || Boolean(version.adjusted) || (info.outputs || []).some((o) => o.stale) };
+  const editStep = foldable(step('step-edit', t('Edit'), waveform.waveSection),
+    () => { const set = ed.sermon.adjusted || ed.sermon.saved; return set ? history.describe(set) : ''; },
+    () => false, { own: editOpen, keep: true });
 
   view.replaceChildren(
     h('div', { class: 'crumbs' }, h('a', { href: href('recordings', own) }, t('← Recordings'))),
     h('h1', {}, info.date, ' ', renameButton),
-    renamePanel,
     h('section', { class: 'step', 'aria-labelledby': 'step-input' }, h('h2', { id: 'step-input' }, t('Input file')), inputFile.inputPanel),
-    h('section', { class: 'step', 'aria-labelledby': 'step-edit' }, h('h2', { id: 'step-edit' }, t('Edit')), waveform.waveSection),
+    editStep,
     metadataStep,
     processingStep,
     clips.clipsSection,

@@ -11,7 +11,7 @@ const shots = path.join(import.meta.dirname, '..', 'screenshots');
 // then it cannot be deleted).
 async function openEditor(page, folder, { prepared = true } = {}) {
   await page.goto(editPage(folder));
-  await expect(page.getByRole('heading', { name: 'Delete' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Danger zone' })).toBeVisible();
   if (prepared) await expect(page.locator('#waveform')).toBeVisible({ timeout: 60_000 });
 }
 
@@ -89,8 +89,8 @@ test('delete the original: the files stay, the sermon can no longer be edited', 
 
   await openEditor(page, folder);
   await expect(page.locator('#waveform')).toBeVisible({ timeout: 60_000 });
-  // Next to Download original, and in Delete at the end.
-  await expect(page.locator('section.step').first().getByRole('button', { name: 'Delete original…' })).toBeVisible();
+  // Only in the danger zone at the end, not beside Download original.
+  await expect(page.locator('section.step').first().getByRole('button', { name: 'Delete original…' })).toHaveCount(0);
   await page.locator('section.step').last().screenshot({ path: path.join(shots, 'edit-delete-original.png') });
   await page.locator('section.step').last().getByRole('button', { name: 'Delete original…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Delete the original of 2027-03-14?' });
@@ -102,7 +102,7 @@ test('delete the original: the files stay, the sermon can no longer be edited', 
   // The page says so instead of the waveform; the file made is still there.
   await expect(page.locator('section.step').first()).toContainText('The original recording was deleted');
   await expect(page.locator('#waveform')).toHaveCount(0);
-  await expect(page.locator('section.step > h2')).toHaveText(['Input file', 'Output', 'Delete']); // nothing to edit
+  await expect(page.locator('section.step > h2')).toHaveText(['Input file', 'Output', 'Danger zone']); // nothing to edit
   await expect(page.locator('.save-bar')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Delete original…' })).toHaveCount(0);
   await page.screenshot({ path: path.join(shots, 'edit-original-deleted.png') });

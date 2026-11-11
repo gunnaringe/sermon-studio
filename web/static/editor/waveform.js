@@ -309,6 +309,7 @@ export function waveformPart(ed) {
         Escape: () => { if (!ed.cancelCut()) ed.select(null); },
         '?': showKeys,
       };
+      if (waveSection.closest('.folded')) return; // Edit is folded: its keys rest
       const fn = keys[e.key];
       if (fn) {
         e.preventDefault();
