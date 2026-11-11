@@ -1164,7 +1164,7 @@ test('download shares: share a finished sermon from its row, download it on the 
   expect(file.suggestedFilename()).toBe('2025-12-24 Christmas.mp3');
   expect(fs.readFileSync(await file.path()).equals(mp3)).toBe(true);
   await expect(down.getByText('The download has started.')).toBeVisible();
-  await expect(down.getByText(/^From .+\. 0 more downloads · until 2099-12-31 23:59\.$/)).toBeVisible();
+  await expect(down.getByText(/^From .+\. no downloads left · until 2099-12-31 23:59\.$/)).toBeVisible();
   await down.screenshot({ path: path.join(shots, 'share-download.png') });
 
   // Used up: under Ended in the studio, removed automatically after the days the church chose.
