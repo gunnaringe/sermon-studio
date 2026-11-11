@@ -101,17 +101,27 @@ if [ "$what" = all ] || [ "$what" = video ]; then
 	chmod +x "$data/whisper-cli"
 	serve_with="--whisper-cli $data/whisper-cli"
 	serve "$data"
+	# Recorded with its sound, which Playwright's own video has not: the browser shows a real window on a screen that
+	# is not there (Xvfb) and plays to a sound card that is not there (PulseAudio's "rec"), and the spec has ffmpeg
+	# record both.
+	Xvfb :99 -screen 0 1280x900x24 -nocursor >/dev/null 2>&1 &
+	pulseaudio -D --exit-idle-time=-1 2>/dev/null
+	for i in $(seq 50); do pactl info >/dev/null 2>&1 && break; sleep 0.1; done
+	pactl load-module module-null-sink sink_name=rec >/dev/null
+	pactl set-default-sink rec
+	export DISPLAY=:99 RECORD=1
 	run video.spec.js
 	stop
 	start=$(cat "$tmp/out/video-start")
 	media=/site/media
 	rm -f "$media"/demo.* "$media"/demo-poster.*
 	mkdir -p "$media"
-	"$encoder" -v error -ss "$start" -i "$tmp/out/video.webm" -an -vf "fps=25,format=yuv420p" -c:v libx264 -preset slow -crf 27 \
-		-profile:v high -movflags +faststart "$media/demo.mp4"
-	"$encoder" -v error -ss "$start" -i "$tmp/out/video.webm" -an -vf "fps=25" -c:v libvpx-vp9 -b:v 0 -crf 42 -row-mt 1 \
-		-deadline good -cpu-used 2 "$media/demo.webm"
-	"$encoder" -v error -ss "$(cat "$tmp/out/video-poster")" -i "$tmp/out/video.webm" -frames:v 1 -c:v libwebp -quality 75 "$media/demo-poster.webp"
+	# The sound a little down: the recording as it is, played in the editor, reaches full level.
+	"$encoder" -v error -ss "$start" -i "$tmp/out/video.mkv" -vf "fps=25,format=yuv420p" -c:v libx264 -preset slow -crf 27 \
+		-profile:v high -af volume=-2dB -c:a aac -b:a 80k -ac 1 -movflags +faststart "$media/demo.mp4"
+	"$encoder" -v error -ss "$start" -i "$tmp/out/video.mkv" -vf "fps=25" -c:v libvpx-vp9 -b:v 0 -crf 42 -row-mt 1 \
+		-deadline good -cpu-used 2 -af volume=-2dB -c:a libopus -b:a 48k -ac 1 "$media/demo.webm"
+	"$encoder" -v error -ss "$(cat "$tmp/out/video-poster")" -i "$tmp/out/video.mkv" -frames:v 1 -c:v libwebp -quality 75 "$media/demo-poster.webp"
 	echo "video: $(ffprobe -v error -show_entries format=duration -of csv=p=0 "$media/demo.mp4" | cut -d. -f1) s;" \
 		"$(du -h "$media/demo.mp4" | cut -f1) MP4, $(du -h "$media/demo.webm" | cut -f1) WebM, $(du -h "$media/demo-poster.webp" | cut -f1) poster"
 fi

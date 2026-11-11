@@ -1,12 +1,13 @@
-// The website's video: a recording's way through the studio, in English, 1280×720, recorded by Playwright: sent on
+// The website's video: a recording's way through the studio, in English, 1280×720, with its sound: sent on
 // the public upload page with a code, cut and saved in the studio (its transcript left being made in the
-// background: nobody waits for that), shared, and fetched on the public download page. A visible pointer is put
-// in the page (Playwright's own is not recorded) and moved to each control before it is clicked, with a caption
-// for each step. run.sh cuts the blank start (video-start: seconds) and makes the MP4, the WebM and the poster
+// background: nobody waits for that), shared, and fetched on the public download page. ffmpeg records the window
+// and what it plays (run.sh makes the screen and the sound card). A visible pointer is put in the page (the
+// screen has none) and moved to each control before it is clicked, with a caption for each step. run.sh cuts the blank start (video-start: seconds) and makes the MP4, the WebM and the poster
 // (from video-poster: seconds). Run with scripts/site-shots.sh video.
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { waitEditor, clearProposed, translator } from './lib.js';
 
 const DATA = process.env.DATA;
@@ -88,8 +89,8 @@ test('the studio in use', async ({ browser }) => {
   expect((await sp.request.put('api/transcription', { headers: church, data: { language: 'en', defaults: {}, words: '' } })).ok()).toBe(true);
   await setup.close();
 
-  const context = await browser.newContext({ baseURL: 'http://localhost:8080/', viewport: SIZE, recordVideo: { dir: OUT, size: SIZE } });
-  const began = Date.now();
+  const context = await browser.newContext({ baseURL: 'http://localhost:8080/', viewport: SIZE });
+  let began = Date.now();
   await context.addInitScript(overlay);
   await context.addInitScript(() => localStorage.setItem('lang', 'en'));
   const page = await context.newPage();
@@ -133,6 +134,21 @@ test('the studio in use', async ({ browser }) => {
   await to('http://localhost:8081/');
   const codeField = page.locator('input').first();
   await expect(codeField).toBeVisible();
+  // The recording: the page's part of the window (under the tabs and the address bar), and the sound card's
+  // output, both stamped with the clock so they stay together. It has begun when ffmpeg reports its first frames.
+  const win = await page.evaluate(() => ({ x: screenX, y: screenY + outerHeight - innerHeight, w: innerWidth, h: innerHeight }));
+  expect([win.w, win.h]).toEqual([SIZE.width, SIZE.height]);
+  const recorder = spawn('/usr/bin/ffmpeg', ['-v', 'error', '-y',
+    '-thread_queue_size', '1024', '-f', 'x11grab', '-draw_mouse', '0', '-framerate', '25', '-video_size', `${SIZE.width}x${SIZE.height}`, '-i', `${process.env.DISPLAY}+${win.x},${win.y}`,
+    '-thread_queue_size', '1024', '-f', 'pulse', '-i', 'rec.monitor', '-copyts',
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '14', '-pix_fmt', 'yuv420p', '-c:a', 'flac', '-progress', 'pipe:1', path.join(OUT, 'video.mkv')],
+  { stdio: ['pipe', 'pipe', 'inherit'] });
+  const recorded = new Promise((done) => recorder.on('exit', done));
+  await new Promise((first, failed) => {
+    recorder.stdout.on('data', (d) => { if (/frame=\s*[1-9]/.test(String(d))) first(); });
+    recorder.on('exit', () => failed(new Error('ffmpeg did not record')));
+  });
+  began = Date.now();
   fs.writeFileSync(path.join(OUT, 'video-start'), String(at()));
   await caption('Sermon Studio', 'From the recording of a service to sermon files');
   await pause(3000);
@@ -247,7 +263,16 @@ test('the studio in use', async ({ browser }) => {
   // The fields under the waveform say the same.
   expect(Math.abs((await seconds(page.getByLabel('Section from', { exact: true }))) - 22)).toBeLessThan(1);
   expect(Math.abs((await seconds(page.getByLabel('Section to', { exact: true }))) - 162)).toBeLessThan(1);
-  await pause(2200);
+  await pause(1500);
+  // Heard as it will be published, for some seconds.
+  const playing = () => page.evaluate(() => window.__editor.ws.isPlaying());
+  await caption('3. Mark the sermon', 'Hear it as it will be published');
+  await click(page.getByRole('button', { name: 'Hear the whole sermon', exact: true }));
+  await expect.poll(playing).toBe(true);
+  await pause(6000);
+  await click(page.getByRole('button', { name: /Pause/ }).first());
+  await expect.poll(playing).toBe(false);
+  await pause(800);
 
   // 4. A cough inside the sermon: shift-drag over it, then give the cut a label.
   await caption('4. Cut out a cough', 'Hold shift and drag across it');
@@ -267,7 +292,27 @@ test('the studio in use', async ({ browser }) => {
   await expect(page.locator('#waveform')).toContainText('cough'); // on the cut in the waveform too
   await pause(1500);
   fs.writeFileSync(path.join(OUT, 'video-poster'), String(at()));
-  await pause(1500);
+  await pause(1000);
+  // Hear join: three seconds before the cut and three after it, as it will sound.
+  await caption('4. Cut out a cough', 'Hear join plays across the cut');
+  const hearJoin = page.locator('.cut').first().getByRole('button', { name: 'Hear join', exact: true });
+  // The button is on the row's last line, which the Save bar can cover: up from under it.
+  await hearJoin.evaluate((el) => {
+    const under = el.getBoundingClientRect().bottom - (document.querySelector('.save-bar').getBoundingClientRect().top - 10);
+    if (under > 0) window.scrollBy({ top: under, behavior: 'smooth' });
+  });
+  await pause(600);
+  await settle();
+  await page.mouse.move(mouse.x, mouse.y - 1); // click() scrolls nothing now: the button is in view
+  const spot = await hearJoin.boundingBox();
+  await page.mouse.move(spot.x + spot.width / 2, spot.y + spot.height / 2, { steps: 15 });
+  mouse = { x: spot.x + spot.width / 2, y: spot.y + spot.height / 2 };
+  await pause(350);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect.poll(playing).toBe(true);
+  await expect.poll(playing, { timeout: 20_000 }).toBe(false);
+  await pause(800);
 
   // 5. This sermon's own processing, in the editor.
   await caption('5. Choose how it sounds', 'In the Processing step: stronger leveling');
@@ -290,7 +335,14 @@ test('the studio in use', async ({ browser }) => {
   await expect(intro).toHaveValue('own', { timeout: 60_000 });
   await expect(intro.locator('option:checked')).toHaveText("This sermon's own: Welcome");
   await expect(clipStep).toContainText('With the intro and outro:');
-  await pause(2500);
+  await pause(1500);
+  // The join: the end of the intro and the start of the sermon, made as the files will be.
+  await caption('6. Add an intro', 'Hear how it meets the sermon');
+  await click(clipStep.locator('button[name=join-intro]'));
+  const joinPlays = () => clipStep.evaluate((el) => [...el.querySelectorAll('audio')].some((a) => !a.paused));
+  await expect.poll(joinPlays, { timeout: 60_000 }).toBe(true);
+  await expect.poll(joinPlays, { timeout: 8_000 }).toBe(false).catch(() => clipStep.evaluate((el) => el.querySelectorAll('audio').forEach((a) => a.pause())));
+  await pause(800);
 
   // 7. Save: make the FLAC and the MP3, and watch the run's steps. The transcript is the church's default.
   await caption('7. Save: make the FLAC and the MP3');
@@ -345,6 +397,20 @@ test('the studio in use', async ({ browser }) => {
   await pause(1800);
   await click(menu.locator('summary'));
   await pause(500);
+  // The finished file in the row's player: the intro, then the sermon.
+  await caption('8. The files are ready', 'Listen before you share');
+  const player = detail.locator('audio.player');
+  const bar = await player.boundingBox();
+  const play = { x: bar.x + 26, y: bar.y + bar.height / 2 }; // the player's own play button
+  await page.mouse.move(play.x, play.y, { steps: 20 });
+  mouse = play;
+  await pause(350);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect.poll(() => player.evaluate((a) => !a.paused && a.currentTime > 0), { timeout: 30_000 }).toBe(true);
+  await pause(8000);
+  await player.evaluate((a) => a.pause());
+  await pause(600);
 
   // 9. A share for download: a code, a link and a QR code, for those who were not there.
   await caption('9. Share it', 'For those who were not there');
@@ -375,9 +441,9 @@ test('the studio in use', async ({ browser }) => {
   await caption('');
   await pause(800);
 
-  const video = page.video();
+  recorder.stdin.end('q'); // ffmpeg's own key for ending a recording
+  expect(await recorded).toBe(0);
   await context.close();
-  fs.copyFileSync(await video.path(), path.join(OUT, 'video.webm'));
 
   // What was saved is what the video shows: the drag, the cough, the processing and the intro, and the files.
   const dir = path.join(DATA, 'churches/grace-chapel/Taler/2026/2026-10-18');
