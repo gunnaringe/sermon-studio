@@ -198,6 +198,22 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   await page.unroute(/api\/(folder|transcript)\?/);
   await bar.locator('button[name=stop-transcript]').click();
   await expect(bar).toHaveCount(0, { timeout: 30_000 });
+
+  // The sermon's row on the recordings page follows one being made too, from when it is opened.
+  made = { state: 'running', progress: 0.5, remaining: 200, ahead: 0 };
+  await page.route(/api\/folder\?/, running);
+  await page.goto(recordingPage(folder));
+  const rowBar = page.locator('tr.detail-row .transcript-progress');
+  await expect(rowBar.locator('progress')).toHaveJSProperty('value', 0.5, { timeout: 30_000 });
+  made = { state: 'running', progress: 0.9, remaining: 20, ahead: 0 };
+  await expect(rowBar.locator('progress')).toHaveJSProperty('value', 0.9, { timeout: 30_000 });
+  // Done: the row shows it, and Share for download offers it, with no reload.
+  made = { state: 'done', text: folder + '/' + date + '.txt', captions: folder + '/' + date + '.vtt' };
+  await expect(page.locator('tr.detail-row .transcript details summary')).toContainText('Transcript', { timeout: 30_000 });
+  await page.locator('tr.detail-row button[name=share-download]').click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Recording and transcript', exact: true })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.unroute(/api\/folder\?/);
 });
 
 test('transcripts: shared for download with the recording, as text and captions', async ({ page, context }) => {
