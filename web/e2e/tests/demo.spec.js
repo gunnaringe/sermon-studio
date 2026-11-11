@@ -29,7 +29,7 @@ test('a demo: the recording from the inbox, a banner, and no upload, delete, sha
   await page.goto('c/demo-church/recordings/2026-01-15/edit');
   await expect(page.locator('#waveform')).toBeVisible({ timeout: 60_000 });
   await page.waitForFunction(() => window.__editor && window.__editor.ws.getDuration() > 0, null, { timeout: 60_000 });
-  await expect(page.getByRole('heading', { name: 'Delete', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Danger zone', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Delete original…' })).toHaveCount(0);
   await expect(page.locator('select[name=intro] option', { hasText: 'Upload for this sermon only…' })).toHaveCount(0);
   // The visitor saves and makes the files.

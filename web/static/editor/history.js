@@ -226,6 +226,6 @@ export function historyPart(ed) {
   return {
     saveState: h('div', { class: 'save-state' }, versionOut, ' ', saveNote), undoButton, redoButton, revertButton,
     currentSettings, persistAdjusted, saveSoon, applySettings, record, recordSoon, undo, redo, startHistory, history,
-    renderVersion, setSaveNote,
+    renderVersion, setSaveNote, describe,
   };
 }

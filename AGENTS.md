@@ -154,7 +154,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   restore, remove for good, and the purge after `--trash-days` (hourly, with the leftovers sweep). Hidden, so no path of the API reaches it.
   `POST api/recordings/delete-original` deletes only the original (for good, with its analysis cache), keeping the files: only once
   files are made, never during a run; `originalDeleted` in `recording.json`, and `check` then says the files cannot be made again.
-  Both are on the edit page (Delete), not the recordings page.
+  Both are on the edit page (Danger zone, the only place), not the recordings page.
 - `web/recording.go`: `<folder>/recording.json`, the recording's state: `recording` (format, metadata,
   channel verdict; redone when the file's size/mtime change), `convertedFrom` (the WAV, AIFF or video it was made from), `imported` (when it arrived: `markImported`; `recentImports` lists the last `newFor` on top of the first page), the sermon, and `outputs`
   (how each file was made: `madeFrom` fingerprint → stale/up to date). Change it only through `updateState` (one lock;
@@ -213,8 +213,9 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   what the others call — `waveform.js` (playing, zoom, keys), `sections.js` (and the selection), `cuts.js`, `fades.js`, `history.js`
   (keeping the edit, versions, undo), `output.js` (check, Save, the job), `processing.js`, `clips.js`, `info.js` (the input file,
   Delete); `spans.js` is the sermon in time without the page (tested in `web/e2e/tests/spans.spec.js`). A new function one part
-  calls on another goes in `Editor`. The steps seldom changed (Metadata, Processing, Intro and outro, Delete) fold (`foldable` in `editor.js`;
-  which are open is in localStorage `editorOpen`; the Playwright configs start them open). `dialog.js` = confirm/alert/prompt in the app's look
+  calls on another goes in `Editor`. The steps seldom changed (Metadata, Processing, Intro and outro, Danger zone) fold (`foldable` in `editor.js`;
+  which are open is in localStorage `editorOpen`; the Playwright configs start them open). Edit folds by the recording's state, not the browser's: open when
+  nothing is saved, there are adjustments, or a file is out of date (`step-edit` in `editorOpen` keeps it open: only the tests set it); folded it keeps its width, for the waveform. `dialog.js` = confirm/alert/prompt and a small form (`formDialog`: Rename) in the app's look
   (never use the browser's `confirm`/`alert`/`prompt`). One player plays at a time: a play event of any `<audio>`/`<video>` pauses the others (`util.js`;
   the editor's waveform, not in the page, is added with `soloPlayer`). `vendor/wavesurfer/` is wavesurfer.js
   8.0.4, unmodified.

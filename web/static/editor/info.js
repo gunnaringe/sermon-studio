@@ -79,8 +79,7 @@ export function infoPart(ed) {
         h('dl', { class: 'facts' }, rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
         md.length ? h('details', { class: 'metadata' }, h('summary', {}, t('Metadata in the file ({n})', { n: md.length })),
           h('dl', { class: 'facts' }, md.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))) : ''),
-      h('span', { class: 'input-actions' }, h('a', { class: 'button', href: fileURL(raw, true) }, t('Download original')),
-        canDeleteOriginal() ? h('button', { type: 'button', class: 'delete', name: 'delete-original', onclick: deleteOriginal }, t('Delete original…')) : '')));
+      h('span', { class: 'input-actions' }, h('a', { class: 'button', href: fileURL(raw, true) }, t('Download original')))));
     ed.showChannelWarning();
   }
 
@@ -109,13 +108,16 @@ export function infoPart(ed) {
     }
   }
 
+  // The danger zone: one row for each thing that deletes, what it does beside its button.
   function renderDelete() {
+    const row = (title, what, button) => h('div', { class: 'danger-row' }, h('div', {}, h('strong', {}, title), h('p', { class: 'muted' }, what)), button);
     deletePanel.replaceChildren(
-      h('p', { class: 'muted' }, t('Delete recording moves it to the trash, with its files and the original, for {days} days. Until then you can restore it under Settings → Trash.', { days: config.trashDays })),
-      h('p', { class: 'actions' },
-        h('button', { type: 'button', class: 'delete', name: 'delete-recording', onclick: deleteRecording }, t('Delete recording…')),
-        canDeleteOriginal() ? h('button', { type: 'button', class: 'delete', name: 'delete-original', onclick: deleteOriginal }, t('Delete original…')) : ''),
-      canDeleteOriginal() ? h('p', { class: 'muted' }, t('Delete original frees the space of the original recording and keeps the files made from it, but then the sermon can no longer be edited or regenerated.')) : '');
+      canDeleteOriginal() ? row(t('Delete the original'),
+        t('Delete original frees the space of the original recording and keeps the files made from it, but then the sermon can no longer be edited or regenerated.'),
+        h('button', { type: 'button', class: 'delete', name: 'delete-original', onclick: deleteOriginal }, t('Delete original…'))) : '',
+      row(t('Delete the recording'),
+        t('Delete recording moves it to the trash, with its files and the original, for {days} days. Until then you can restore it under Settings → Trash.', { days: config.trashDays }),
+        h('button', { type: 'button', class: 'delete', name: 'delete-recording', onclick: deleteRecording }, t('Delete recording…'))));
   }
 
   async function deleteRecording() {

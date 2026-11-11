@@ -79,3 +79,35 @@ export function promptDialog({ title, label, value = '', placeholder = '', confi
     result: (v) => (v === 'ok' ? input.value : null),
   });
 }
+
+// formDialog shows a small form (any content) with Cancel and a confirm button. submit does the work when it is
+// confirmed (also by Enter in a field): while it fails the dialog stays, with the error under the form. It
+// resolves with what submit returned, or null when cancelled.
+/** @param {{ title: string, body: any, confirm?: string, submit: () => Promise<any> }} o */
+export function formDialog({ title, body, confirm = t('OK'), submit }) {
+  return new Promise((resolve) => {
+    const dialog = h('dialog', { class: 'dialog', 'aria-label': title });
+    const error = h('p', { class: 'error', role: 'alert' });
+    const ok = h('button', { type: 'submit', class: 'primary' }, confirm);
+    let out = null;
+    const form = h('form', { class: 'dialog-body', onsubmit: async (e) => {
+      e.preventDefault();
+      ok.disabled = true;
+      try {
+        out = await submit();
+        dialog.close('ok');
+      } catch (err) {
+        error.textContent = err.message;
+        ok.disabled = false;
+      }
+    } }, h('h2', {}, title), ...[body].flat(), error,
+      h('div', { class: 'dialog-buttons' }, h('button', { type: 'button', onclick: () => dialog.close('cancel') }, t('Cancel')), ok));
+    dialog.append(form);
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close('cancel'); }); // the backdrop
+    dialog.addEventListener('close', () => { dialog.remove(); resolve(dialog.returnValue === 'ok' ? out : null); });
+    document.body.append(dialog);
+    dialog.showModal();
+    const first = dialog.querySelector('input:not([type=date])') || dialog.querySelector('input');
+    if (first) first.focus();
+  });
+}

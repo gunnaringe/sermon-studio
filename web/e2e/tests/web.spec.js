@@ -401,6 +401,22 @@ test('opening a sermon saved before its sound was kept is not an adjustment', as
   await expect(page.locator('.save-bar')).not.toContainText('Adjusted, not saved');
   await expect(page.getByRole('button', { name: 'Revert…' })).toBeDisabled();
   expect(sermonOf(folder).adjusted).toBeNull();
+
+  // Saved, nothing adjusted and no file out of date: Edit is folded and says what the edit is; its heading opens it.
+  await page.route('**/api/folder?*', async (route) => {
+    const res = await route.fetch();
+    const json = await res.json();
+    await route.fulfill({ response: res, json: { ...json, outputs: (json.outputs || []).map((o) => ({ ...o, stale: false })) } });
+  });
+  await page.evaluate(() => localStorage.setItem('editorOpen', '[]')); // as a browser, not as the tests
+  await page.reload();
+  const edit = page.locator('section[aria-labelledby=step-edit]');
+  await expect(edit.locator('.fold-summary')).toContainText('0:12 to 1:28', { timeout: 60_000 });
+  await expect(page.locator('#waveform')).toBeHidden();
+  await page.screenshot({ path: path.join(shots, 'editor-edit-folded.png'), fullPage: true });
+  await edit.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(page.locator('#waveform')).toBeVisible();
+  await expect(edit.locator('.fold-summary')).toBeHidden();
 });
 
 test('a recording not cut yet starts with the sermon set to all of it but the silence at the ends', async ({ page }) => {
@@ -458,6 +474,8 @@ test('the steps seldom changed are folded: the heading opens one, a line says wh
   await expect(step('processing').getByRole('button', { name: 'Hear a sample' })).toBeHidden();
   await expect(step('metadata').locator('input[name=title]')).toBeHidden();
   await expect(step('delete').getByRole('button', { name: 'Delete recording…' })).toBeHidden();
+  // Edit is open while nothing is saved; its heading folds it, for this visit.
+  await expect(page.locator('#waveform')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Output' })).toBeVisible();
   await page.screenshot({ path: path.join(shots, 'editor-folded.png'), fullPage: true });
   // Open one: it stays open after a reload; the summary is gone while it is open.
@@ -473,7 +491,7 @@ test('the steps seldom changed are folded: the heading opens one, a line says wh
 
 test('the page: Input file, Edit, Metadata, Processing, Intro and outro, Output, Delete', async ({ page }) => {
   await openEditor(page, '2026/2026-10-04');
-  await expect(page.locator('section.step > h2')).toHaveText(['Input file', 'Edit', 'Metadata added to the file', 'Processing', 'Intro and outro', 'Output', 'Delete']);
+  await expect(page.locator('section.step > h2')).toHaveText(['Input file', 'Edit', 'Metadata added to the file', 'Processing', 'Intro and outro', 'Output', 'Danger zone']);
 
   // Input file: the recording, where it came from, its channels, a download.
   const input = page.locator('.input-file');
@@ -759,6 +777,7 @@ test('two sermons the same day: upload with a name, then rename', async ({ page 
 
   await expect(page.locator('#waveform')).toBeVisible({ timeout: 30_000 }); // prepared: it can be renamed
   await page.getByRole('button', { name: 'Rename…' }).click();
+  await page.getByRole('dialog').screenshot({ path: path.join(shots, 'rename-dialog.png') });
   await page.locator('input[aria-label=Name]').fill('Aften');
   await page.getByRole('button', { name: 'Rename', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('2026-11-01 Aften', { timeout: 10_000 });
