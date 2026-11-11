@@ -1,4 +1,6 @@
-// The website's video: the studio in use, in English, 1280×720, recorded by Playwright. A visible pointer is put
+// The website's video: a recording's way through the studio, in English, 1280×720, recorded by Playwright: sent on
+// the public upload page with a code, cut and saved in the studio (its transcript left being made in the
+// background: nobody waits for that), shared, and fetched on the public download page. A visible pointer is put
 // in the page (Playwright's own is not recorded) and moved to each control before it is clicked, with a caption
 // for each step. run.sh cuts the blank start (video-start: seconds) and makes the MP4, the WebM and the poster
 // (from video-poster: seconds). Run with scripts/site-shots.sh video.
@@ -27,9 +29,10 @@ function overlay() {
     #demo-caption.on { opacity: 1; }
     #demo-caption small { display: block; font-weight: 400; font-size: 15px; opacity: .88; }`;
   const add = () => {
-    const style = document.createElement('style');
-    style.textContent = css;
-    document.head.append(style);
+    // A sheet made by script, not a <style>: the share page's content security policy takes no inline styles.
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(css);
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
     const pointer = document.createElement('div');
     pointer.id = 'demo-pointer';
     pointer.popover = 'manual';
@@ -76,6 +79,13 @@ test('the studio in use', async ({ browser }) => {
     await sp.locator('.save-bar button.primary').click();
     await expect(sp.getByRole('heading', { name: 'Done', exact: true })).toBeVisible({ timeout: 120_000 });
   }
+  // A code for the sound desk to send recordings with; and from now on, a transcript of each sermon (not of the
+  // three above: whisper-cli is one that never finishes here, see run.sh, and they would wait in front of ours).
+  const church = { 'X-Tenant': 'grace-chapel' };
+  const desk = await sp.request.post('api/shares', { headers: church, data: { label: 'Sound desk', allTypes: true, maxFileSize: 8 * 1024 ** 3 } });
+  expect(desk.ok()).toBe(true);
+  const { code } = await desk.json();
+  expect((await sp.request.put('api/transcription', { headers: church, data: { language: 'en', defaults: {}, words: '' } })).ok()).toBe(true);
   await setup.close();
 
   const context = await browser.newContext({ baseURL: 'http://localhost:8080/', viewport: SIZE, recordVideo: { dir: OUT, size: SIZE } });
@@ -112,23 +122,47 @@ test('the studio in use', async ({ browser }) => {
     await select.selectOption(value);
   };
 
-  await page.goto('c/grace-chapel/');
-  await expect(page.locator('tr.row').first()).toBeVisible();
-  await page.mouse.move(mouse.x, mouse.y);
+  // to opens another page: the pointer is put back where it was (the new page has not seen it move).
+  const to = async (url) => {
+    await page.goto(url);
+    await page.mouse.move(mouse.x + 1, mouse.y);
+    await page.mouse.move(mouse.x, mouse.y);
+  };
+
+  // The public share page, as someone with a code meets it.
+  await to('http://localhost:8081/');
+  const codeField = page.locator('input').first();
+  await expect(codeField).toBeVisible();
   fs.writeFileSync(path.join(OUT, 'video-start'), String(at()));
   await caption('Sermon Studio', 'From the recording of a service to sermon files');
   await pause(3000);
 
-  // 1. Upload the recording.
-  await caption('1. Upload the recording of the service');
+  // 1. Send the recording from the sound desk: no login, the code is enough.
+  await caption('1. Send the recording', 'No login: the code from the church is enough');
+  await pause(1000);
+  await click(codeField);
+  await page.keyboard.type(code, { delay: 70 });
+  await pause(500);
+  await click(page.getByRole('button', { name: 'Continue', exact: true }));
+  await expect(page.getByRole('heading', { name: 'Sound desk' })).toBeVisible();
   await pause(1200);
   const chooser = page.waitForEvent('filechooser');
-  await click(page.locator('.upload .drop button.link'));
+  await click(page.getByText('choose a file', { exact: true }));
   await (await chooser).setFiles(path.join(DATA, 'R_20261018-104506.wav'));
-  await expect(page.locator('input[name=date]')).toHaveValue('2026-10-18');
-  await caption('1. Upload the recording of the service', 'The date comes from the file name');
+  await expect(page.getByText('✓ Received. Thank you!')).toBeVisible({ timeout: 120_000 });
+  await pause(2000);
+
+  // 2. In the studio it is filed under the date in its name, and opened in the editor.
+  await to('c/grace-chapel/');
+  await caption('2. It is in the studio at once', 'Filed under the date in its name');
+  const arrived = page.locator('tr.row', { hasText: '2026-10-18' }).first();
+  await expect(arrived).toBeVisible({ timeout: 60_000 });
   await pause(1500);
-  await click(page.locator('.upload button.primary'));
+  await click(arrived.getByRole('button', { name: '2026-10-18', exact: true }));
+  const open = page.locator('tr.detail-row').first().getByRole('link', { name: 'Open in the editor', exact: true });
+  await expect(open).toBeVisible({ timeout: 60_000 });
+  await pause(700);
+  await click(open);
   await waitEditor(page);
   // The three minutes run.sh cuts for the video, not the whole speech of the screenshots: the times below are its.
   expect(Math.round(await page.evaluate(() => window.__editor.ws.getDuration()))).toBe(180);
@@ -187,8 +221,8 @@ test('the studio in use', async ({ browser }) => {
   // seconds reads a time field ("2:41.97").
   const seconds = async (field) => (await field.inputValue()).split(':').reduce((a, b) => a * 60 + Number(b), 0);
 
-  // 2. Mark the sermon by dragging across it on the waveform.
-  await caption('2. Mark the sermon', 'Drag across it on the waveform');
+  // 3. Mark the sermon by dragging across it on the waveform.
+  await caption('3. Mark the sermon', 'Drag across it on the waveform');
   // The waveform and the rows under it (the sermon's and the cuts' times) in view together, above the save bar.
   await scrollTo('#minimap', 92);
   await pause(1200);
@@ -198,7 +232,7 @@ test('the studio in use', async ({ browser }) => {
   // move it, not make a new section, so it goes first.
   const sectionRow = page.locator('.section').first();
   if (await page.evaluate(() => window.__editor.sections.length)) {
-    await caption('2. Mark the sermon', 'Remove the guess, then drag across the sermon');
+    await caption('3. Mark the sermon', 'Remove the guess, then drag across the sermon');
     await click(sectionRow.getByRole('button', { name: T('Remove'), exact: true }));
     await expect.poll(() => page.evaluate(() => window.__editor.sections.length)).toBe(0);
     await settle();
@@ -215,8 +249,8 @@ test('the studio in use', async ({ browser }) => {
   expect(Math.abs((await seconds(page.getByLabel('Section to', { exact: true }))) - 162)).toBeLessThan(1);
   await pause(2200);
 
-  // 3. A cough inside the sermon: shift-drag over it, then give the cut a label.
-  await caption('3. Cut out a cough', 'Hold shift and drag across it');
+  // 4. A cough inside the sermon: shift-drag over it, then give the cut a label.
+  await caption('4. Cut out a cough', 'Hold shift and drag across it');
   await pause(1500);
   await drag(126, 130, true); // to the right of the caption, so the label on the waveform is seen
   await expect.poll(() => page.evaluate(() => window.__editor.cuts.length)).toBe(1);
@@ -227,7 +261,7 @@ test('the studio in use', async ({ browser }) => {
   expect([still.start, still.end]).toEqual([made.start, made.end]); // the section is not moved
   await toRows();
   await pause(900);
-  await caption('3. Cut out a cough', 'A label says what it was');
+  await caption('4. Cut out a cough', 'A label says what it was');
   await click(page.getByLabel('Cut 1 label', { exact: true }));
   await page.keyboard.type('cough', { delay: 160 });
   await expect(page.locator('#waveform')).toContainText('cough'); // on the cut in the waveform too
@@ -235,8 +269,8 @@ test('the studio in use', async ({ browser }) => {
   fs.writeFileSync(path.join(OUT, 'video-poster'), String(at()));
   await pause(1500);
 
-  // 4. This sermon's own processing, in the editor.
-  await caption('4. Choose how it sounds', 'In the Processing step: stronger leveling');
+  // 5. This sermon's own processing, in the editor.
+  await caption('5. Choose how it sounds', 'In the Processing step: stronger leveling');
   const leveling = page.locator('section[aria-labelledby=step-processing] select[name=leveling]');
   await scrollSmooth(leveling);
   await pause(900);
@@ -244,8 +278,8 @@ test('the studio in use', async ({ browser }) => {
   await expect(leveling).toHaveValue('strong');
   await pause(2000);
 
-  // 5. An intro for this sermon only: a few seconds of tone (run.sh makes it).
-  await caption('5. Add an intro', 'Upload for this sermon only');
+  // 6. An intro for this sermon only: a few seconds of tone (run.sh makes it).
+  await caption('6. Add an intro', 'Upload for this sermon only');
   const clipStep = page.locator('section[aria-labelledby=step-clips]');
   const intro = clipStep.locator('select[name=intro]');
   await scrollSmooth(intro);
@@ -258,8 +292,8 @@ test('the studio in use', async ({ browser }) => {
   await expect(clipStep).toContainText('With the intro and outro:');
   await pause(2500);
 
-  // 6. Save: make the FLAC and the MP3, and watch the run's steps.
-  await caption('6. Save: make the FLAC and the MP3');
+  // 7. Save: make the FLAC and the MP3, and watch the run's steps. The transcript is the church's default.
+  await caption('7. Save: make the FLAC and the MP3');
   const output = page.locator('section[aria-labelledby=step-output]');
   await scrollSmooth(output);
   for (const [format, want] of [['flac', true], ['mp3', true], ['opus', false]]) {
@@ -271,7 +305,7 @@ test('the studio in use', async ({ browser }) => {
   }
   await pause(800);
   await click(page.locator('.save-bar button.primary'));
-  await caption('6. Save: make the FLAC and the MP3', 'The run\'s steps, one after another');
+  await caption('7. Save: make the FLAC and the MP3', 'The run\'s steps, one after another');
   const steps = page.locator('ul.steps');
   await expect(steps).toBeVisible({ timeout: 30_000 });
   await scrollSmooth(steps);
@@ -279,16 +313,21 @@ test('the studio in use', async ({ browser }) => {
   await scrollSmooth(steps);
   await pause(2500);
 
-  // 7. The files, on the recordings page.
-  await caption('7. Download the files', 'With the intro, or the sermon only');
+  // 8. The files, on the recordings page, while the transcript is made in the background.
+  await caption('8. The files are ready', 'The transcript is made in the background');
   await click(page.locator('header .brand'));
   const row = page.locator('tr.row', { hasText: '2026-10-18' }).first();
   await expect(row).toBeVisible();
   await pause(900);
   await click(row.getByRole('button', { name: '2026-10-18', exact: true }));
-  const menu = page.locator('tr.detail-row details.download-menu').first();
+  const detail = page.locator('tr.detail-row').first();
+  const menu = detail.locator('details.download-menu').first();
   await expect(menu).toBeVisible({ timeout: 30_000 });
-  await pause(1000);
+  const making = detail.locator('.transcript-progress');
+  await expect(making).toContainText('Transcribing…', { timeout: 30_000 });
+  await point(making.locator('.what'));
+  await pause(2200);
+  await caption('8. The files are ready', 'With the intro, or the sermon only');
   await click(menu.locator('summary'));
   await expect(menu).toHaveAttribute('open', '');
   await expect(menu).toContainText('FLAC');
@@ -303,7 +342,36 @@ test('the studio in use', async ({ browser }) => {
   // The sermon only, without the intro: the same two files.
   await click(menu.getByRole('button', { name: 'Sermon only', exact: true }));
   await expect(menu).toContainText('MP3');
-  await pause(2200);
+  await pause(1800);
+  await click(menu.locator('summary'));
+  await pause(500);
+
+  // 9. A share for download: a code, a link and a QR code, for those who were not there.
+  await caption('9. Share it', 'For those who were not there');
+  await click(detail.locator('button[name=share-download]'));
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: 'Make share', exact: true })).toBeVisible();
+  await pause(1500);
+  await click(dialog.getByRole('button', { name: 'In a month', exact: true }));
+  await pause(700);
+  await click(dialog.getByRole('button', { name: 'Make share', exact: true }));
+  const link = page.getByRole('dialog').locator('.share-link');
+  await expect(link).toBeVisible();
+  await caption('9. Share it', 'A code, a link and a QR code');
+  const address = await link.textContent();
+  await point(page.getByRole('dialog').locator('canvas, svg, img').last());
+  await pause(2500);
+  await click(page.getByRole('dialog').getByRole('button', { name: 'OK', exact: true }));
+  await pause(500);
+
+  // 10. The public download page the link gives: the sermon's title and a button for each file.
+  await to(address);
+  await caption('10. Anyone with the code downloads it', 'No login here either');
+  const mp3 = page.getByRole('button', { name: /Download MP3/ });
+  await expect(mp3).toBeVisible();
+  await pause(1500);
+  await point(mp3);
+  await pause(3000);
   await caption('');
   await pause(800);
 
