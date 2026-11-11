@@ -30,7 +30,7 @@ export function fadesPart(ed) {
         ', rgba(124,58,237,0.38), rgba(124,58,237,0.05));clip-path:polygon(' + (side === 'in' ? '0 0,100% 0,0 100%' : '0 0,100% 0,100% 100%') + ')' });
       const text = h('span', { style: 'position:absolute;top:2px;font-size:11px;white-space:nowrap;color:var(--fg);background:var(--panel);border-radius:4px;padding:0 4px;opacity:0.9' });
       const knob = h('div', { role: 'slider', tabindex: 0, 'aria-label': label, 'aria-valuemin': 0, title: side === 'in' ? t('Drag to fade in from the start of the sermon') : t('Drag to fade out to the end of the sermon'),
-        style: 'position:absolute;top:18px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--grad);border:2px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:ew-resize;pointer-events:auto;touch-action:none' });
+        style: 'position:absolute;top:18px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--primary);border:2px solid var(--panel);box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:ew-resize;pointer-events:auto;touch-action:none' });
       const timeAt = (e) => {
         const box = ws.getWrapper().getBoundingClientRect();
         return ((e.clientX - box.left) / box.width) * ed.duration;

@@ -74,19 +74,19 @@ test('the theme is automatic, or light, or dark', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('c/first-church/');
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', /./);
-  expect(await bg(page)).toBe('#f3f7f5');
+  expect(await bg(page)).toBe('#f6f7f8');
   await page.emulateMedia({ colorScheme: 'dark' }); // automatic follows the device
-  expect(await bg(page)).toBe('#0b120f');
+  expect(await bg(page)).toBe('#101214');
 
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('heading', { name: 'This browser' }).click(); // its group opens
   await page.locator('select[name=theme]').selectOption('light'); // chosen: the device does not matter
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  expect(await bg(page)).toBe('#f3f7f5');
+  expect(await bg(page)).toBe('#f6f7f8');
   await page.emulateMedia({ colorScheme: 'light' });
   await page.locator('select[name=theme]').selectOption('dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  expect(await bg(page)).toBe('#0b120f');
+  expect(await bg(page)).toBe('#101214');
   await page.screenshot({ path: path.join(shots, 'theme-dark.png') });
 
   // Kept, and there from the first paint.
@@ -96,7 +96,7 @@ test('the theme is automatic, or light, or dark', async ({ page }) => {
   await expect(page.locator('select[name=theme]')).toHaveValue('dark');
   await page.locator('select[name=theme]').selectOption('auto');
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', /./);
-  expect(await bg(page)).toBe('#f3f7f5'); // the device is light again
+  expect(await bg(page)).toBe('#f6f7f8'); // the device is light again
 });
 
 test.describe('the public upload page', () => {
