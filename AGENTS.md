@@ -218,7 +218,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   nothing is saved, there are adjustments, or a file is out of date (`step-edit` in `editorOpen` keeps it open: only the tests set it); folded it keeps its width, for the waveform. `dialog.js` = confirm/alert/prompt and a small form (`formDialog`: Rename) in the app's look
   (never use the browser's `confirm`/`alert`/`prompt`). One player plays at a time: a play event of any `<audio>`/`<video>` pauses the others (`util.js`;
   the editor's waveform, not in the page, is added with `soloPlayer`). `vendor/wavesurfer/` is wavesurfer.js
-  8.0.4, unmodified.
+  8.0.4, unmodified. `vendor/qrcode/` is qrcode-generator 2.0.4, unmodified (the QR code of a new share's link, `shares.js` `showCode`).
 - `web/static/i18n.js` + `locales.js` + `theme.js`: English, Norwegian bokmål (`nb`), nynorsk (`nn`) and the theme (automatic /
   light / dark; `data-theme` on `<html>`, set before the first paint). Every text the UI shows goes through `t('English text', {param})`
   (the English text is the key; `tn(n, 'one', 'other')` for plurals; `data-i18n` in the HTML). `tr(msg)` translates the

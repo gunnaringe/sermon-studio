@@ -851,14 +851,14 @@ test('shares: their own overlay from the header icon, with the number of uploads
   await expect(icon.locator('.count')).toBeHidden(); // nothing going on
   const dialog = page.getByRole('dialog', { name: 'Shares' });
   await icon.click();
-  await expect(dialog.getByRole('heading', { name: 'New upload share' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'New upload share' })).toBeVisible();
   await expect(page).toHaveURL(/\/c\/first-church\/$/); // still on the page it was opened over
   await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Close shares' }).click();
   await expect(dialog).toBeHidden();
   // Its address opens it too; closing goes back to the recordings.
   await page.goto('c/first-church/shares');
-  await expect(dialog.getByRole('heading', { name: 'Made' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'New upload share' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page).toHaveURL(/\/c\/first-church\/$/);
 
@@ -1013,6 +1013,8 @@ test('shares: make a code in the studio, send a recording with the link', async 
   await page.goto('shares'); // the old address leads to the shares
   await expect(page).toHaveURL(/\/c\/first-church\/shares$/);
   await expect(page.getByRole('heading', { name: 'Shares' })).toBeInViewport();
+  await page.getByRole('button', { name: 'New upload share' }).click(); // the form is a dialog of its own
+  await page.getByRole('dialog', { name: 'New upload share' }).screenshot({ path: path.join(shots, 'share-new.png'), animations: 'disabled' });
   await page.locator('input[name=label]').fill('Sound desk');
   await page.locator('input[name=maxUploads]').fill('3');
   await page.locator('input[name=expiresTime]').fill('12:00');
@@ -1028,9 +1030,9 @@ test('shares: make a code in the studio, send a recording with the link', async 
   const dialog = page.getByRole('dialog');
   const link = await dialog.locator('.share-link').textContent();
   expect(link).toMatch(/^http:\/\/localhost:8081\/#code=[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/);
-  await expect(dialog.locator('.dialog-buttons').getByRole('button', { name: 'Share', exact: true })).toBeVisible(); // next to OK
+  await expect(dialog.getByRole('img', { name: 'QR code of the link' })).toBeVisible();
   await page.getByRole('dialog', { name: 'Share made' }).screenshot({ path: path.join(shots, 'share-made.png'), animations: 'disabled' });
-  // Holding the code copies it; Share (no share menu in this browser) copies the link.
+  // Holding the code copies it, as Copy code does; Copy link copies the link.
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const code = dialog.locator('.share-code');
   await code.hover();
@@ -1039,7 +1041,7 @@ test('shares: make a code in the studio, send a recording with the link', async 
   await page.mouse.up();
   await expect(dialog.getByText('Code copied.')).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await code.textContent());
-  await dialog.getByRole('button', { name: 'Share', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Copy link' }).click();
   await expect(dialog.getByText('Link copied.')).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(link);
   await dialog.getByRole('button', { name: 'OK' }).click();
@@ -1179,7 +1181,7 @@ test('download shares: share a finished sermon from its row, download it on the 
   await expect(row).toContainText(/Removed automatically on \d{4}-\d{2}-\d{2}\./);
   await row.locator('summary', { hasText: 'Downloads' }).click();
   await expect(row.locator('table')).toContainText('2025-12-24 Christmas.mp3');
-  await page.locator('#shares h2', { hasText: 'Made' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await page.locator('#shares details.share-group').first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
   await page.screenshot({ path: path.join(shots, 'shares-groups.png') });
   await page.locator('select[name=ended-days]').selectOption({ label: 'never' });
   await expect(endedGroup).toContainText('Ended shares are kept until you remove them.');
