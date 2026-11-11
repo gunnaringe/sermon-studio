@@ -5,4 +5,6 @@ ARG BASE
 FROM ${BASE}
 RUN apk add -q --no-cache ffmpeg
 ARG FFMPEG_URL FFMPEG_SHA256
-ADD --chmod=755 --checksum=sha256:${FFMPEG_SHA256} ${FFMPEG_URL} /usr/local/bin/ffmpeg
+# Checked in its own step: ADD --checksum is not in the podman of GitHub's runners.
+ADD --chmod=755 ${FFMPEG_URL} /usr/local/bin/ffmpeg
+RUN echo "${FFMPEG_SHA256}  /usr/local/bin/ffmpeg" | sha256sum -c - >/dev/null
