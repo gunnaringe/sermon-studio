@@ -224,7 +224,7 @@ async function openOverlay(section, title, closeLabel, fill) {
   const dialog = h('dialog', { class: 'dialog settings-dialog', 'aria-label': title });
   const body = h('div', { class: 'settings' });
   dialog.append(
-    h('div', { class: 'settings-head' }, h('h1', {}, title),
+    h('div', { class: 'settings-head' }, h('h1', { tabindex: -1, autofocus: true }, title), // the focus starts on the title, not on Close
       h('button', { type: 'button', class: 'close', title: t('Close'), 'aria-label': closeLabel, onclick: () => dialog.close() }, '✕')),
     body);
   dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); }); // the backdrop
@@ -300,11 +300,21 @@ async function settingsView(box, part) {
   const status = h('span', { class: 'muted' });
   const save = h('button', { class: 'primary', name: 'save-tags' }, t('Save'));
   const rows = fields.map(([key, label]) => {
-    inputs[key] = h('input', { type: 'text', name: key, value: data.meta[key], maxlength: 200, oninput: () => { status.textContent = ''; preview(); } });
+    inputs[key] = h('input', { type: 'text', name: key, value: data.meta[key], maxlength: 200, oninput: () => { status.textContent = ''; preview(); },
+      onfocus: () => { lastTag = inputs[key]; } });
     previews[key] = h('span', { class: 'muted' });
     return h('label', {}, h('span', { class: 'name' }, label), inputs[key], previews[key]);
   });
   const values = () => Object.fromEntries(fields.map(([key]) => [key, inputs[key].value]));
+  // A placeholder's button puts it in the field last used (the title's at first), where the cursor is.
+  let lastTag = inputs.title;
+  const insert = (text) => {
+    const at = lastTag.selectionStart ?? lastTag.value.length;
+    lastTag.setRangeText(text, at, lastTag.selectionEnd ?? at, 'end');
+    lastTag.focus();
+    status.textContent = '';
+    preview();
+  };
   const preview = debounce(async () => {
     try {
       const plain = await api('POST', 'api/meta/preview', values());
@@ -434,8 +444,9 @@ async function settingsView(box, part) {
       ownClips ? clips : '',
       settings ? h('section', { id: 'tags' },
           h('h3', {}, t('Default tags')),
-          h('p', { class: 'muted' }, t('Written into all generated recordings. You can change them for one recording in the editor. Placeholders:'), ' ',
-            data.placeholders.flatMap((p, i) => [h('code', {}, '{' + p.name + '}'), ' ' + tr(p.help) + (i < data.placeholders.length - 1 ? ' · ' : '.')])),
+          h('p', { class: 'muted' }, t('Written into all generated recordings. You can change them for one recording in the editor. Placeholders:')),
+          h('p', { class: 'placeholders' }, data.placeholders.map((p) => h('button', { type: 'button', class: 'small', title: tr(p.help),
+            onclick: () => insert('{' + p.name + '}') }, h('code', {}, '{' + p.name + '}'), ' ', h('span', { class: 'muted' }, tr(p.help))))),
           h('div', { class: 'panel tags' }, rows, h('div', {}, save, ' ', status))) : '') : '',
     settings ? group('sound', t('Processing'), note(transcripts.childElementCount ? t('Noise reduction, loudness, formats and transcripts') : t('Noise reduction, loudness and formats')), processing, transcripts) : '',
     settings || withMembers ? group('church', t('Church'), note(settings ? (withMembers ? t('Name, logo, members and storage') : t('Name, logo and storage')) : t('Members')),
@@ -455,9 +466,34 @@ async function settingsView(box, part) {
           onchange: (e) => setWheelZoomNeedsKey(e.target.checked),
         }), t('Zoom with the scroll wheel only while holding Ctrl (Cmd on a Mac)'))))));
   box.replaceChildren(view_);
+  // A wide screen has the groups as a list on the left and the one chosen beside it (.panes): one is open at a
+  // time, and its name does not fold it. A narrow one has them folding under each other, as many open as wanted.
+  const groups = [...view_.querySelectorAll('details.settings-group')];
+  const wide = matchMedia('(min-width: 900px)');
+  // chosen is the group shown on a wide screen. A group's toggle event comes late (also the one of a group that
+  // starts open), so only one that is open and not the chosen one is a new choice.
+  let chosen = null;
+  const choose = (d) => {
+    chosen = d;
+    for (const g of groups) g.open = g === d;
+  };
+  groups.forEach((d, i) => {
+    d.style.setProperty('--i', String(i));
+    d.querySelector('summary').addEventListener('click', (e) => { if (wide.matches && d.open) e.preventDefault(); });
+    d.addEventListener('toggle', () => { if (wide.matches && d.open && d !== chosen) { choose(d); view_.scrollTop = 0; } });
+  });
+  const arrange = () => {
+    if (!view_.isConnected) { wide.removeEventListener('change', arrange); return; }
+    view_.classList.toggle('panes', wide.matches);
+    if (!wide.matches || !groups.length) return;
+    choose(groups.find((d) => d.open) || groups[0]);
+  };
+  wide.addEventListener('change', arrange);
+  arrange();
   const target = part && (view_.querySelector(`[data-group="${CSS.escape(part)}"]`) || view_.querySelector('#' + CSS.escape(part)));
   if (target) {
-    target.closest('details.settings-group').open = true;
+    if (wide.matches) choose(target.closest('details.settings-group'));
+    else target.closest('details.settings-group').open = true;
     target.scrollIntoView();
   }
   preview();
