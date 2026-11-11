@@ -130,6 +130,8 @@ test('the studio in use', async ({ browser }) => {
   await pause(1500);
   await click(page.locator('.upload button.primary'));
   await waitEditor(page);
+  // The three minutes run.sh cuts for the video, not the whole speech of the screenshots: the times below are its.
+  expect(Math.round(await page.evaluate(() => window.__editor.ws.getDuration()))).toBe(180);
   await pause(800);
 
   // The waveform as the editor measures it (its own timeAt: the wrapper's box, the recording's length), so a
@@ -205,6 +207,7 @@ test('the studio in use', async ({ browser }) => {
   await drag(22, 162);
   await expect.poll(() => page.evaluate(() => window.__editor.sections.length)).toBe(1);
   const [made] = await page.evaluate(() => window.__editor.sections);
+  // The end is 5 pixels past the pointer (the regions plugin starts a drawn region that wide): 0.8 s here.
   expect(Math.abs(made.start - 22)).toBeLessThan(1);
   expect(Math.abs(made.end - 162)).toBeLessThan(1);
   // The fields under the waveform say the same.

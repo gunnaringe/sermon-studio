@@ -72,7 +72,7 @@ if [ "$what" = all ] || [ "$what" = shots ]; then
 	church "$data" grace-chapel "Grace Chapel" "Sunday services"
 	church "$data" bykirken "Bykirken" "Gudstjenester"
 	church "$data" bykyrkja "Bykyrkja" "Gudstenester"
-	ffmpeg -v error -i "$speech" -ac 1 -ar 44100 -c:a pcm_s16le "$data/R_20261018-104506.wav"
+	ffmpeg -v error -y -i "$speech" -ac 1 -ar 44100 -c:a pcm_s16le "$data/R_20261018-104506.wav"
 	serve "$data"
 	run shots.spec.js
 	stop
@@ -90,7 +90,7 @@ if [ "$what" = all ] || [ "$what" = video ]; then
 	# A fresh studio, so the video starts before anything is done. Three minutes of the speech, ready quickly.
 	rm -rf "$data/churches" "$data/cache"
 	church "$data" grace-chapel "Grace Chapel" "Sunday services"
-	ffmpeg -v error -i "$speech" -t 180 -ac 1 -ar 44100 -c:a pcm_s16le "$data/R_20261018-104506.wav"
+	ffmpeg -v error -y -i "$speech" -t 180 -ac 1 -ar 44100 -c:a pcm_s16le "$data/R_20261018-104506.wav"
 	serve "$data"
 	run video.spec.js
 	stop
