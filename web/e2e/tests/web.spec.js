@@ -819,14 +819,39 @@ test('settings: an overlay over the page, closed by the cross, Esc or a click ou
   await expect(dialog).toBeHidden();
 });
 
-test('settings: groups fold open and shut, this browser remembers which; an address opens its group', async ({ page }) => {
+test('settings: on a wide screen the groups are a list beside the one chosen; on a narrow one they fold, and this browser remembers which', async ({ page }) => {
   await page.goto('settings');
   const dialog = page.getByRole('dialog', { name: 'Settings' });
   await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeVisible(); // Recordings is open at first
+  await expect(dialog.getByRole('heading', { name: 'Settings' })).toBeFocused(); // not the close button
   await expect(page.locator('select[name=language]')).toBeHidden();
   await expect(page.locator('details.settings-group > summary')).toHaveText([
     'RecordingsIntro and outro, default tags', 'ProcessingNoise reduction, loudness, formats and transcripts', 'ChurchName, logo and storage',
     /^Trash(Empty|\d+ recordings?)$/, 'This browserLanguage, theme and waveform']);
+  // Wide: one group at a time; the name of the open one does not fold it.
+  await dialog.screenshot({ path: path.join(shots, 'settings-panes.png') });
+  await dialog.getByRole('heading', { name: 'Recordings', exact: true }).click();
+  await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeVisible();
+  await dialog.getByRole('heading', { name: 'This browser' }).click();
+  await expect(page.locator('select[name=language]')).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeHidden();
+  await expect(page.locator('details.settings-group[open]')).toHaveCount(1);
+  // The list stays where it is while the group scrolls.
+  await dialog.getByRole('heading', { name: 'Processing', exact: true }).click();
+  const before = await dialog.getByRole('heading', { name: 'Church', exact: true }).boundingBox();
+  await page.locator('.settings .panes').evaluate((el) => { el.scrollTop = 400; });
+  expect((await dialog.getByRole('heading', { name: 'Church', exact: true }).boundingBox()).y).toBe(before.y);
+  // A placeholder's button puts it in the title.
+  await dialog.getByRole('heading', { name: 'Recordings', exact: true }).click();
+  const title = page.locator('.tags input[name=title]');
+  const was = await title.inputValue();
+  await title.focus();
+  await page.locator('.placeholders button', { hasText: '{weekday}' }).click();
+  await expect(title).toHaveValue(/\{weekday\}/);
+  await title.fill(was);
+
+  // Narrow: they fold open and shut under each other, and this browser remembers which.
+  await page.setViewportSize({ width: 800, height: 900 });
   await dialog.getByRole('heading', { name: 'Recordings', exact: true }).click();
   await expect(dialog.getByRole('heading', { name: 'Default tags' })).toBeHidden();
   await dialog.screenshot({ path: path.join(shots, 'settings-groups.png') });

@@ -97,7 +97,7 @@ test('an admin sees the members, changes a role and makes an invite link', async
   await expect(section.getByRole('heading', { name: 'Members' })).toBeVisible();
   await expect(section.getByText('Ola Nordmann')).toBeVisible();
   await expect(section.getByText('(you)')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Default tags' })).toBeVisible(); // an admin's settings
+  await expect(page.locator('#tags')).toHaveCount(1); // an admin's settings, in another group
   await section.locator('h3').evaluate((el) => el.scrollIntoView({ block: 'center' }));
   await page.screenshot({ path: path.join(shots, 'settings-members.png') });
 
@@ -128,7 +128,7 @@ test('a member sees no church settings, and can leave', async ({ page }) => {
   await page.goto('c/first-church/settings/members');
   await expect(page.getByText('You are a member of Norkirken Melhus.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Trash' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Default tags', exact: true })).toHaveCount(0);
+  await expect(page.locator('#tags')).toHaveCount(0);
   for (const id of ['#clips', '#name-logo', '#processing']) await expect(page.locator(id)).toHaveCount(0);
   await page.getByRole('button', { name: 'Leave this church…' }).click();
   await page.getByRole('dialog', { name: 'Leave Norkirken Melhus?' }).getByRole('button', { name: 'Leave' }).click();
