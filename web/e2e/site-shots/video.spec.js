@@ -257,9 +257,8 @@ test('the studio in use', async ({ browser }) => {
   await drag(22, 162);
   await expect.poll(() => page.evaluate(() => window.__editor.sections.length)).toBe(1);
   const [made] = await page.evaluate(() => window.__editor.sections);
-  // The end is 5 pixels past the pointer (the regions plugin starts a drawn region that wide): 0.8 s here.
-  expect(Math.abs(made.start - 22)).toBeLessThan(1);
-  expect(Math.abs(made.end - 162)).toBeLessThan(1);
+  expect(Math.abs(made.start - 22)).toBeLessThan(0.5);
+  expect(Math.abs(made.end - 162)).toBeLessThan(0.5);
   // The fields under the waveform say the same.
   expect(Math.abs((await seconds(page.getByLabel('Section from', { exact: true }))) - 22)).toBeLessThan(1);
   expect(Math.abs((await seconds(page.getByLabel('Section to', { exact: true }))) - 162)).toBeLessThan(1);
