@@ -10,6 +10,8 @@ Licensed under the Apache License 2.0 (LICENSE), except:
   Sermon Studio and its copies, unchanged.
 - web/static/vendor/wavesurfer/ is wavesurfer.js, under its own licence (see
   that folder).
+- web/static/vendor/qrcode/ is qrcode-generator by Kazuhiko Arase, under the
+  MIT licence (stated in the file).
 - normalizer/models/speech.rnnn is a model from github.com/GregorR/rnnoise-models
   (somnolent-hogwash), whose README says the models are not subject to copyright
   (see normalizer/models/README.md).

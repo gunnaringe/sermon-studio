@@ -3,7 +3,8 @@
 // the recording, sermons.js). A code is shown once, when the share is made.
 // They have their own overlay (the icon in the header); sharesView fills its box.
 import { api, h, href, formatSize, formatDate, formatDateTime } from './util.js';
-import { alertDialog, confirmDialog } from './dialog.js';
+import { alertDialog, confirmDialog, formDialog } from './dialog.js';
+import qrcode from './vendor/qrcode/qrcode.esm.js';
 import { t, tn } from './i18n.js';
 
 const GB = 1 << 30;
@@ -41,14 +42,15 @@ function limits(s) {
 export function expiryInput() {
   const date = h('input', { type: 'date', name: 'expires', 'aria-label': t('Expiry date') });
   const time = h('input', { type: 'time', name: 'expiresTime', 'aria-label': t('Expiry time'), title: t('Optional: without a time, the day lasts to its end') });
-  const pick = (label, days, months) => h('button', { type: 'button', class: 'link', onclick: () => {
+  const pick = (label, days, months) => h('button', { type: 'button', class: 'small', onclick: () => {
     const d = new Date();
     d.setMonth(d.getMonth() + months, d.getDate() + days);
     date.value = days || months ? formatDate(d) : '';
     time.value = '';
   } }, label);
-  const el = h('span', { class: 'expiry' }, h('span', { class: 'when' }, date, time),
-    h('span', { class: 'quick' }, pick(t('In a week'), 7, 0), pick(t('In a month'), 0, 1), pick(t('Never'), 0, 0)));
+  const el = h('span', { class: 'expiry' },
+    h('span', { class: 'quick' }, pick(t('In a week'), 7, 0), pick(t('In a month'), 0, 1), pick(t('Never'), 0, 0)),
+    h('span', { class: 'when' }, date, time));
   return { el, value: () => {
     if (date.validity.badInput) throw new Error(t('The expiry date is not complete.'));
     return parseExpiry(date.value, time.value);
@@ -85,25 +87,53 @@ function holdToCopy(el, text, done) {
   el.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
-// showCode shows a new share's code and link, once. title is what the phone's share menu calls it.
+// qrOf draws text as a QR code (an SVG, dark on white in either theme, so a phone's camera reads it).
+function qrOf(text, label) {
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount(), quiet = 4;
+  let d = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) d += `M${x + quiet} ${y + quiet}h1v1h-1z`;
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${n + 2 * quiet} ${n + 2 * quiet}`);
+  svg.setAttribute('class', 'share-qr');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', label);
+  const bg = document.createElementNS(ns, 'rect');
+  bg.setAttribute('width', '100%');
+  bg.setAttribute('height', '100%');
+  bg.setAttribute('fill', '#fff');
+  const dots = document.createElementNS(ns, 'path');
+  dots.setAttribute('d', d);
+  dots.setAttribute('fill', '#000');
+  svg.append(bg, dots);
+  return svg;
+}
+
+// showCode shows a new share's code and link, once: the code and the link each with a button that copies it, and
+// the link as a QR code to point a phone at. title is what the phone's share menu calls it.
 export async function showCode(url, code, title = t('Send recordings')) {
   const link = linkFor(url, code);
   const note = h('span', { class: 'muted', role: 'status' });
   const codeEl = h('span', { class: 'share-code', title: t('Hold to copy') }, code);
   holdToCopy(codeEl, code, () => { note.textContent = t('Code copied.'); });
-  const share = h('button', { type: 'button', name: 'share', onclick: async () => {
-    const what = link ? { url: link } : { text: code };
-    if (navigator.share) {
-      try { await navigator.share({ title, ...what }); } catch { /* closed */ }
-      return;
-    }
-    await navigator.clipboard.writeText(link || code);
-    note.textContent = link ? t('Link copied.') : t('Code copied.');
-  } }, t('Share'));
+  const copy = (name, label, text, done) => h('button', { type: 'button', name, class: 'small', onclick: async () => {
+    await navigator.clipboard.writeText(text);
+    note.textContent = done;
+  } }, label);
+  // The phone's own share menu, where there is one.
+  const share = navigator.share ? h('button', { type: 'button', name: 'share', onclick: async () => {
+    try { await navigator.share({ title, ...(link ? { url: link } : { text: code }) }); } catch { /* closed */ }
+  } }, t('Share')) : '';
   await alertDialog({ title: t('Share made'), extra: [share, note], body: [
-    t('The code is shown only once. Share it before you close this.'), h('br'), h('br'),
-    codeEl, h('br'), h('span', { class: 'muted' }, t('Hold the code to copy it.')),
-    ...(link ? [h('br'), h('br'), h('span', { class: 'share-link' }, link)] : []),
+    t('The code is shown only once. Share it before you close this.'),
+    h('span', { class: 'share-made' },
+      h('span', { class: 'share-texts' },
+        h('span', { class: 'share-line' }, codeEl, copy('copy-code', t('Copy code'), code, t('Code copied.'))),
+        link ? h('span', { class: 'share-line' }, h('span', { class: 'share-link' }, link), copy('copy-link', t('Copy link'), link, t('Link copied.'))) : ''),
+      link ? qrOf(link, t('QR code of the link')) : ''),
   ] });
 }
 
@@ -120,11 +150,19 @@ export async function sharesView(box) {
   const uploads = num('maxUploads', { step: 1, placeholder: t('no limit') });
   const total = num('maxTotal', { placeholder: t('no limit') });
   const expires = expiryInput();
-  const status = h('span', { class: 'error' });
-  const create = h('button', { class: 'primary', name: 'create-share', onclick: async () => {
-    status.textContent = '';
-    try {
-      const made = await api('POST', 'api/shares', {
+  // The form is a dialog of its own, from the button over the list: the shares there are come first.
+  const create = h('button', { class: 'primary', name: 'new-share', onclick: async () => {
+    const made = await formDialog({
+      title: t('New upload share'),
+      body: h('div', { class: 'share-form' },
+        h('label', { for: 'share-label' }, t('Name')), Object.assign(label, { id: 'share-label' }),
+        h('span', {}, t('File types')), h('span', {}, h('label', { class: 'check' }, allTypes, ' ' + t('All supported audio')), h('br'), typeList),
+        h('label', {}, t('Max file size (GB)')), fileSize,
+        h('label', {}, t('Max number of files')), uploads,
+        h('label', {}, t('Max total size (GB)')), total,
+        h('span', {}, t('Expires')), expires.el),
+      confirm: t('Make share'),
+      submit: () => api('POST', 'api/shares', {
         label: label.value,
         allTypes: allTypes.checked,
         types: allTypes.checked ? [] : types.filter((c) => c.checked).map((c) => c.value),
@@ -132,30 +170,21 @@ export async function sharesView(box) {
         maxUploads: Number(uploads.value) || 0,
         maxTotal: Math.round(Number(total.value) * GB) || 0,
         expires: expires.value(),
-      });
-      await showCode(data.url, made.code);
-      await refresh();
-    } catch (err) { status.textContent = err.message; }
-  } }, t('Make share'));
+      }),
+    });
+    if (!made) return;
+    await showCode(data.url, made.code);
+    await refresh();
+  } }, t('New upload share'));
 
   box.replaceChildren(
     h('p', { class: 'muted' }, t('A share is a code that lets someone without a login send recordings on the upload page'), data.url ? [' (', h('a', { href: data.url, target: '_blank', rel: 'noopener' }, data.url), ')'] : '',
       '. ' + t('The recordings arrive in this church like any other. Give people the code or the link.') + ' ' +
       t('The code is shown only once, when you make the share.') + ' ' +
       t('To let someone download a finished sermon, use Share for download… on the recording.')),
-    h('h2', {}, t('New upload share')),
-    data.inbox ? h('div', { class: 'panel share-form' },
-      h('label', { for: 'share-label' }, t('Name')), Object.assign(label, { id: 'share-label' }),
-      h('span', {}, t('File types')), h('span', {}, h('label', { class: 'check' }, allTypes, ' ' + t('All supported audio')), h('br'), typeList),
-      h('label', {}, t('Max file size (GB)')), fileSize,
-      h('label', {}, t('Max number of files')), uploads,
-      h('label', {}, t('Max total size (GB)')), total,
-      h('span', {}, t('Expires')), expires.el,
-      h('div', { class: 'wide' }, create, ' ', status))
-      : h('p', { class: 'error' }, t('Shares need an inbox folder, and this church has none.')),
-    h('h2', {}, t('Made')),
-    keepEnded(data, refresh),
-    ...shareGroups(data, refresh));
+    data.inbox ? h('p', {}, create) : h('p', { class: 'error' }, t('Shares need an inbox folder, and this church has none.')),
+    ...shareGroups(data, refresh),
+    keepEnded(data, refresh));
 }
 
 // keepEnded is the church's choice of how long a share that has ended is kept before it is removed by itself.
@@ -167,7 +196,7 @@ function keepEnded(data, refresh) {
     } catch (err) { alertDialog({ body: err.message }); }
   } }, data.endedDaysChoices.map((n) => h('option', { value: n, selected: n === data.endedDays },
     n ? tn(n, '{n} day', '{n} days') : t('never'))));
-  return h('p', {}, h('label', { for: 'ended-days' }, t('Remove ended shares after')), ' ', select);
+  return h('p', { class: 'muted ended-days' }, h('label', { for: 'ended-days' }, t('Remove ended shares after')), ' ', select);
 }
 
 // recordingShares fills box with a recording's own download shares, in its row on the recordings page;

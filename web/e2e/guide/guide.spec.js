@@ -121,6 +121,7 @@ test('settings and a share for people without a login', async ({ page, context }
   await expect(page.getByRole('heading', { name: 'Default tags' })).toBeVisible();
   await shot(page, '12-settings');
   await page.goto('shares');
+  await page.getByRole('button', { name: 'New upload share' }).click();
   await page.locator('input[name=label]').fill('Sound desk');
   await page.locator('input[name=maxUploads]').fill('5');
   await page.locator('input[name=expires]').fill('2026-12-31');
