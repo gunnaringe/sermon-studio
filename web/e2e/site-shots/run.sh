@@ -35,11 +35,12 @@ church() {
 	done
 }
 
-# serve <data>: the studio without a login, as scripts/test.sh guide runs it.
+# serve <data>: the studio without a login, as scripts/test.sh guide runs it; $serve_with is added to its flags.
+serve_with=
 serve() {
 	mkdir -p "$1/cache"
 	./bin/sermon-studio --no-login --listen 127.0.0.1:8080 --data-dir "$1/churches" --cache-dir "$1/cache" \
-		--share-listen 127.0.0.1:8081 --share-url http://localhost:8081/ >"$1/server.log" 2>&1 &
+		--share-listen 127.0.0.1:8081 --share-url http://localhost:8081/ $serve_with >"$1/server.log" 2>&1 &
 	server=$!
 	for i in $(seq 50); do
 		curl -sf http://127.0.0.1:8080/api/config >/dev/null && return
@@ -91,6 +92,14 @@ if [ "$what" = all ] || [ "$what" = video ]; then
 	rm -rf "$data/churches" "$data/cache"
 	church "$data" grace-chapel "Grace Chapel" "Sunday services"
 	ffmpeg -v error -y -i "$speech" -t 180 -ac 1 -ar 44100 -c:a pcm_s16le "$data/R_20261018-104506.wav"
+	# The video shows a transcript being made in the background and does not wait for it (a real one takes minutes):
+	# a models folder that names a model, and a whisper-cli that runs (-h) and then never finishes.
+	mkdir -p "$data/churches/.models"
+	echo "not a model" >"$data/churches/.models/small.bin"
+	echo '{"models":[{"name":"whisper.cpp ggml-small-q5_1","file":"small.bin","languages":["*"]}]}' >"$data/churches/.models/models.json"
+	printf '#!/bin/sh\n[ "$1" = -h ] && exit 0\nexec sleep 3600\n' >"$data/whisper-cli"
+	chmod +x "$data/whisper-cli"
+	serve_with="--whisper-cli $data/whisper-cli"
 	serve "$data"
 	run video.spec.js
 	stop
