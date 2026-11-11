@@ -62,7 +62,10 @@ func TestTrash(t *testing.T) {
 	if w := ts.do(t, "POST", "/api/trash/restore?id="+it.ID, nil); w.Code != http.StatusConflict {
 		t.Errorf("restore over an existing one: %d", w.Code)
 	}
-	os.RemoveAll(filepath.Join(ts.root, "2026", "2026-10-04"))
+	// On Windows the file just written can still be open (its facts are being read): try as the studio does.
+	if err := normalizer.RemoveAll(filepath.Join(ts.root, "2026", "2026-10-04")); err != nil {
+		t.Fatal(err)
+	}
 	if w := ts.do(t, "POST", "/api/trash/restore?id="+it.ID, nil); w.Code != http.StatusOK {
 		t.Fatalf("restore: %d %s", w.Code, w.Body)
 	}

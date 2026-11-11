@@ -65,6 +65,7 @@ type transcriber struct {
 	running  *transcriptJob
 	churches map[string]*Server
 	wake     chan struct{}
+	halt     chan struct{} // closed, the worker ends while the queue goes on: only a test that plays the worker does
 
 	ctx  context.Context
 	stop context.CancelFunc
@@ -83,7 +84,7 @@ func newTranscriber(cfg TranscriptionConfig) (*transcriber, error) {
 	}
 	ctx, stop := context.WithCancel(context.Background())
 	tr := &transcriber{dir: cfg.ModelsDir, whisper: cfg.Whisper, queueDir: cfg.QueueDir, logger: func(string, ...any) {},
-		churches: map[string]*Server{}, wake: make(chan struct{}, 1), ctx: ctx, stop: stop, done: make(chan struct{})}
+		churches: map[string]*Server{}, wake: make(chan struct{}, 1), halt: make(chan struct{}), ctx: ctx, stop: stop, done: make(chan struct{})}
 	if data, err := os.ReadFile(filepath.Join(cfg.QueueDir, queueFile)); err == nil {
 		if err := json.Unmarshal(data, &tr.queue); err != nil {
 			return nil, err
@@ -309,6 +310,8 @@ func (tr *transcriber) work() {
 		if j == nil {
 			select {
 			case <-tr.ctx.Done():
+				return
+			case <-tr.halt:
 				return
 			case <-tr.wake:
 				continue

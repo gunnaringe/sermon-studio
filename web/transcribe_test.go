@@ -384,7 +384,7 @@ func TestTranscriptQueue(t *testing.T) {
 func TestTranscriptRetry(t *testing.T) {
 	ts, _ := newTranscriptServer(t, nbMedium)
 	tr := ts.cfg.transcriber
-	idle(t, ts) // the test plays the worker
+	playWorker(t, ts)
 	folder := filepath.Join(ts.root, "2026-10-04")
 	fail := func(j *transcriptJob, err error) {
 		tr.mu.Lock()
@@ -524,12 +524,22 @@ func idle(t *testing.T, ts *testServer) {
 	tr.unregister("", ts.Server)
 }
 
+// playWorker ends the transcriber's worker, for a test that plays it (next, finish): left running, it is woken
+// by what the test does and takes the same job.
+func playWorker(t *testing.T, ts *testServer) {
+	t.Helper()
+	idle(t, ts) // nothing for it to start on its way out
+	tr := ts.cfg.transcriber
+	close(tr.halt)
+	<-tr.done
+}
+
 // A recording being renamed holds the queue: its job goes first when it is done, not the next one. One waiting
 // asked for again keeps its place, in the language asked for now.
 func TestTranscriptQueueHeld(t *testing.T) {
 	ts, _ := newTranscriptServer(t, nbMedium)
 	tr := ts.cfg.transcriber
-	idle(t, ts)
+	playWorker(t, ts)
 	tr.add(transcriptJob{Folder: "2026/2026-10-01", Language: "nb", At: time.Now().Add(-time.Minute)})
 	tr.add(transcriptJob{Folder: "2026/2026-10-02", Language: "nb", At: time.Now()})
 	tr.mu.Lock()
