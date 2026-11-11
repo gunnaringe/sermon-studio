@@ -114,8 +114,10 @@ export function transcriptPanel(path, info, { chosen = false, onDraw = (_tx) => 
   const poll = async () => {
     if (polling) return;
     polling = true;
-    while (box.isConnected) {
+    // Looked at after the wait: the first time, the box is drawn before it is on the page.
+    for (;;) {
       await sleep(2000);
+      if (!box.isConnected) break;
       let tx;
       try { tx = (await api('GET', 'api/folder?path=' + q(path))).transcript; } catch { break; }
       if (!busy(tx)) {

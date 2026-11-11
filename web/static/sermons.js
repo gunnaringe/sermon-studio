@@ -367,7 +367,8 @@ export function sermonDetail(entry, ctx = {}) {
         h('span', { class: 'muted player-what' }, t('Plays: {what}', { what: playing }))),
       h('div', { class: 'actions' }, downloadMenu(info, saved, status), iconButton('a', EDIT_ICON, t('Edit sermon'), { class: 'button', href: editURL }, t('Edit')),
         copyLink(), ctx.shares && info.outputs.length && saved ? shareButton(info) : ''), // only a saved sermon is shared
-      transcriptPanel(entry.path, info).box,
+      // info follows the transcript as it is made, so Share for download offers it once it is there.
+      transcriptPanel(entry.path, info, { onDraw: (tx) => { info.transcript = tx; } }).box,
       ctx.shares ? sharesBox : '',
     ];
   }
