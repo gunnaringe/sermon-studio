@@ -1,39 +1,37 @@
-/* The website's look: the studio's (web/static/style.css): its green, its gradient, the soft glow behind the page,
-   the glass header and the panels. Light or dark, as the device is. The font is the studio's: Inter where it is
+/* The website's look: the studio's (web/static/style.css): a neutral grey page, panels with a thin border, and its
+   green as the accent only. Light or dark, as the device is. The font is the studio's: Inter where it is
    installed, else the system's; nothing is loaded from elsewhere. */
 :root {
   color-scheme: light dark;
-  --bg: #f3f7f5;
-  --fg: #17221c;
-  --muted: #5c6b63;
-  --line: #d9e4de;
+  --bg: #f6f7f8;
+  --fg: #1a1d1f;
+  --muted: #646b72;
+  --line: #dfe3e6;
   --panel: #ffffff;
-  --panel-2: #edf4f0;
+  --panel-2: #f3f4f6;
   --accent: #047857;
   --accent-fg: #ffffff;
-  --shadow: 0 0 0 0.5px rgba(20, 50, 35, 0.04), 0 1px 3px rgba(20, 50, 35, 0.06), 0 10px 30px -12px rgba(25, 80, 55, 0.2);
-  --shadow-lg: 0 2px 6px rgba(20, 50, 35, 0.08), 0 24px 56px -12px rgba(25, 80, 55, 0.35);
-  --glass: rgba(255, 255, 255, 0.72);
-  --grad: linear-gradient(135deg, #047857 0%, #059669 55%, #0f766e 100%);
-  --grad-hover: linear-gradient(135deg, #065f46 0%, #047857 55%, #115e59 100%);
-  --radius: 16px;
-  --radius-inner: 12px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-lg: 0 8px 28px -8px rgba(16, 24, 40, 0.22);
+  --primary: #047857;
+  --primary-hover: #065f46;
+  --radius: 10px;
+  --radius-inner: 8px;
   --width: 68rem;
   --text: 46rem; /* the width of running text, on every page */
   --gap: 3rem; /* the space above and below a section */
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b120f;
-    --fg: #e5efea;
-    --muted: #93a69c;
-    --line: #24352d;
-    --panel: #121c17;
-    --panel-2: #18261f;
+    --bg: #101214;
+    --fg: #e6e8ea;
+    --muted: #9aa2a9;
+    --line: #2a2f34;
+    --panel: #181b1e;
+    --panel-2: #1f2327;
     --accent: #34d399;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -10px rgba(0, 0, 0, 0.6);
     --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.5), 0 24px 56px -12px rgba(0, 0, 0, 0.8);
-    --glass: rgba(18, 28, 23, 0.72);
   }
 }
 
@@ -50,10 +48,6 @@ body {
   -webkit-font-smoothing: antialiased;
   color: var(--fg);
   background-color: var(--bg);
-  background-image:
-    radial-gradient(52rem 34rem at 8% -8%, color-mix(in srgb, #059669 14%, transparent), transparent 70%),
-    radial-gradient(46rem 30rem at 100% 0%, color-mix(in srgb, #0d9488 11%, transparent), transparent 70%);
-  background-attachment: fixed;
 }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 a { color: var(--accent); }
@@ -65,17 +59,14 @@ h3 { font-size: 1.2rem; margin: 0 0 0.5rem; }
 p { margin: 0 0 1rem; }
 code { font-size: 0.92em; }
 
-/* The header: the studio's glass bar, with the logo and name, the other pages, the language and Log in; on a
+/* The header: the studio's bar, with the logo and name, the other pages, the language and Log in; on a
    phone the pages are behind a menu button. */
 header {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--glass);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  backdrop-filter: blur(14px) saturate(1.4);
+  background: var(--panel);
   border-bottom: 1px solid var(--line);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 18%, transparent), 0 6px 20px -14px rgba(25, 80, 55, 0.4);
 }
 .bar {
   max-width: var(--width);
@@ -87,7 +78,7 @@ header {
 }
 .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.01em; text-decoration: none; }
 .brand img { border-radius: 7px; }
-.brand span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand span { color: var(--fg); }
 /* The front page's sections, then the guide, a page of its own: a line before it and a book. */
 nav { display: flex; align-items: center; gap: 1.1rem; font-size: 0.95rem; }
 nav a { color: var(--muted); text-decoration: none; padding: 0.2rem 0; white-space: nowrap; transition: color 0.15s; }
@@ -157,8 +148,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round
   transition: transform 0.15s, background 0.15s;
 }
 .button:hover { transform: translateY(-1px); }
-.button.primary { background: var(--grad); color: var(--accent-fg); border-color: transparent; }
-.button.primary:hover { background: var(--grad-hover); }
+.button.primary { background: var(--primary); color: var(--accent-fg); border-color: transparent; }
+.button.primary:hover { background: var(--primary-hover); }
 .button[hidden] { display: none; }
 .tools .button { padding: 0.35rem 0.9rem; font-size: 0.95rem; }
 /* Log in: the word, with a person before it; on a phone only the person (its name is in aria-label). */

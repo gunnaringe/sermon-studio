@@ -83,7 +83,10 @@ Each can have a label, which shows on the waveform.
 - **The page** has five parts: **Input file** (one line with the recording's name, size, length and whether it is
   stereo or mono in effect, which opens to its format, how it came and its metadata; and *Download original*), **Edit** (the
   waveform, sections, cuts and fades), **Metadata added to the file** (title, artist, album), **Processing**, **Intro and
-  outro** (for a church with its own folder) and **Output**.
+  outro** (for a church with its own folder), **Output** and **Danger zone**.
+  The steps set once fold: Metadata, Processing, Intro and outro and Danger zone open from their heading, with a line under a
+  folded one saying what is set (the browser remembers which are open). Edit is open while there is something to do in it
+  (nothing saved yet, adjustments not saved, or a file out of date) and folded otherwise.
   Under them, a **bar** sticks to the bottom of the window: whether the edit is saved (hover it to see both versions),
   what Save will do, **Undo** and **Redo** (also `ctrl+z` and `ctrl+shift+z`; they cover the sections, cuts, labels,
   pauses and fades, not the processing and the tags, whose fields have their own undo; the steps are kept in the
@@ -164,16 +167,15 @@ Each can have a label, which shows on the waveform.
   and continue after a dropped connection. No inbox needed.
 - **Names:** a recording can have a name (upload form, optional), e.g. for two sermons a day. Its folder is
   `<year>/<date> <name>` and its files `<date> <name>_raw.flac`, `<date> <name>.mp3`... Without a name
-  a date can hold one sermon. **Rename…** on a sermon's page changes its date or name (the folder and
+  a date can hold one sermon. The pencil beside the title of a sermon's page (**Rename…**) changes its date or name (the folder and
   the files named after it, also in `original/`; files already made keep their tags). A recording
   from the inbox that finds its date taken lands in `<date> 2`; rename it.
-- **Delete and the trash:** **Delete** at the end of a recording's edit page. *Delete recording…* (after a confirmation) moves
+- **Delete and the trash:** **Danger zone** at the end of a recording's edit page. *Delete recording…* (after a confirmation) moves
   its whole folder, with its files and the original, into the church's trash; nothing is removed yet. **Settings → Trash** lists what is there, how long it has
   left (30 days, `--trash-days`), and has *Restore* (back where it was, unless that date has a recording again) and
   *Delete now* (for good, after a confirmation). After the time, the server removes it by itself. A recording that is
   being processed cannot be deleted.
-- **Delete original:** once files have been made, *Delete original…* (under Delete, and next to *Download original* in
-  Input file) deletes the original recording for good, not into the trash, to free its space; the waveform and preview
+- **Delete original:** once files have been made, *Delete original…* (in the Danger zone) deletes the original recording for good, not into the trash, to free its space; the waveform and preview
   made from it go too. The files made are kept and can still be downloaded and shared, but the sermon can no longer be
   edited or regenerated: the edit page says when the original was deleted, the recordings page says *Original deleted*,
   and formats not made yet cannot be made.
@@ -208,10 +210,10 @@ finished sermon, on a separate, public share page, with a code. A share is one o
 ### Sending recordings
 
 People without a login send recordings to a church's inbox with a code. **Shares** in the studio (the share icon in the
-header, next to the gear) makes one: a name, the file
+header, next to the gear) lists them, and **New upload share** makes one: a name, the file
 types (all supported audio, or some of them), the max file size, and optionally how many files, how much
 in all and an expiry. The code (`XXXX-XXXX-XXXX-XXXX`, 80 bits) and a link with it (`<share-url>#code=...`)
-are shown once, with a Share button for the link (hold the code to copy it); the church keeps only a hash,
+are shown once, each with a button that copies it, and the link also as a QR code to point a phone at; the church keeps only a hash,
 in `<church>/shares.json`, with the uploads made (name, size, address, time). A share can be paused:
 its code is refused at once, also mid-upload (after a confirmation, if someone is uploading), until you
 resume it, so the same code works again. A paused share, or one that has ended (expired, used up, full),

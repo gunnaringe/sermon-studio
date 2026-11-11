@@ -3,6 +3,9 @@
 # a real speech. Runs inside the Playwright image, with site/ at /site and web/static at /static (for the
 # translations); start it with: scripts/site-shots.sh [shots|video]
 set -eu
+# The pictures and the video are encoded with the system's ffmpeg (WebP, H.264, VP9): the one first on the path is
+# the desktop app's small build (scripts/test-images/e2e.Containerfile), which has none of them.
+encoder=/usr/bin/ffmpeg
 cd "$(dirname "$0")/.."
 
 what=${1:-all}
@@ -77,7 +80,7 @@ if [ "$what" = all ] || [ "$what" = shots ]; then
 		rm -rf "/site/img/shots/$l"
 		mkdir -p "/site/img/shots/$l"
 		for png in "$tmp/out/$l"/*.png; do
-			ffmpeg -v error -i "$png" -c:v libwebp -quality 72 -compression_level 6 "/site/img/shots/$l/$(basename "$png" .png).webp"
+			"$encoder" -v error -i "$png" -c:v libwebp -quality 72 -compression_level 6 "/site/img/shots/$l/$(basename "$png" .png).webp"
 		done
 	done
 	echo "screenshots: $(du -sh /site/img/shots | cut -f1) in site/img/shots"
@@ -95,11 +98,11 @@ if [ "$what" = all ] || [ "$what" = video ]; then
 	media=/site/media
 	rm -f "$media"/demo.* "$media"/demo-poster.*
 	mkdir -p "$media"
-	ffmpeg -v error -ss "$start" -i "$tmp/out/video.webm" -an -vf "fps=25,format=yuv420p" -c:v libx264 -preset slow -crf 27 \
+	"$encoder" -v error -ss "$start" -i "$tmp/out/video.webm" -an -vf "fps=25,format=yuv420p" -c:v libx264 -preset slow -crf 27 \
 		-profile:v high -movflags +faststart "$media/demo.mp4"
-	ffmpeg -v error -ss "$start" -i "$tmp/out/video.webm" -an -vf "fps=25" -c:v libvpx-vp9 -b:v 0 -crf 42 -row-mt 1 \
+	"$encoder" -v error -ss "$start" -i "$tmp/out/video.webm" -an -vf "fps=25" -c:v libvpx-vp9 -b:v 0 -crf 42 -row-mt 1 \
 		-deadline good -cpu-used 2 "$media/demo.webm"
-	ffmpeg -v error -ss "$(cat "$tmp/out/video-poster")" -i "$tmp/out/video.webm" -frames:v 1 -c:v libwebp -quality 75 "$media/demo-poster.webp"
+	"$encoder" -v error -ss "$(cat "$tmp/out/video-poster")" -i "$tmp/out/video.webm" -frames:v 1 -c:v libwebp -quality 75 "$media/demo-poster.webp"
 	echo "video: $(ffprobe -v error -show_entries format=duration -of csv=p=0 "$media/demo.mp4" | cut -d. -f1) s;" \
 		"$(du -h "$media/demo.mp4" | cut -f1) MP4, $(du -h "$media/demo.webm" | cut -f1) WebM, $(du -h "$media/demo-poster.webp" | cut -f1) poster"
 fi

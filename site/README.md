@@ -9,7 +9,7 @@ from other hosts (`_headers` sets a Content-Security-Policy that keeps it so).
 | `index.html`, `guide.html`, `privacy.html`, `404.html` | the pages: the markup, with `data-t="key"` where a text goes. The header has the front page's sections and the guide (a page of its own: a line and a book before it); the footer is About, as in the studio, with privacy among its links |
 | `lang/en.json`, `nb.json`, `nn.json` | all the texts, one file per language, with the same keys |
 | `site.js` | the language (`?lang=`, else the one chosen before, else the browser's), the language menu (the globe), the pictures, the header's menu on a tablet or phone, the section in view marked in the header |
-| `style.css` | the studio's look: its green, its gradient, light and dark as the device is |
+| `style.css` | the studio's look: neutral grey with its green as the accent, light and dark as the device is |
 | `fonts/signature.woff2` | the signature in About, a copy of `web/static/fonts/signature.woff2` (not under the licence: see `NOTICE`) |
 | `img/logo.svg`, `img/*.png` | the studio's logo and icons, copied from `web/static/icons/` |
 | `img/og.png` | the picture of a link preview (Signal, Slack…; `og:image` in each page's head, with the English title and description, since previews run no script), made by `scripts/make-og-image.sh` from `scripts/og-card.html` |
