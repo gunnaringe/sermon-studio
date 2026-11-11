@@ -30,7 +30,7 @@
   "home.hero.alt": "The editor: the service as a waveform, with the sermon marked",
 
   "home.video.h2": "The studio in use",
-  "home.video.note": "The video is in English, without sound.",
+  "home.video.note": "The video is in English, with sound.",
   "home.video.fallback": "Your browser cannot play this video. <a href=\"media/demo.mp4\">Download it (MP4)</a>.",
 
   "home.demo.h2": "Try it yourself",

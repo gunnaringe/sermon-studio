@@ -134,7 +134,8 @@ test('the video has its sources and poster, and they are small', async ({ page, 
   await ready(page);
   const video = page.locator('video');
   await expect(video).toHaveAttribute('poster', 'media/demo-poster.webp');
-  for (const attr of ['controls', 'muted', 'playsinline']) await expect(video).toHaveAttribute(attr, '');
+  for (const attr of ['controls', 'playsinline']) await expect(video).toHaveAttribute(attr, '');
+  await expect(video).not.toHaveAttribute('muted'); // it has sound, and starts only when asked to
   const sources = await video.locator('source').evaluateAll((s) => s.map((x) => [x.getAttribute('src'), x.getAttribute('type')]));
   expect(sources).toEqual([['media/demo.webm', 'video/webm'], ['media/demo.mp4', 'video/mp4']]);
   await expect(page.locator('#video .note')).toHaveText(dicts.nb['home.video.note']);
