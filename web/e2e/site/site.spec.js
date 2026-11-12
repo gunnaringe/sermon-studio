@@ -209,6 +209,22 @@ test('the video has its sources and poster, and they are small', async ({ page, 
   const sources = await video.locator('source').evaluateAll((s) => s.map((x) => [x.getAttribute('src'), x.getAttribute('type')]));
   expect(sources).toEqual([['/media/demo.webm', 'video/webm'], ['/media/demo.mp4', 'video/mp4']]);
   await expect(page.locator('#video .note')).toHaveText(dicts.nb['home.video.note']);
+  // Subtitles in bokmål and nynorsk; a page in one of them has its own on from the start.
+  const tracks = () => video.locator('track').evaluateAll((t) => t.map((x) => [x.getAttribute('srclang'), x.getAttribute('src'), x.hasAttribute('default')]));
+  expect(await tracks()).toEqual([['nb', '/media/demo.nb.vtt', true], ['nn', '/media/demo.nn.vtt', false]]);
+  for (const lang of ['nb', 'nn']) {
+    const vtt = await (await request.get(`/media/demo.${lang}.vtt`)).text();
+    expect(vtt.startsWith('WEBVTT\n'), lang).toBe(true);
+    const cues = [...vtt.matchAll(/(\d\d):(\d\d):(\d\d)\.\d{3} --> (\d\d):(\d\d):(\d\d)\.\d{3}\n(.+)/g)];
+    expect(cues.length, lang).toBeGreaterThan(15);
+    expect(cues[0][7]).toBe('Sermon Studio');
+    expect(vtt).toContain(lang === 'nb' ? 'Merk prekenen' : 'Merk preika');
+  }
+  await page.goto('/?lang=en');
+  await ready(page);
+  expect((await tracks()).map((t) => t[2])).toEqual([false, false]);
+  await page.goto('/?lang=nb');
+  await ready(page);
   let total = 0;
   for (const src of ['media/demo.webm', 'media/demo.mp4', 'media/demo-poster.webp']) {
     const r = await request.get(src);

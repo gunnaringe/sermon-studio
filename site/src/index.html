@@ -48,6 +48,9 @@
         <video controls playsinline preload="none" poster="media/demo-poster.webp" width="1280" height="720" data-t-aria-label="home.video.label">
           <source src="media/demo.webm" type="video/webm">
           <source src="media/demo.mp4" type="video/mp4">
+          <!-- Its captions in bokmål and nynorsk (the English ones are in the picture); a page in one of them shows its own (build.mjs: default). -->
+          <track kind="subtitles" srclang="nb" label="Norsk bokmål" src="media/demo.nb.vtt">
+          <track kind="subtitles" srclang="nn" label="Norsk nynorsk" src="media/demo.nn.vtt">
           <p data-t="home.video.fallback"></p>
         </video>
         <p class="note" data-t="home.video.note"></p>

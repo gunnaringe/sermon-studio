@@ -31,7 +31,7 @@
   "home.cta.invite": "Få det til menigheten",
 
   "home.video.label": "Video: studioet i bruk",
-  "home.video.note": "Videoen er på engelsk, med lyd.",
+  "home.video.note": "Videoen er på engelsk, med lyd og norske undertekster.",
   "home.video.fallback": "Nettleseren din kan ikke spille av denne videoen. <a href=\"media/demo.mp4\">Last den ned (MP4)</a>.",
 
   "home.demo.h2": "Prøv selv",

@@ -116,6 +116,7 @@ if [ "$what" = all ] || [ "$what" = video ]; then
 	media=/site/media
 	rm -f "$media"/demo.* "$media"/demo-poster.*
 	mkdir -p "$media"
+	cp "$tmp/out"/demo.*.vtt "$media/" # the captions in bokmål and nynorsk, as subtitle tracks
 	# The sound a little down: the recording as it is, played in the editor, reaches full level.
 	"$encoder" -v error -ss "$start" -i "$tmp/out/video.mkv" -vf "fps=25,format=yuv420p" -c:v libx264 -preset slow -crf 27 \
 		-profile:v high -af volume=-2dB -c:a aac -b:a 80k -ac 1 -movflags +faststart "$media/demo.mp4"

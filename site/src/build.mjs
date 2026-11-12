@@ -48,6 +48,8 @@ function render(page, lang, dict) {
     return tag;
   });
   if (/data-t(-[a-z-]+)?=/.test(html)) throw new Error(`${page}.html: a data-t that was not filled: ${html.match(/<[^>]*data-t[^>]*>/)[0]}`);
+  // The video's subtitles in the page's language are on from the start.
+  html = html.replace(`<track kind="subtitles" srclang="${lang}"`, `<track kind="subtitles" srclang="${lang}" default`);
   // The language menu: the same page in each language.
   html = html.replace('<span class="code"></span>', `<span class="code">${lang.toUpperCase()}</span>`);
   const target = page === '404' ? 'index' : page;

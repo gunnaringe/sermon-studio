@@ -18,7 +18,7 @@ from other hosts (`_headers` sets a Content-Security-Policy that keeps it so).
 | `img/logo.svg`, `img/*.png` | the studio's logo and icons, copied from `web/static/icons/` |
 | `img/og.png` | the picture of a link preview (Signal, Slack…; `og:image` in each page's head, with the page's own title and description), made by `scripts/make-og-image.sh` from `scripts/og-card.html` |
 | `img/shots/<lang>/*.webp` | the studio in each language, made by `scripts/site-shots.sh shots` |
-| `media/demo.mp4`, `demo.webm`, `demo-poster.webp` | the video, in English, made by `scripts/site-shots.sh video` |
+| `media/demo.mp4`, `demo.webm`, `demo-poster.webp`, `demo.nb.vtt`, `demo.nn.vtt` | the video, in English, and its captions as subtitles in bokmål and nynorsk (on from the start on a page in that language), made by `scripts/site-shots.sh video` |
 
 **Log in** goes to the hosted studio's login host (https://my.sermon-studio.app/), whose start offers Log in and
 Create an account, and **Ask for an invite** writes to contact@sermon-studio.app.
