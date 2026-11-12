@@ -1,5 +1,5 @@
 // Serves the website (SITE, default /site) as Cloudflare's static assets do for it (site/wrangler.jsonc):
-// /guide is guide.html, a folder is its index.html, an unknown path is 404.html with status 404, and the
+// /guide is guide.html (and /guide.html goes there), a folder is its index.html, an unknown path is the nearest 404.html with status 404, and the
 // headers in _headers for /* (the Content-Security-Policy) go with every response. Files in .assetsignore are
 // not served. For the site's test only (site.spec.js).
 import http from 'node:http';
@@ -11,7 +11,7 @@ const port = Number(process.env.PORT || 8090);
 const types = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp',
-  '.mp4': 'video/mp4', '.webm': 'video/webm',
+  '.mp4': 'video/mp4', '.webm': 'video/webm', '.xml': 'application/xml', '.txt': 'text/plain; charset=utf-8',
 };
 const ignored = new Set(fs.readFileSync(path.join(root, '.assetsignore'), 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#')));
 ignored.add('_headers');
@@ -30,7 +30,7 @@ for (const line of fs.readFileSync(path.join(root, '_headers'), 'utf8').split('\
 
 function file(p) {
   const full = path.join(root, p);
-  if (!full.startsWith(root) || ignored.has(path.basename(full))) return null;
+  if (!full.startsWith(root) || path.relative(root, full).split(path.sep).some((part) => ignored.has(part))) return null;
   try {
     const st = fs.statSync(full);
     if (st.isFile()) return full;
@@ -41,10 +41,20 @@ function file(p) {
 
 http.createServer((req, res) => {
   const p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  // As auto-trailing-slash does: /guide.html goes to /guide, /nb/index.html to /nb/.
+  if (p.endsWith('.html') && !p.endsWith('/404.html') && file(p)) {
+    res.writeHead(307, { Location: p.replace(/(^|\/)index\.html$/, '$1').replace(/\.html$/, '') + new URL(req.url, 'http://x').search });
+    res.end();
+    return;
+  }
   let found = file(p) || (path.extname(p) ? null : file(p + '.html'));
   let status = 200;
   if (!found) {
-    found = file('/404.html');
+    // The nearest 404.html, from the path's folder upwards (so /nb/x gets the bokmål one).
+    for (let dir = path.dirname(p); !found; dir = path.dirname(dir)) {
+      found = file(path.join(dir, '404.html'));
+      if (dir === '/') break;
+    }
     status = 404;
   }
   res.writeHead(status, { ...headers, 'Content-Type': types[path.extname(found)] || 'application/octet-stream' });

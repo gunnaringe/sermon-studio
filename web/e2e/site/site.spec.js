@@ -1,4 +1,5 @@
-// The website (site/), served as Cloudflare serves it (serve.js): every page in every language, the language
+// The website (site/), served as Cloudflare serves it (serve.js): that its pages are what site/src makes,
+// every page in every language (also without JavaScript), the language
 // menu, the phone's menu, the same keys in every language, every internal link and picture, and the video.
 // Saves screenshots of the pages (web/e2e/screenshots/site-*.png) for the PR. Run with scripts/test.sh site.
 import { test, expect } from '@playwright/test';
@@ -8,7 +9,10 @@ import path from 'node:path';
 const SITE = process.env.SITE || '/site';
 const LANGS = ['en', 'nb', 'nn'];
 const PAGES = ['/', '/guide.html', '/privacy.html'];
-const dicts = Object.fromEntries(LANGS.map((l) => [l, JSON.parse(fs.readFileSync(path.join(SITE, 'lang', l + '.json'), 'utf8'))]));
+const dicts = Object.fromEntries(LANGS.map((l) => [l, JSON.parse(fs.readFileSync(path.join(SITE, 'src', 'lang', l + '.json'), 'utf8'))]));
+// at is a page's address in a language: /guide.html is /nb/guide in bokmål (as src/build.mjs has it).
+const at = (lang, p) => (lang === 'en' ? '' : '/' + lang) + (p === '/' ? '/' : p.replace(/\.html$/, ''));
+const { stale } = await import(path.join(SITE, 'src', 'build.mjs'));
 const shots = path.join(import.meta.dirname, '..', 'screenshots');
 const ORIGIN = 'http://127.0.0.1:8090';
 
@@ -25,8 +29,9 @@ const ready = (page) => expect(page.locator('html.ready')).toHaveCount(1);
 // choose picks a language in the header's menu (the globe).
 async function choose(page, lang) {
   await page.locator('#lang summary').click();
-  await page.locator(`#lang button[lang=${lang}]`).click();
-  await expect(page.locator('#lang')).not.toHaveAttribute('open');
+  await page.locator(`#lang a[lang=${lang}]`).click();
+  await expect(page.locator('html')).toHaveAttribute('lang', lang);
+  await ready(page);
 }
 // eager loads the lazy pictures, so the page is whole.
 async function eager(page) {
@@ -42,8 +47,8 @@ test('every language has the same keys, and the pages use only those keys', () =
     for (const [k, v] of Object.entries(dicts[l])) expect(v.trim(), `${l}: ${k}`).not.toBe('');
   }
   const used = new Set();
-  for (const file of fs.readdirSync(SITE).filter((f) => f.endsWith('.html'))) {
-    const html = fs.readFileSync(path.join(SITE, file), 'utf8');
+  for (const file of fs.readdirSync(path.join(SITE, 'src')).filter((f) => f.endsWith('.html'))) {
+    const html = fs.readFileSync(path.join(SITE, 'src', file), 'utf8');
     for (const m of html.matchAll(/data-t(?:-[a-z-]+)?="([^"]+)"/g)) {
       expect(dicts.en, `${file}: ${m[1]}`).toHaveProperty([m[1]]);
       used.add(m[1]);
@@ -60,21 +65,18 @@ for (const lang of LANGS) {
       await ready(page);
       await expect(page.locator('html')).toHaveAttribute('lang', lang);
       await expect(page.locator('#lang .code')).toHaveText(lang.toUpperCase());
-      await expect(page.locator(`#lang button[lang=${lang}]`)).toHaveAttribute('aria-pressed', 'true');
+      await expect(page).toHaveURL(ORIGIN + at(lang, p)); // ?lang= goes to the language's own page
+      await expect(page.locator(`#lang a[lang=${lang}]`)).toHaveAttribute('aria-current', 'true');
       const h1 = page.locator('h1');
       await expect(h1).toBeVisible();
       expect((await h1.textContent()).trim()).not.toBe('');
-      // Every text is filled in, from this language.
-      for (const el of await page.locator('body [data-t]:not(noscript *)').all()) {
-        const key = await el.getAttribute('data-t');
-        expect((await el.innerHTML()).trim(), key).not.toBe('');
-      }
-      expect(await page.title()).toBe(dicts[lang][await page.locator('title').getAttribute('data-t')]);
+      expect(await page.title()).toBe(dicts[lang][(p === '/' ? 'home' : p.slice(1, -5)) + '.title']);
+      await expect(page.locator('[data-t], [data-t-alt], [data-t-title]')).toHaveCount(0); // the templates' marks are gone
 
       // Every picture is this language's, and loads.
       await eager(page);
       for (const src of await page.locator('img[data-shot]').evaluateAll((imgs) => imgs.map((i) => i.getAttribute('src')))) {
-        expect(src).toMatch(new RegExp(`^img/shots/${lang}/[a-z-]+\\.webp$`));
+        expect(src).toMatch(new RegExp(`^/img/shots/${lang}/[a-z-]+\\.webp$`));
       }
       // Every link: inside the site it resolves; outside it is GitHub, the studio, the demo, the author's page or the contact address.
       for (const href of new Set(await page.locator('a[href]').evaluateAll((as) => as.map((a) => a.getAttribute('href'))))) {
@@ -99,11 +101,12 @@ test('the language menu switches the page and is remembered', async ({ page }) =
   await choose(page, 'nn');
   await expect(page.locator('h1')).toHaveText(dicts.nn['home.h1']);
   await expect(page.locator('html')).toHaveAttribute('lang', 'nn');
-  await expect(page.locator('img[data-shot=editor]').first()).toHaveAttribute('src', 'img/shots/nn/editor.webp');
+  await expect(page.locator('img[data-shot=editor]').first()).toHaveAttribute('src', '/img/shots/nn/editor.webp');
+  await expect(page).toHaveURL(ORIGIN + '/nn/');
   await page.reload();
   await ready(page);
   await expect(page.locator('h1')).toHaveText(dicts.nn['home.h1']);
-  await page.locator('nav a[href="guide.html"]').click();
+  await page.locator('nav a[href="/nn/guide"]').click();
   await ready(page);
   await expect(page.locator('h1')).toHaveText(dicts.nn['guide.h1']);
   // ?lang= is a choice too; the menu then takes it out of the address.
@@ -111,7 +114,11 @@ test('the language menu switches the page and is remembered', async ({ page }) =
   await ready(page);
   await expect(page.locator('h1')).toHaveText(dicts.nb['privacy.h1']);
   await choose(page, 'en');
-  await expect(page).toHaveURL(/\/privacy\.html$/);
+  await expect(page).toHaveURL(ORIGIN + '/privacy');
+  // A page asked for in a language stays in it, whatever was chosen before.
+  await page.goto('/nn/guide');
+  await ready(page);
+  await expect(page.locator('h1')).toHaveText(dicts.nn['guide.h1']);
   await page.goto('/');
   await ready(page);
   await expect(page.locator('h1')).toHaveText(dicts.en['home.h1']);
@@ -135,7 +142,7 @@ test('a picture of the studio has a phone version, and a click shows it larger',
   await ready(page);
   const first = page.locator('#how button.zoom').first();
   await expect(first).toHaveAttribute('title', dicts.nb['shot.enlarge']);
-  await expect(first.locator('img')).toHaveAttribute('src', 'img/shots/nb/recordings.webp');
+  await expect(first.locator('img')).toHaveAttribute('src', '/img/shots/nb/recordings.webp');
   // Shown beside the text, it is not shrunk to less than half its size (its text stays readable).
   const scale = await first.locator('img').evaluate((i) => i.getBoundingClientRect().width / 900);
   expect(scale).toBeGreaterThan(0.6);
@@ -160,7 +167,7 @@ test('a picture of the studio has a phone version, and a click shows it larger',
     expect(sources.length).toBeGreaterThan(5);
     for (const [phone, wide] of sources) {
       expect(phone).toBe(wide.replace(/\.webp$/, '-phone.webp'));
-      expect((await page.request.get('/' + phone)).ok(), phone).toBe(true);
+      expect((await page.request.get(phone)).ok(), phone).toBe(true);
     }
   }
   const context = await browser.newContext({ viewport: { width: 390, height: 800 }, baseURL: new URL(page.url()).origin });
@@ -196,11 +203,11 @@ test('the video has its sources and poster, and they are small', async ({ page, 
   await page.goto('/?lang=nb');
   await ready(page);
   const video = page.locator('video');
-  await expect(video).toHaveAttribute('poster', 'media/demo-poster.webp');
+  await expect(video).toHaveAttribute('poster', '/media/demo-poster.webp');
   for (const attr of ['controls', 'playsinline']) await expect(video).toHaveAttribute(attr, '');
   await expect(video).not.toHaveAttribute('muted'); // it has sound, and starts only when asked to
   const sources = await video.locator('source').evaluateAll((s) => s.map((x) => [x.getAttribute('src'), x.getAttribute('type')]));
-  expect(sources).toEqual([['media/demo.webm', 'video/webm'], ['media/demo.mp4', 'video/mp4']]);
+  expect(sources).toEqual([['/media/demo.webm', 'video/webm'], ['/media/demo.mp4', 'video/mp4']]);
   await expect(page.locator('#video .note')).toHaveText(dicts.nb['home.video.note']);
   let total = 0;
   for (const src of ['media/demo.webm', 'media/demo.mp4', 'media/demo-poster.webp']) {
@@ -247,13 +254,13 @@ test('the header has the sections and the guide; privacy and About are at the bo
   await ready(page);
   const nav = page.locator('header nav');
   for (const key of ['nav.how', 'nav.mixer', 'nav.churches', 'nav.self', 'nav.guide']) await expect(nav.getByRole('link', { name: dicts.nb[key] })).toBeVisible();
-  await expect(nav.locator('a.page')).toHaveAttribute('href', 'guide.html');
+  await expect(nav.locator('a.page')).toHaveAttribute('href', '/nb/guide');
   await expect(nav.locator('a.page')).toHaveAttribute('title', dicts.nb['nav.guide.title']);
-  await expect(page.locator('header a[href="privacy.html"]')).toHaveCount(0);
+  await expect(page.locator('header a[href$="privacy"]')).toHaveCount(0);
   const about = page.locator('footer');
   await expect(about.getByRole('heading', { name: dicts.nb['about.h2'] })).toBeVisible();
   await expect(about.getByRole('link', { name: 'Gunnar Inge Gjøvik Sortland' })).toHaveAttribute('href', 'https://gunnaringe.sort.land');
-  await expect(about.getByRole('link', { name: dicts.nb['nav.privacy'] })).toHaveAttribute('href', 'privacy.html');
+  await expect(about.getByRole('link', { name: dicts.nb['nav.privacy'] })).toHaveAttribute('href', '/nb/privacy');
   // A section's link scrolls to it, and is marked while it is in view.
   await nav.getByRole('link', { name: dicts.nb['nav.self'] }).click();
   await expect(page).toHaveURL(/#self$/);
@@ -322,27 +329,72 @@ test('an unknown address is the not-found page, and the Worker files are not ser
   const r = await page.goto('/no/such/page');
   expect(r.status()).toBe(404);
   await ready(page);
-  await expect(page.locator('h1')).not.toHaveText('');
-  for (const f of ['/wrangler.jsonc', '/README.md', '/.assetsignore', '/_headers']) expect((await request.get(f)).status(), f).toBe(404);
+  await expect(page.locator('h1')).toHaveText(dicts.en['notfound.h1']);
+  // Under a language it is that language's, and leads to its front page.
+  expect((await page.goto('/nb/no/such/page')).status()).toBe(404);
+  await ready(page);
+  await expect(page.locator('h1')).toHaveText(dicts.nb['notfound.h1']);
+  await expect(page.locator('main a')).toHaveAttribute('href', '/nb/');
+  for (const f of ['/wrangler.jsonc', '/README.md', '/.assetsignore', '/_headers', '/src/index.html', '/src/lang/en.json', '/src/build.mjs']) expect((await request.get(f)).status(), f).toBe(404);
   expect((await request.get('/guide')).status()).toBe(200);
 });
 
-// A link preview (Signal, Slack…) runs no script: each page's head has its English title, description and picture.
-test('every page has a link preview without its script', async ({ request }) => {
-  for (const p of PAGES) {
-    const head = (await (await request.get(p)).text()).split('</head>')[0];
-    const tag = (prop) => head.match(new RegExp(`<meta (?:property|name)="${prop}"[^>]* content="([^"]*)"`))?.[1];
-    const key = p === '/' ? 'home' : p.slice(1, -5);
-    expect(tag('description'), p).toBe(dicts.en[key + '.description']);
-    expect(tag('og:title'), p).toBe(dicts.en[key + '.title']);
-    expect(tag('og:description'), p).toBe(dicts.en[key + '.description']);
-    expect(tag('og:url'), p).toBe('https://sermon-studio.app' + p);
-    const image = tag('og:image');
-    expect(image, p).toBe('https://sermon-studio.app/img/og.png');
-    const r = await request.get(new URL(image).pathname);
-    expect(r.status()).toBe(200);
-    expect(r.headers()['content-type']).toContain('image/png');
+// A link preview (Signal, Slack…) and a search engine run no script: each page's head has its title, description
+// and picture in its own language, its own address, and the addresses of the other languages.
+test('every page has a link preview and its other languages without its script', async ({ request }) => {
+  for (const lang of LANGS) {
+    for (const p of PAGES) {
+      const where = at(lang, p);
+      const head = (await (await request.get(where)).text()).split('</head>')[0];
+      const tag = (prop) => head.match(new RegExp(`<meta (?:property|name)="${prop}"[^>]* content="([^"]*)"`))?.[1];
+      const key = p === '/' ? 'home' : p.slice(1, -5);
+      expect(tag('description'), where).toBe(dicts[lang][key + '.description']);
+      expect(tag('og:title'), where).toBe(dicts[lang][key + '.title']);
+      expect(tag('og:description'), where).toBe(dicts[lang][key + '.description']);
+      expect(tag('og:url'), where).toBe('https://sermon-studio.app' + where);
+      expect(head).toContain(`<link rel="canonical" href="https://sermon-studio.app${where}">`);
+      for (const l of LANGS) expect(head).toContain(`<link rel="alternate" hreflang="${l}" href="https://sermon-studio.app${at(l, p)}">`);
+      expect(head).toContain(`<link rel="alternate" hreflang="x-default" href="https://sermon-studio.app${at('en', p)}">`);
+      const image = tag('og:image');
+      expect(image, where).toBe('https://sermon-studio.app/img/og.png');
+      const r = await request.get(new URL(image).pathname);
+      expect(r.status()).toBe(200);
+      expect(r.headers()['content-type']).toContain('image/png');
+    }
   }
+});
+
+test('the pages are what site/src makes', () => {
+  expect(stale(SITE), 'run: node site/src/build.mjs').toEqual([]);
+});
+
+test('without JavaScript every page has its text, pictures and links', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, locale: 'nb-NO' });
+  const page = await context.newPage();
+  for (const lang of LANGS) {
+    await page.goto(ORIGIN + at(lang, '/'));
+    await expect(page.locator('html')).toHaveAttribute('lang', lang); // no script sends a Norwegian browser elsewhere
+    await expect(page.locator('h1')).toHaveText(dicts[lang]['home.h1']);
+    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.locator('.hero .lede')).toHaveText(dicts[lang]['home.lede']);
+    await expect(page.locator('img[data-shot=recordings]')).toHaveAttribute('src', `/img/shots/${lang}/recordings.webp`);
+    // The language menu is links: it works as it is.
+    await page.locator('#lang summary').click();
+    await page.locator('#lang a[lang=nn]').click();
+    await expect(page).toHaveURL(ORIGIN + '/nn/');
+    await page.goto(ORIGIN + at(lang, '/guide.html'));
+    await expect(page.locator('h1')).toHaveText(dicts[lang]['guide.h1']);
+  }
+  await context.close();
+});
+
+test('search engines are told of every page in every language', async ({ request }) => {
+  const robots = await (await request.get('/robots.txt')).text();
+  expect(robots).toContain('Sitemap: https://sermon-studio.app/sitemap.xml');
+  const sitemap = await (await request.get('/sitemap.xml')).text();
+  const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  expect(locs.sort()).toEqual(LANGS.flatMap((l) => PAGES.map((p) => 'https://sermon-studio.app' + at(l, p))).sort());
+  for (const loc of locs) expect((await request.get(new URL(loc).pathname)).status(), loc).toBe(200);
 });
 
 test('screenshots for the PR', async ({ browser }) => {

@@ -1,12 +1,11 @@
-// The website's script: the texts in the chosen language, the language menu (the globe in the header), the
-// studio's pictures in that language, and the header's menu on a phone. The texts are in lang/<code>.json, one file per language with the same keys
-// (web/e2e/site checks that). An element with data-t="key" gets the text (which may hold a link or <strong>);
-// data-t-alt, data-t-aria-label, data-t-content and data-t-title set those attributes; img data-shot="name" shows
-// img/shots/<lang>/<name>.webp. Loaded in <head> (not deferred), so the page is hidden until its text is there.
+// The website's script. The pages have their text in them, one page per language (src/build.mjs makes them:
+// English at /, bokmål under /nb/, nynorsk under /nn/), so this only: sends a reader of an English page to
+// their own language, remembers a choice in the language menu (the globe in the header), opens the header's
+// menu on a phone, marks the section in view, and shows a picture larger. Loaded in <head> (not deferred), so
+// a page that is about to be replaced by another language's is never shown.
 
-const LANGS = { en: 'English', nb: 'Norsk bokmål', nn: 'Norsk nynorsk' };
-
-document.documentElement.classList.add('js');
+const LANGS = ['en', 'nb', 'nn'];
+const root = document.documentElement;
 
 function stored() {
   try { return localStorage.getItem('lang'); } catch { return null; }
@@ -15,16 +14,16 @@ function store(lang) {
   try { localStorage.setItem('lang', lang); } catch { /* private mode: the choice lasts for this page */ }
 }
 
-// The language: ?lang= in the address (kept as the choice), else the one chosen before, else the browser's
-// (Norwegian "no" is bokmål; nynorsk only when asked for), else English.
-function detect() {
+// The language a reader wants: ?lang= in the address (kept as the choice), else the one chosen before, else
+// the browser's (Norwegian "no" is bokmål; nynorsk only when asked for), else English.
+function wanted() {
   const asked = new URLSearchParams(location.search).get('lang');
-  if (asked in LANGS) {
+  if (asked && LANGS.includes(asked)) {
     store(asked);
     return asked;
   }
   const kept = stored();
-  if (kept in LANGS) return kept;
+  if (kept && LANGS.includes(kept)) return kept;
   for (const tag of navigator.languages || [navigator.language || 'en']) {
     const base = tag.toLowerCase().split('-')[0];
     if (base === 'nn') return 'nn';
@@ -34,66 +33,31 @@ function detect() {
   return 'en';
 }
 
-const texts = {};
-async function load(lang) {
-  if (!texts[lang]) {
-    const resp = await fetch(`lang/${lang}.json`);
-    if (!resp.ok) throw new Error(`lang/${lang}.json: ${resp.status}`);
-    texts[lang] = await resp.json();
-  }
-  return texts[lang];
+// A page's address in another language: /guide is /nb/guide in bokmål.
+function inLang(lang) {
+  const rest = location.pathname.replace(/^\/(nb|nn)(\/|$)/, '/');
+  return (lang === 'en' ? '' : '/' + lang) + rest;
 }
 
-async function show(lang) {
-  let dict;
-  try {
-    dict = await load(lang);
-  } catch {
-    lang = 'en';
-    dict = await load(lang);
+// An English page (or one asked for with ?lang=) goes to the reader's language; a page under /nb/ or /nn/
+// was asked for as it is, and stays. Until then the page is hidden (style.css: html.js:not(.ready)).
+root.classList.add('js');
+(() => {
+  const asked = new URLSearchParams(location.search).has('lang');
+  const lang = root.lang === 'en' || asked ? wanted() : root.lang;
+  if (lang !== root.lang) {
+    location.replace(inLang(lang) + location.hash);
+    setTimeout(() => root.classList.add('ready'), 3000); // never leave the page hidden
+    return;
   }
-  const root = document.documentElement;
-  root.lang = lang;
-  for (const el of document.querySelectorAll('[data-t]')) {
-    const text = dict[el.dataset.t] ?? '';
-    if (el.tagName === 'TITLE') el.textContent = text;
-    else el.innerHTML = text;
-  }
-  for (const attr of ['alt', 'aria-label', 'content', 'title']) {
-    for (const el of document.querySelectorAll(`[data-t-${attr}]`)) el.setAttribute(attr, dict[el.getAttribute(`data-t-${attr}`)] ?? '');
-  }
-  // The phone's picture first: a <source> must have its address before the <img> asks for one.
-  for (const source of /** @type {NodeListOf<HTMLSourceElement>} */ (document.querySelectorAll('source[data-shot]'))) source.srcset = `img/shots/${lang}/${source.dataset.shot}.webp`;
-  for (const img of document.querySelectorAll('img[data-shot]')) img.src = `img/shots/${lang}/${img.dataset.shot}.webp`;
-  const menu = document.getElementById('lang');
-  if (menu) {
-    menu.querySelector('.code').textContent = lang.toUpperCase();
-    for (const b of menu.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.lang === lang));
-  }
+  if (asked) history.replaceState(null, '', location.pathname + location.hash);
   root.classList.add('ready');
-}
+})();
 
 document.addEventListener('DOMContentLoaded', () => {
-  const menu = document.getElementById('lang');
-  if (menu) {
-    menu.querySelector('.menu').replaceChildren(...Object.entries(LANGS).map(([code, name]) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.lang = code;
-      b.textContent = name;
-      b.addEventListener('click', () => {
-        menu.open = false;
-        store(code);
-        const url = new URL(location.href);
-        if (url.searchParams.has('lang')) {
-          url.searchParams.delete('lang');
-          history.replaceState(null, '', url);
-        }
-        show(code);
-      });
-      return b;
-    }));
-  }
+  // A choice in the language menu is remembered; its links go to the same page in that language.
+  const menu = /** @type {HTMLDetailsElement | null} */ (document.getElementById('lang'));
+  for (const a of /** @type {NodeListOf<HTMLAnchorElement>} */ (menu?.querySelectorAll('a[lang]') ?? [])) a.addEventListener('click', () => store(a.lang));
   // On a phone the pages are behind the menu button.
   const header = document.querySelector('header');
   const toggle = document.querySelector('.menu-button');
@@ -149,11 +113,4 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // A choice in the phone's menu closes it.
   for (const a of document.querySelectorAll('nav a')) a.addEventListener('click', () => setOpen(false));
-  // The browser goes to #section before the texts are in, so the place moves: go there again once they are.
-  show(detect()).then(() => {
-    const target = location.hash.length > 1 && document.getElementById(location.hash.slice(1));
-    if (target) target.scrollIntoView({ behavior: 'instant' });
-  }).catch(() => document.documentElement.classList.add('ready'));
 });
-// Never leave the page hidden, whatever happens to the texts.
-setTimeout(() => document.documentElement.classList.add('ready'), 3000);

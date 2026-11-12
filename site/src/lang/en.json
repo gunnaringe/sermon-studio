@@ -19,7 +19,6 @@
   "about.licence": "Licence: Apache 2.0",
   "nav.login": "Log in",
   "nav.home": "Sermon Studio, front page",
-  "noscript": "This page needs JavaScript to show its text.",
   "shot.enlarge": "Show the picture larger",
   "shot.close": "Close",
 
@@ -160,5 +159,5 @@
 
   "notfound.title": "Not found: Sermon Studio",
   "notfound.h1": "This page is not here",
-  "notfound.p": "Go to the <a href=\"/\">front page</a>."
+  "notfound.p": "Go to the <a href=\"./\">front page</a>."
 }

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://sermon-studio.app/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sermon-studio.app/"/>
+    <xhtml:link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/"/>
+    <xhtml:link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/"/>
+  </url>
+  <url>
+    <loc>https://sermon-studio.app/nb/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sermon-studio.app/"/>
+    <xhtml:link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/"/>
+    <xhtml:link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/"/>
+  </url>
+  <url>
+    <loc>https://sermon-studio.app/nn/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sermon-studio.app/"/>
+    <xhtml:link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/"/>
+    <xhtml:link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/"/>
+  </url>
+  <url>
+    <loc>https://sermon-studio.app/guide</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sermon-studio.app/guide"/>
+    <xhtml:link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/guide"/>
+    <xhtml:link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/guide"/>
+  </url>
+  <url>
+    <loc>https://sermon-studio.app/nb/guide</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sermon-studio.app/guide"/>
+    <xhtml:link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/guide"/>
+    <xhtml:link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/guide"/>
+  </url>
+  <url>
+    <loc>https://sermon-studio.app/nn/guide</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sermon-studio.app/guide"/>
+    <xhtml:link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/guide"/>
+    <xhtml:link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/guide"/>
+  </url>
+  <url>
+    <loc>https://sermon-studio.app/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sermon-studio.app/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/privacy"/>
+  </url>
+  <url>
+    <loc>https://sermon-studio.app/nb/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sermon-studio.app/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/privacy"/>
+  </url>
+  <url>
+    <loc>https://sermon-studio.app/nn/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sermon-studio.app/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/privacy"/>
+    <xhtml:link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/privacy"/>
+  </url>
+</urlset>

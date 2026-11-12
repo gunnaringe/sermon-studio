@@ -1,182 +1,187 @@
 <!doctype html>
+<!-- Made by src/build.mjs from src/index.html and src/lang/en.json: change those, not this. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-t="home.title">Sermon Studio: from a service recording to sermon files</title>
-  <meta name="description" data-t-content="home.description" content="Sermon Studio turns the recording of a church service into sermon files: cut the sermon out on a waveform, and get evenly loud FLAC, MP3 and Opus.">
-  <!-- Link previews (Signal, Slack, Facebook…) read these without running site.js: English, absolute addresses. -->
+  <title>Sermon Studio: from a service recording to sermon files</title>
+  <meta name="description" content="Sermon Studio turns the recording of a church service into sermon files: cut the sermon out on a waveform, and get evenly loud FLAC, MP3 and Opus.">
+  <link rel="canonical" href="https://sermon-studio.app/">
+  <link rel="alternate" hreflang="en" href="https://sermon-studio.app/">
+  <link rel="alternate" hreflang="nb" href="https://sermon-studio.app/nb/">
+  <link rel="alternate" hreflang="nn" href="https://sermon-studio.app/nn/">
+  <link rel="alternate" hreflang="x-default" href="https://sermon-studio.app/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Sermon Studio">
+  <meta property="og:locale" content="en_GB">
   <meta property="og:title" content="Sermon Studio: from a service recording to sermon files">
   <meta property="og:description" content="Sermon Studio turns the recording of a church service into sermon files: cut the sermon out on a waveform, and get evenly loud FLAC, MP3 and Opus.">
   <meta property="og:url" content="https://sermon-studio.app/">
   <meta property="og:image" content="https://sermon-studio.app/img/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Sermon Studio: from the recording of a service to sermon files">
+  <meta property="og:image:alt" content="Sermon Studio: From the recording of a service to sermon files">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#047857">
-  <link rel="icon" href="img/logo.svg" type="image/svg+xml">
-  <link rel="icon" href="img/favicon-32.png" sizes="32x32">
-  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
-  <link rel="stylesheet" href="style.css">
-  <script src="site.js"></script>
+  <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+  <link rel="icon" href="/img/favicon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/site.js"></script>
 </head>
 <body>
   <header>
     <div class="bar">
-      <a class="brand" href="./" data-t-aria-label="nav.home"><img src="img/logo.svg" alt="" width="30" height="30"><span>Sermon Studio</span></a>
+      <a class="brand" href="/" aria-label="Sermon Studio, front page"><img src="/img/logo.svg" alt="" width="30" height="30"><span>Sermon Studio</span></a>
       <nav id="nav">
-        <a href="#how" data-t="nav.how"></a>
-        <a href="#mixer" data-t="nav.mixer"></a>
-        <a href="#churches" data-t="nav.churches"></a>
-        <a href="#self" data-t="nav.self"></a>
-        <a class="page" href="guide.html" data-t-title="nav.guide.title"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span data-t="nav.guide"></span></a>
+        <a href="#how">How it works</a>
+        <a href="#mixer">From the mixing desk</a>
+        <a href="#churches">For churches</a>
+        <a href="#self">Run it yourself</a>
+        <a class="page" href="/guide" title="The guide: a page of its own"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Guide</span></a>
       </nav>
       <div class="tools">
         <details class="lang" id="lang">
-          <summary data-t-aria-label="lang.label"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span class="code"></span></summary>
-          <div class="menu"></div>
+          <summary aria-label="Language"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span class="code">EN</span></summary>
+          <div class="menu"><a href="/" lang="en" hreflang="en" aria-current="true">English</a><a href="/nb/" lang="nb" hreflang="nb">Norsk bokmål</a><a href="/nn/" lang="nn" hreflang="nn">Norsk nynorsk</a></div>
         </details>
-        <a class="button primary login" href="https://my.sermon-studio.app/" data-t-aria-label="nav.login" data-t-title="nav.login"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg><span data-t="nav.login"></span></a>
-        <button class="menu-button" type="button" aria-controls="nav" aria-expanded="false" data-t-aria-label="nav.menu"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        <a class="button primary login" href="https://my.sermon-studio.app/" aria-label="Log in" title="Log in"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg><span>Log in</span></a>
+        <button class="menu-button" type="button" aria-controls="nav" aria-expanded="false" aria-label="Menu"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       </div>
     </div>
   </header>
   <main>
-    <noscript><p data-t="noscript">This page needs JavaScript to show its text.</p></noscript>
 
     <section class="hero">
-      <h1 data-t="home.h1"></h1>
-      <p class="lede" data-t="home.lede"></p>
-      <p class="free" data-t="home.free"></p>
+      <h1>From the recording of a service to sermon files</h1>
+      <p class="lede">You use Sermon Studio in the browser, with nothing to install: the work is done on the server. Upload the recording of the whole service, mark where the sermon starts and ends, and press Save. You get the sermon as FLAC, MP3 and Opus, at an even, standard loudness, ready for a podcast or the church's website.</p>
+      <p class="free">Free and open source. No adverts, no tracking.</p>
       <p class="actions">
-        <a class="button primary" href="https://demo.sermon-studio.app/" data-t="home.cta.demo"></a>
-        <a class="button" href="#churches" data-t="home.cta.invite"></a>
+        <a class="button primary" href="https://demo.sermon-studio.app/">Try the demo</a>
+        <a class="button" href="#churches">Get it for your church</a>
       </p>
       <!-- The same English video on every language's page (scripts/site-shots.sh video makes it). -->
       <div id="video">
-        <video controls playsinline preload="none" poster="media/demo-poster.webp" width="1280" height="720" data-t-aria-label="home.video.label">
-          <source src="media/demo.webm" type="video/webm">
-          <source src="media/demo.mp4" type="video/mp4">
-          <p data-t="home.video.fallback"></p>
+        <video controls playsinline preload="none" poster="/media/demo-poster.webp" width="1280" height="720" aria-label="Video: the studio in use">
+          <source src="/media/demo.webm" type="video/webm">
+          <source src="/media/demo.mp4" type="video/mp4">
+          <p>Your browser cannot play this video. <a href="/media/demo.mp4">Download it (MP4)</a>.</p>
         </video>
-        <p class="note" data-t="home.video.note"></p>
+        <p class="note">The video is in English, with sound.</p>
       </div>
     </section>
 
     <section id="how">
-      <h2 data-t="home.how.h2"></h2>
-      <p class="muted" data-t="home.how.intro"></p>
+      <h2>How it works</h2>
+      <p class="muted">Five steps, each in the studio as the pictures show it.</p>
       <ol class="steps">
         <li class="step">
-          <div><h3 data-t="home.step1.h3"></h3><p data-t="home.step1.p"></p></div>
-          <div class="pictures"><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="recordings-phone" width="390" height="720"><img class="shot" data-shot="recordings" data-t-alt="home.step1.alt" alt="" width="900" height="640" loading="lazy"></picture></button></div>
+          <div><h3>1. Upload the recording</h3><p>Drop the recording of the service on the recordings page, or choose it. Most audio and video files work: WAV, FLAC, MP3, M4A and more. The date is taken from the file name. A recorder can also drop its files in a folder, or a sound technician can send them with a code, without a login.</p></div>
+          <div class="pictures"><button type="button" class="zoom" title="Show the picture larger"><picture><source srcset="/img/shots/en/recordings-phone.webp" media="(max-width: 760px)" data-shot="recordings-phone" width="390" height="720"><img src="/img/shots/en/recordings.webp" class="shot" data-shot="recordings" alt="The recordings page: by year, with status and labels" width="900" height="640" loading="lazy"></picture></button></div>
         </li>
         <li class="step">
-          <div><h3 data-t="home.step2.h3"></h3><p data-t="home.step2.p"></p></div>
-          <div class="pictures"><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="editor-phone" width="390" height="720"><img class="shot" data-shot="editor" data-t-alt="home.step2.alt" alt="" width="900" height="640" loading="lazy"></picture></button></div>
+          <div><h3>2. Mark the sermon</h3><p>The whole service is shown as a waveform. Drag across the sermon, or move its start and end. Cut out a cough or a song in the middle. Listen to the joins before you save. The original recording is never changed.</p></div>
+          <div class="pictures"><button type="button" class="zoom" title="Show the picture larger"><picture><source srcset="/img/shots/en/editor-phone.webp" media="(max-width: 760px)" data-shot="editor-phone" width="390" height="720"><img src="/img/shots/en/editor.webp" class="shot" data-shot="editor" alt="The editor: the sermon in two sections, with a cough cut out" width="900" height="640" loading="lazy"></picture></button></div>
         </li>
         <li class="step">
-          <div><h3 data-t="home.step3.h3"></h3><p data-t="home.step3.p"></p></div>
+          <div><h3>3. Choose how it sounds</h3><p>Processing sets mono or stereo, noise reduction, leveling and the loudness. The church's defaults are used until you change them. An intro and an outro, such as a jingle and a closing word, can go around the sermon, at the same loudness.</p></div>
           <div class="pictures">
-            <button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="processing-phone"><img class="shot" data-shot="processing" data-t-alt="home.step3.alt" alt="" loading="lazy"></picture></button>
-            <button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="intro-outro-phone"><img class="shot" data-shot="intro-outro" data-t-alt="home.step3.alt2" alt="" loading="lazy"></picture></button>
+            <button type="button" class="zoom" title="Show the picture larger"><picture><source srcset="/img/shots/en/processing-phone.webp" media="(max-width: 760px)" data-shot="processing-phone"><img src="/img/shots/en/processing.webp" class="shot" data-shot="processing" alt="Processing: channels, noise, levels, loudness" loading="lazy"></picture></button>
+            <button type="button" class="zoom" title="Show the picture larger"><picture><source srcset="/img/shots/en/intro-outro-phone.webp" media="(max-width: 760px)" data-shot="intro-outro-phone"><img src="/img/shots/en/intro-outro.webp" class="shot" data-shot="intro-outro" alt="Intro and outro: the church's intro before the sermon" loading="lazy"></picture></button>
           </div>
         </li>
         <li class="step">
-          <div><h3 data-t="home.step4.h3"></h3><p data-t="home.step4.p"></p></div>
-          <div class="pictures"><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="making-phone" width="390" height="720"><img class="shot" data-shot="making" data-t-alt="home.step4.alt" alt="" width="900" height="640" loading="lazy"></picture></button></div>
+          <div><h3>4. Save</h3><p>Save keeps the edit and makes the files you chose. You can follow the work, or close the browser: it goes on without you. A transcript, if the church wants one, is made afterwards.</p></div>
+          <div class="pictures"><button type="button" class="zoom" title="Show the picture larger"><picture><source srcset="/img/shots/en/making-phone.webp" media="(max-width: 760px)" data-shot="making-phone" width="390" height="720"><img src="/img/shots/en/making.webp" class="shot" data-shot="making" alt="Save: the files are made, step by step" width="900" height="640" loading="lazy"></picture></button></div>
         </li>
         <li class="step">
-          <div><h3 data-t="home.step5.h3"></h3><p data-t="home.step5.p"></p></div>
+          <div><h3>5. Download and share</h3><p>The finished files are on the recordings page, with the intro and outro or the sermon only. Share for download gives a code and a link, so someone without a login can download the sermon.</p></div>
           <div class="pictures">
-            <button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="files-phone" width="390" height="720"><img class="shot" data-shot="files" data-t-alt="home.step5.alt" alt="" width="900" height="640" loading="lazy"></picture></button>
-            <button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="share-phone" width="390" height="720"><img class="shot" data-shot="share" data-t-alt="home.step5.alt2" alt="" width="900" height="640" loading="lazy"></picture></button>
+            <button type="button" class="zoom" title="Show the picture larger"><picture><source srcset="/img/shots/en/files-phone.webp" media="(max-width: 760px)" data-shot="files-phone" width="390" height="720"><img src="/img/shots/en/files.webp" class="shot" data-shot="files" alt="The finished files in the Download menu" width="900" height="640" loading="lazy"></picture></button>
+            <button type="button" class="zoom" title="Show the picture larger"><picture><source srcset="/img/shots/en/share-phone.webp" media="(max-width: 760px)" data-shot="share-phone" width="390" height="720"><img src="/img/shots/en/share.webp" class="shot" data-shot="share" alt="Share for download: a name, which files, how many downloads, an end date" width="900" height="640" loading="lazy"></picture></button>
           </div>
         </li>
       </ol>
     </section>
 
     <section id="what">
-      <h2 data-t="home.what.h2"></h2>
+      <h2>What it does</h2>
       <ul class="features">
-        <li data-t="home.what.1"></li>
-        <li data-t="home.what.2"></li>
-        <li data-t="home.what.3"></li>
-        <li data-t="home.what.4"></li>
-        <li data-t="home.what.5"></li>
-        <li data-t="home.what.6"></li>
+        <li><strong>Even loudness.</strong> The sermon is noise-reduced, leveled and brought to podcast loudness (−19 LUFS), measured with EBU R128.</li>
+        <li><strong>The original is kept.</strong> Files are only deleted after their copy has been checked to be identical.</li>
+        <li><strong>Several churches.</strong> Each church has its own recordings, members, tags, logo, intro and outro.</li>
+        <li><strong>On a phone too.</strong> In English, Norwegian bokmål and nynorsk, light or dark.</li>
+        <li><strong>Transcripts.</strong> The sermon as text and captions, made on the server after the files, with speech models made for Norwegian and Swedish too. Read it before you publish it.</li>
+        <li><strong>Shared with a code.</strong> A code or a link lets someone without a login send a recording in, or download a finished sermon, for as long as you decide.</li>
       </ul>
     </section>
 
     <section id="mixer">
       <div class="step">
         <div>
-          <h2 data-t="home.mixer.h2"></h2>
-          <p data-t="home.mixer.p1"></p>
-          <p data-t="home.mixer.p2"></p>
+          <h2>Straight from the mixing desk</h2>
+          <p>The sound technician needs no login. Make an upload share in the studio and give them its link or code. They open the upload page on the computer at the mixing desk, or on a phone, and send the recording of the service straight to the church: large files are fine, and an upload that is interrupted continues where it stopped.</p>
+          <p>You decide how long the code works, how many files it takes and how large they may be, and you see each upload in the studio. The recording arrives among the church's recordings, ready to be edited.</p>
         </div>
-        <div class="pictures"><img class="shot phone" data-shot="upload-page" data-t-alt="home.mixer.alt" alt="" width="390" height="470" loading="lazy"></div>
+        <div class="pictures"><img src="/img/shots/en/upload-page.webp" class="shot phone" data-shot="upload-page" alt="The upload page on a phone, with a recording received." width="390" height="470" loading="lazy"></div>
       </div>
     </section>
 
     <section id="churches">
-      <h2 data-t="home.churches.h2"></h2>
+      <h2>For churches</h2>
       <div class="panel">
-        <p data-t="home.churches.p1"></p>
-        <p data-t="home.churches.free"></p>
+        <p>Do you record your services and want the sermons online? Ask for an invite, with the name of your church: we set up the church in the studio, and you then invite the others who will use it. Have you been invited? Open the link you got: you can make an account there if you have none.</p>
+        <p><strong>It costs nothing.</strong> Sermon Studio is not run for profit: write to us, and your church gets a free account.</p>
         <p class="actions">
-          <a class="button primary" href="mailto:contact@sermon-studio.app?subject=Sermon%20Studio" data-t="home.churches.invite"></a>
-          <a class="button" href="https://my.sermon-studio.app/" data-t="nav.login"></a>
+          <a class="button primary" href="mailto:contact@sermon-studio.app?subject=Sermon%20Studio">Ask for an invite</a>
+          <a class="button" href="https://my.sermon-studio.app/">Log in</a>
         </p>
-        <p data-t="home.churches.p3"></p>
+        <p>Read how the studio is used in the <a href="/guide">guide</a>, and what is stored in <a href="/privacy">privacy</a>.</p>
       </div>
     </section>
 
     <!-- The public demo (gunnaringe/sermon-studio#118): no login, one recording, reset every night. -->
     <section id="demo">
-      <h2 data-t="home.demo.h2"></h2>
+      <h2>Try it yourself</h2>
       <div class="panel">
-        <p data-t="home.demo.p1"></p>
-        <p class="muted" data-t="home.demo.p2"></p>
-        <p class="actions"><a class="button primary" href="https://demo.sermon-studio.app/" data-t="home.demo.button"></a></p>
+        <p>The demo has one recording, President Kennedy's inaugural address, ready to cut, tag and make into files you can listen to and download. There is no login.</p>
+        <p class="muted">Uploading recordings is not supported in the demo, and share links cannot be made. Anyone can see what you change, and everything is reset every night.</p>
+        <p class="actions"><a class="button primary" href="https://demo.sermon-studio.app/">Open the demo</a></p>
       </div>
     </section>
 
     <section id="self">
-      <h2 data-t="home.self.h2"></h2>
-      <p data-t="home.self.p"></p>
+      <h2>Run it yourself</h2>
+      <p>Sermon Studio is free and open source, under the Apache 2.0 licence. Would you rather not use the hosted studio? Run it on one computer, or on your own server.</p>
       <div class="cards">
         <div class="panel" id="download">
-          <h3 data-t="home.download.h3"></h3>
-          <p data-t="home.download.p1"></p>
-          <p><a class="button primary" href="https://github.com/gunnaringe/sermon-studio/releases" data-t="home.download.button"></a></p>
-          <p class="note" data-t="home.download.unsigned"></p>
+          <h3>The desktop app</h3>
+          <p>The desktop app runs the studio on one computer, without a server or a login. It is for Windows, macOS and Linux, and has everything it needs built in.</p>
+          <p><a class="button primary" href="https://github.com/gunnaringe/sermon-studio/releases">Download from GitHub</a></p>
+          <p class="note">The app is not signed, so Windows and macOS warn the first time you start it. On Windows, choose <strong>More info</strong>, then <strong>Run anyway</strong>. On macOS, open <strong>System Settings → Privacy &amp; Security</strong> and choose <strong>Open Anyway</strong>. After that it starts like any other program. Each release lists the checksum of every file.</p>
         </div>
         <div class="panel" id="server">
-          <h3 data-t="home.server.h3"></h3>
-          <p data-t="home.server.p"></p>
-          <p><a class="button" href="https://github.com/gunnaringe/sermon-studio/blob/main/docs/running.md" data-t="home.server.button"></a></p>
+          <h3>On your own server</h3>
+          <p>The same studio as here, with Docker, for one church or several, with your own login (OpenID Connect, such as Pocket ID).</p>
+          <p><a class="button" href="https://github.com/gunnaringe/sermon-studio/blob/main/docs/running.md">How to run it</a></p>
         </div>
       </div>
     </section>
   </main>
   <!-- A picture, larger: a click on one opens it here (site.js). -->
-  <dialog id="zoom"><button type="button" class="close" data-t-aria-label="shot.close">×</button><img alt=""></dialog>
+  <dialog id="zoom"><button type="button" class="close" aria-label="Close">×</button><img alt=""></dialog>
   <footer id="about">
     <div class="bar about">
-      <h2 data-t="about.h2"></h2>
-      <p data-t="about.p1"></p>
-      <p data-t="about.p2"></p>
-      <p data-t="about.contact"></p>
+      <h2>About Sermon Studio</h2>
+      <p>I made Sermon Studio for my own church. Every Sunday the service is recorded, and someone has to cut out the sermon, even out the sound and publish it, often late in the evening in a busy week. I wanted a way to do that which is easy and quick: open the recording, mark the sermon, press Save.</p>
+      <p>It is free and open source. If it can help your church too, you are welcome to use it.</p>
+      <p>Questions, or just want to say hi? Write to <a href="mailto:contact@sermon-studio.app">contact@sermon-studio.app</a>.</p>
       <p><a class="signature" href="https://gunnaringe.sort.land" title="gunnaringe.sort.land">Gunnar Inge Gjøvik Sortland</a></p>
       <ul class="about-links">
-        <li><a href="https://github.com/gunnaringe/sermon-studio" data-t-title="about.source.title"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg><span data-t="about.source"></span></a></li>
-        <li><a href="https://github.com/gunnaringe/sermon-studio/issues" data-t-title="about.ideas.title"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span data-t="about.ideas"></span></a></li>
-        <li><a href="https://github.com/gunnaringe/sermon-studio/blob/main/LICENSE"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span data-t="about.licence"></span></a></li>
-        <li><a href="privacy.html"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span data-t="nav.privacy"></span></a></li>
+        <li><a href="https://github.com/gunnaringe/sermon-studio" title="Source code on GitHub"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg><span>Source code</span></a></li>
+        <li><a href="https://github.com/gunnaringe/sermon-studio/issues" title="Report a problem or suggest an idea"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span>Problems and ideas</span></a></li>
+        <li><a href="https://github.com/gunnaringe/sermon-studio/blob/main/LICENSE"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span>Licence: Apache 2.0</span></a></li>
+        <li><a href="/privacy"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Privacy</span></a></li>
       </ul>
     </div>
   </footer>
