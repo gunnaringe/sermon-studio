@@ -215,8 +215,8 @@ video {
 .cards .panel h3 { margin-bottom: 0.75rem; }
 @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
 
-/* What it does: four cards, two by two on a tablet, one under the other on a phone. */
-.features { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* What it does: six cards, three by three, two by two on a tablet, one under the other on a phone. */
+.features { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 section > ul.features { max-width: none; }
 @media (max-width: 900px) { .features { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .features { grid-template-columns: 1fr; } }

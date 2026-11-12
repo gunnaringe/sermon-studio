@@ -53,7 +53,7 @@
   "home.step3.alt": "Handsaming: kanalar, støy, nivå, lydstyrke",
   "home.step3.alt2": "Intro og outro: introen til kyrkjelyden framfor preika",
   "home.step4.h3": "4. Lagre",
-  "home.step4.p": "Lagre tek vare på redigeringa og lagar filene du har valt. Du kan følgje arbeidet, eller late att nettlesaren: det held fram utan deg.",
+  "home.step4.p": "Lagre tek vare på redigeringa og lagar filene du har valt. Du kan følgje arbeidet, eller late att nettlesaren: det held fram utan deg. Ein transkripsjon, om kyrkjelyden vil ha det, vert laga etterpå.",
   "home.step4.alt": "Lagre: filene vert laga, steg for steg",
   "home.step5.h3": "5. Last ned og del",
   "home.step5.p": "Dei ferdige filene ligg på opptakssida, med intro og outro eller berre preika. Del for nedlasting gjev ein kode og ei lenkje, så nokon utan innlogging kan laste ned preika.",
@@ -69,6 +69,8 @@
   "home.what.2": "<strong>Originalen vert halden på.</strong> Filer vert sletta først når kopien er kontrollert å vere lik.",
   "home.what.3": "<strong>Fleire kyrkjelydar.</strong> Kvar kyrkjelyd har eigne opptak, medlemmer, taggar, logo, intro og outro.",
   "home.what.4": "<strong>Òg på mobilen.</strong> På engelsk, bokmål og nynorsk, lyst eller mørkt.",
+  "home.what.5": "<strong>Transkripsjon.</strong> Preika som tekst og teksting, laga på serveren etter filene, med talemodellar laga for norsk. Les gjennom han før du publiserer.",
+  "home.what.6": "<strong>Delt med ein kode.</strong> Med ein kode eller ei lenkje kan nokon utan innlogging sende inn eit opptak, eller laste ned ei ferdig preike, så lenge du bestemmer.",
 
   "home.churches.h2": "For kyrkjelydar",
   "home.churches.p1": "Tek de opp gudstenestene og vil ha preikene på nett? Be om ein invitasjon, med namnet på kyrkjelyden: vi set opp kyrkjelyden i studioet, og så inviterer du dei andre som skal bruke det. Er du invitert? Opne lenkja du fekk: der kan du òg lage ein konto om du ikkje har ein.",

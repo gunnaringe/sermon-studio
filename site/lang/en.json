@@ -53,7 +53,7 @@
   "home.step3.alt": "Processing: channels, noise, levels, loudness",
   "home.step3.alt2": "Intro and outro: the church's intro before the sermon",
   "home.step4.h3": "4. Save",
-  "home.step4.p": "Save keeps the edit and makes the files you chose. You can follow the work, or close the browser: it goes on without you.",
+  "home.step4.p": "Save keeps the edit and makes the files you chose. You can follow the work, or close the browser: it goes on without you. A transcript, if the church wants one, is made afterwards.",
   "home.step4.alt": "Save: the files are made, step by step",
   "home.step5.h3": "5. Download and share",
   "home.step5.p": "The finished files are on the recordings page, with the intro and outro or the sermon only. Share for download gives a code and a link, so someone without a login can download the sermon.",
@@ -69,6 +69,8 @@
   "home.what.2": "<strong>The original is kept.</strong> Files are only deleted after their copy has been checked to be identical.",
   "home.what.3": "<strong>Several churches.</strong> Each church has its own recordings, members, tags, logo, intro and outro.",
   "home.what.4": "<strong>On a phone too.</strong> In English, Norwegian bokmål and nynorsk, light or dark.",
+  "home.what.5": "<strong>Transcripts.</strong> The sermon as text and captions, made on the server after the files, with speech models made for Norwegian and Swedish too. Read it before you publish it.",
+  "home.what.6": "<strong>Shared with a code.</strong> A code or a link lets someone without a login send a recording in, or download a finished sermon, for as long as you decide.",
 
   "home.churches.h2": "For churches",
   "home.churches.p1": "Do you record your services and want the sermons online? Ask for an invite, with the name of your church: we set up the church in the studio, and you then invite the others who will use it. Have you been invited? Open the link you got: you can make an account there if you have none.",

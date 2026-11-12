@@ -174,6 +174,17 @@ test('a picture of the studio has a phone version, and a click shows it larger',
   await context.close();
 });
 
+test('What it does has six cards, transcripts and sharing among them', async ({ page }) => {
+  for (const lang of LANGS) {
+    await page.goto('/?lang=' + lang);
+    await ready(page);
+    const cards = page.locator('#what .features li');
+    await expect(cards).toHaveCount(6);
+    for (const n of [5, 6]) await expect(cards.nth(n - 1)).toHaveText(dicts[lang]['home.what.' + n].replace(/<[^>]+>/g, ''));
+  }
+  expect(dicts.en['home.what.5']).toMatch(/Transcripts.*text and captions/);
+});
+
 test('the video has its sources and poster, and they are small', async ({ page, request }) => {
   await page.goto('/?lang=nb');
   await ready(page);
@@ -336,6 +347,7 @@ test('screenshots for the PR', async ({ browser }) => {
     await ready(page);
     await eager(page);
     await page.screenshot({ path: path.join(shots, `site-home-${lang}.png`) });
+    await page.locator('#what').screenshot({ path: path.join(shots, `site-what-${lang}.png`) });
     await page.locator('#churches').screenshot({ path: path.join(shots, `site-churches-${lang}.png`) });
     await page.locator('#mixer').screenshot({ path: path.join(shots, `site-mixer-${lang}.png`) });
     await page.locator('#self').screenshot({ path: path.join(shots, `site-self-${lang}.png`) });
