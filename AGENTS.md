@@ -229,7 +229,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - `site/`: the website at sermon-studio.app (`site/README.md`): plain HTML, `site.js` and `style.css` (the studio's look), the
   texts in `site/lang/{en,nb,nn}.json` (the same keys; `data-t="key"` in the pages), Log in (my.sermon-studio.app, whose start
   also offers Create an account) and Ask for an invite (contact@) in the header and under For churches; Try the demo (demo.sermon-studio.app, at the top and in its own section, `#demo`). A Cloudflare Worker with static assets only (`site/wrangler.jsonc`, `_headers` keeps it to its own host), deployed by
-  Workers Builds on a push to `main` that changes `site/**`. Its pictures (`site/img/shots/<lang>/`) and its English video
+  Workers Builds on a push to `main` that changes `site/**`. Its pictures (`site/img/shots/<lang>/`: each at 900 px and, as `<name>-phone`, at 390 px, both at twice the density, so they read beside the text; `<picture>` gives a phone the phone's, a click the larger one in `dialog#zoom`; `SHOT_LANGS=en` makes one language) and its English video
   (`site/media/`) come from `scripts/site-shots.sh` (`web/e2e/site-shots/`: the real studio, `--no-login`, the sample speech;
   the video has a drawn pointer and captions); its test is `web/e2e/site/` (`scripts/test.sh site`, also the PR screenshots
   `site-*.png`). It knows nothing of the studio's code: copy what it needs (the logo), never link into `web/static`.

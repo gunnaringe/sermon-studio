@@ -31,7 +31,8 @@ async function choose(page, lang) {
 // eager loads the lazy pictures, so the page is whole.
 async function eager(page) {
   await page.evaluate(() => document.querySelectorAll('img[loading=lazy]').forEach((i) => { i.loading = 'eager'; }));
-  await page.waitForFunction(() => [...document.images].every((i) => i.complete && i.naturalWidth > 0));
+  // (The picture in the dialog has no address until a click gives it one.)
+  await page.waitForFunction(() => [...document.images].filter((i) => i.hasAttribute('src')).every((i) => i.complete && i.naturalWidth > 0));
 }
 
 test('every language has the same keys, and the pages use only those keys', () => {
@@ -129,6 +130,50 @@ for (const [locale, lang] of [['nb-NO', 'nb'], ['no', 'nb'], ['nn-NO', 'nn'], ['
   });
 }
 
+test('a picture of the studio has a phone version, and a click shows it larger', async ({ page, browser }) => {
+  await page.goto('/?lang=nb');
+  await ready(page);
+  const first = page.locator('#how button.zoom').first();
+  await expect(first).toHaveAttribute('title', dicts.nb['shot.enlarge']);
+  await expect(first.locator('img')).toHaveAttribute('src', 'img/shots/nb/recordings.webp');
+  // Shown beside the text, it is not shrunk to less than half its size (its text stays readable).
+  const scale = await first.locator('img').evaluate((i) => i.getBoundingClientRect().width / 900);
+  expect(scale).toBeGreaterThan(0.6);
+  const dialog = page.locator('dialog#zoom');
+  await expect(dialog).toBeHidden();
+  await first.click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('img')).toHaveAttribute('src', /img\/shots\/nb\/recordings\.webp$/);
+  await expect(dialog.locator('img')).toHaveAttribute('alt', dicts.nb['home.step1.alt']);
+  await expect(dialog.getByRole('button', { name: dicts.nb['shot.close'] })).toBeVisible();
+  await page.screenshot({ path: path.join(shots, 'site-zoom.png') });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await first.click();
+  await dialog.getByRole('button', { name: dicts.nb['shot.close'] }).click();
+  await expect(dialog).toBeHidden();
+  // Every picture has its phone version, and a phone gets that one.
+  for (const p of ['/', '/guide.html']) {
+    await page.goto(p + '?lang=nb');
+    await ready(page);
+    const sources = await page.locator('button.zoom source').evaluateAll((s) => s.map((x) => [x.getAttribute('srcset'), x.parentElement.querySelector('img').getAttribute('src')]));
+    expect(sources.length).toBeGreaterThan(5);
+    for (const [phone, wide] of sources) {
+      expect(phone).toBe(wide.replace(/\.webp$/, '-phone.webp'));
+      expect((await page.request.get('/' + phone)).ok(), phone).toBe(true);
+    }
+  }
+  const context = await browser.newContext({ viewport: { width: 390, height: 800 }, baseURL: new URL(page.url()).origin });
+  const phone = await context.newPage();
+  await phone.goto('/?lang=nb');
+  await ready(phone);
+  const img = phone.locator('#how button.zoom img').nth(1);
+  await img.scrollIntoViewIfNeeded();
+  await expect.poll(() => img.evaluate((i) => i.currentSrc)).toMatch(/img\/shots\/nb\/editor-phone\.webp$/);
+  await phone.screenshot({ path: path.join(shots, 'site-phone-step.png') });
+  await context.close();
+});
+
 test('the video has its sources and poster, and they are small', async ({ page, request }) => {
   await page.goto('/?lang=nb');
   await ready(page);
@@ -217,7 +262,7 @@ test('on a tablet the sections are behind the menu button', async ({ browser }) 
   await ready(page);
   const nav = page.locator('header nav');
   await expect(nav).toBeHidden();
-  await page.getByRole('button', { name: dicts.nb['nav.menu'] }).click();
+  await page.getByRole('button', { name: dicts.nb['nav.menu'], exact: true }).click();
   await nav.getByRole('link', { name: dicts.nb['nav.churches'] }).click();
   await expect(nav).toBeHidden(); // a choice closes the menu
   await expect(page.locator('#churches h2')).toBeInViewport();
@@ -239,7 +284,7 @@ test('on a phone the header is one line, with the pages behind the menu button',
   expect((await login.boundingBox()).width).toBeLessThan(48);
   const nav = page.locator('header nav');
   await expect(nav).toBeHidden();
-  const button = page.getByRole('button', { name: dicts.nb['nav.menu'] });
+  const button = page.getByRole('button', { name: dicts.nb['nav.menu'], exact: true });
   await button.click();
   await expect(button).toHaveAttribute('aria-expanded', 'true');
   await expect(nav.getByRole('link', { name: dicts.nb['nav.mixer'] })).toBeVisible();

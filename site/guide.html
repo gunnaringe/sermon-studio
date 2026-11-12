@@ -53,45 +53,45 @@
     <section id="recordings">
       <h2 data-t="guide.recordings.h2"></h2>
       <p data-t="guide.recordings.p"></p>
-      <figure><img class="shot" data-shot="recordings" data-t-alt="guide.recordings.alt" alt="" width="1280" height="800" loading="lazy"></figure>
+      <figure><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="recordings-phone" width="390" height="720"><img class="shot" data-shot="recordings" data-t-alt="guide.recordings.alt" alt="" width="900" height="640" loading="lazy"></picture></button></figure>
     </section>
     <section id="upload">
       <h2 data-t="guide.upload.h2"></h2>
       <p data-t="guide.upload.p"></p>
-      <figure><img class="shot" data-shot="upload" data-t-alt="guide.upload.alt" alt="" loading="lazy"></figure>
+      <figure><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="upload-phone"><img class="shot" data-shot="upload" data-t-alt="guide.upload.alt" alt="" loading="lazy"></picture></button></figure>
     </section>
     <section id="edit">
       <h2 data-t="guide.edit.h2"></h2>
       <p data-t="guide.edit.p1"></p>
       <p data-t="guide.edit.p2"></p>
       <p data-t="guide.edit.p3"></p>
-      <figure><img class="shot" data-shot="editor" data-t-alt="guide.edit.alt" alt="" width="1280" height="800" loading="lazy"></figure>
+      <figure><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="editor-phone" width="390" height="720"><img class="shot" data-shot="editor" data-t-alt="guide.edit.alt" alt="" width="900" height="640" loading="lazy"></picture></button></figure>
     </section>
     <section id="processing">
       <h2 data-t="guide.processing.h2"></h2>
       <p data-t="guide.processing.p"></p>
-      <figure><img class="shot" data-shot="processing" data-t-alt="guide.processing.alt" alt="" loading="lazy"></figure>
+      <figure><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="processing-phone"><img class="shot" data-shot="processing" data-t-alt="guide.processing.alt" alt="" loading="lazy"></picture></button></figure>
     </section>
     <section id="intro-outro">
       <h2 data-t="guide.clips.h2"></h2>
       <p data-t="guide.clips.p"></p>
-      <figure><img class="shot" data-shot="intro-outro" data-t-alt="guide.clips.alt" alt="" loading="lazy"></figure>
+      <figure><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="intro-outro-phone"><img class="shot" data-shot="intro-outro" data-t-alt="guide.clips.alt" alt="" loading="lazy"></picture></button></figure>
     </section>
     <section id="save">
       <h2 data-t="guide.save.h2"></h2>
       <p data-t="guide.save.p"></p>
-      <figure><img class="shot" data-shot="making" data-t-alt="guide.save.alt" alt="" width="1280" height="800" loading="lazy"></figure>
+      <figure><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="making-phone" width="390" height="720"><img class="shot" data-shot="making" data-t-alt="guide.save.alt" alt="" width="900" height="640" loading="lazy"></picture></button></figure>
     </section>
     <section id="download">
       <h2 data-t="guide.files.h2"></h2>
       <p data-t="guide.files.p"></p>
-      <figure><img class="shot" data-shot="files" data-t-alt="guide.files.alt" alt="" width="1280" height="800" loading="lazy"></figure>
+      <figure><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="files-phone" width="390" height="720"><img class="shot" data-shot="files" data-t-alt="guide.files.alt" alt="" width="900" height="640" loading="lazy"></picture></button></figure>
     </section>
     <section id="share">
       <h2 data-t="guide.share.h2"></h2>
       <p data-t="guide.share.p1"></p>
-      <figure><img class="shot" data-shot="share" data-t-alt="guide.share.alt" alt="" width="1280" height="800" loading="lazy"></figure>
-      <figure><img class="shot" data-shot="share-page" data-t-alt="guide.share.alt2" alt="" width="1280" height="800" loading="lazy"></figure>
+      <figure><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="share-phone" width="390" height="720"><img class="shot" data-shot="share" data-t-alt="guide.share.alt" alt="" width="900" height="640" loading="lazy"></picture></button></figure>
+      <figure><button type="button" class="zoom" data-t-title="shot.enlarge"><picture><source media="(max-width: 760px)" data-shot="share-page-phone" width="390" height="720"><img class="shot" data-shot="share-page" data-t-alt="guide.share.alt2" alt="" width="900" height="640" loading="lazy"></picture></button></figure>
       <p data-t="guide.share.p2"></p>
     </section>
     <section id="more">
@@ -99,6 +99,8 @@
       <p data-t="guide.more.p"></p>
     </section>
   </main>
+  <!-- A picture, larger: a click on one opens it here (site.js). -->
+  <dialog id="zoom"><button type="button" class="close" data-t-aria-label="shot.close">×</button><img alt=""></dialog>
   <footer id="about">
     <div class="bar about">
       <h2 data-t="about.h2"></h2>

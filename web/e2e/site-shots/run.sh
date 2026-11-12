@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 what=${1:-all}
 speech=fixtures/jfk-inaugural.ogg
 [ -s "$speech" ] || { echo "no $speech: run scripts/fetch-sample.sh first" >&2; exit 1; }
-langs="en nb nn"
+langs=${SHOT_LANGS:-en nb nn} # SHOT_LANGS=en: one language only, to try a change
 tmp=$(mktemp -d)
 server=
 stop() { [ -z "$server" ] || { kill "$server" 2>/dev/null; wait "$server" 2>/dev/null || true; }; server=; }

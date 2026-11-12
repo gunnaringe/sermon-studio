@@ -75,7 +75,7 @@ site-shots)
 	image=$(testimage e2e "$playwright")
 	mkdir -p site/img/shots site/media
 	"$run" run --rm $quiet_npm --ipc=host -v "$PWD/web/e2e":/work:Z -v "$PWD/site":/site:z -v "$PWD/web/static":/static:ro,z -w /work \
-		"$image" sh site-shots/run.sh "$@"
+		-e SHOT_LANGS "$image" sh site-shots/run.sh "$@"
 	;;
 image)
 	"$run" build -q -t sermon-studio .

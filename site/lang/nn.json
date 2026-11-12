@@ -20,6 +20,8 @@
   "nav.login": "Logg inn",
   "nav.home": "Sermon Studio, framsida",
   "noscript": "Denne sida treng JavaScript for å vise teksten.",
+  "shot.enlarge": "Vis biletet større",
+  "shot.close": "Lukk",
 
   "home.title": "Sermon Studio: frå opptak av gudstenesta til preikefiler",
   "home.description": "Sermon Studio gjer opptaket av ei gudsteneste om til preikefiler: klipp ut preika på ei bølgjeform, og få jamt sterke FLAC, MP3 og Opus.",
