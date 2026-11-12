@@ -1,6 +1,7 @@
-# Not served: the Worker's own files and what wrangler makes.
+# Not served: the Worker's own files, what the pages are made from (src/), and what wrangler makes.
 .assetsignore
 wrangler.jsonc
 README.md
 node_modules
 .wrangler
+src

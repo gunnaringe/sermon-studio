@@ -19,7 +19,6 @@
   "about.licence": "Lisens: Apache 2.0",
   "nav.login": "Logg inn",
   "nav.home": "Sermon Studio, forsiden",
-  "noscript": "Denne siden trenger JavaScript for å vise teksten.",
   "shot.enlarge": "Vis bildet større",
   "shot.close": "Lukk",
 
@@ -160,5 +159,5 @@
 
   "notfound.title": "Ikke funnet: Sermon Studio",
   "notfound.h1": "Denne siden finnes ikke",
-  "notfound.p": "Gå til <a href=\"/\">forsiden</a>."
+  "notfound.p": "Gå til <a href=\"./\">forsiden</a>."
 }
