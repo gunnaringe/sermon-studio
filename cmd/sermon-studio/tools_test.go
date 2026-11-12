@@ -40,4 +40,21 @@ func TestToolVersions(t *testing.T) {
 			t.Errorf("%s has Go %s, mise.toml %s", c.file, got, want)
 		}
 	}
+	// The browser tests: the Playwright in web/e2e/package.json needs the image of exactly its version (its browsers).
+	versionOf := func(file, pattern string) string {
+		t.Helper()
+		b, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := regexp.MustCompile(pattern).FindStringSubmatch(string(b))
+		if m == nil {
+			t.Fatalf("%s: no Playwright version (%s)", file, pattern)
+		}
+		return m[1]
+	}
+	pkg := versionOf("web/e2e/package.json", `"@playwright/test": "(\d+\.\d+\.\d+)"`)
+	if img := versionOf("scripts/lib.sh", `playwright:v(\d+\.\d+\.\d+)-`); img != pkg {
+		t.Errorf("scripts/lib.sh has the Playwright image %s, web/e2e/package.json Playwright %s", img, pkg)
+	}
 }
