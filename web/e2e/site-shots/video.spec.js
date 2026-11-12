@@ -7,8 +7,9 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { waitEditor, clearProposed, translator } from './lib.js';
+import { subtitles } from './subtitles.js';
 
 const DATA = process.env.DATA;
 const OUT = process.env.OUT;
@@ -28,7 +29,14 @@ function overlay() {
       border: 0; border-radius: 12px; background: rgba(6, 51, 38, .94); color: #fff; font: 600 21px/1.3 Inter, system-ui, sans-serif; text-align: center;
       box-shadow: 0 10px 30px rgba(0,0,0,.35); pointer-events: none; opacity: 0; transition: opacity .3s; }
     #demo-caption.on { opacity: 1; }
-    #demo-caption small { display: block; font-weight: 400; font-size: 15px; opacity: .88; }`;
+    #demo-caption small { display: block; font-weight: 400; font-size: 15px; opacity: .88; }
+    #demo-slide { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0;
+      background: #063326; color: #fff; font: 400 24px/1.4 Inter, system-ui, sans-serif; text-align: center; opacity: 0; transition: opacity .6s; }
+    #demo-slide.on { opacity: 1; }
+    #demo-slide div { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px; }
+    #demo-slide h1 { margin: 0 0 6px; font-size: 54px; font-weight: 600; letter-spacing: -0.01em; }
+    #demo-slide p { margin: 0; opacity: .85; }
+    #demo-slide b { display: block; font-size: 34px; font-weight: 600; opacity: 1; color: #6ee7b7; }`;
   const add = () => {
     // A sheet made by script, not a <style>: the share page's content security policy takes no inline styles.
     const sheet = new CSSStyleSheet();
@@ -63,6 +71,16 @@ function overlay() {
       caption.classList.toggle('on', Boolean(html));
     };
     window.__caption(sessionStorage.getItem('demo-caption') || '');
+    // The last picture: a slide over everything (shown after the pointer and the caption, so it is above them).
+    window.__slide = (html) => {
+      const slide = document.createElement('div');
+      slide.id = 'demo-slide';
+      slide.popover = 'manual';
+      slide.innerHTML = `<div>${html}</div>`;
+      document.body.append(slide);
+      slide.showPopover();
+      requestAnimationFrame(() => requestAnimationFrame(() => slide.classList.add('on')));
+    };
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add);
   else add();
@@ -96,7 +114,10 @@ test('the studio in use', async ({ browser }) => {
   const page = await context.newPage();
   const at = () => (Date.now() - began) / 1000;
   const pause = (ms = 900) => page.waitForTimeout(ms);
+  // Each caption and when it came, for the subtitle tracks in the other languages (subtitles.js).
+  const cues = [];
   const caption = async (title, line = '') => {
+    cues.push([at(), title, line]);
     await page.evaluate(([a, b]) => window.__caption(a ? `${a}${b ? `<small>${b}</small>` : ''}` : ''), [title, line]);
   };
   let mouse = { x: 640, y: 360 };
@@ -149,7 +170,6 @@ test('the studio in use', async ({ browser }) => {
     recorder.on('exit', () => failed(new Error('ffmpeg did not record')));
   });
   began = Date.now();
-  fs.writeFileSync(path.join(OUT, 'video-start'), String(at()));
   await caption('Sermon Studio', 'From the recording of a service to sermon files');
   await pause(3000);
 
@@ -290,7 +310,7 @@ test('the studio in use', async ({ browser }) => {
   await page.keyboard.type('cough', { delay: 160 });
   await expect(page.locator('#waveform')).toContainText('cough'); // on the cut in the waveform too
   await pause(1500);
-  fs.writeFileSync(path.join(OUT, 'video-poster'), String(at()));
+  const posterAt = at();
   await pause(1000);
   // Hear join: three seconds before the cut and three after it, as it will sound.
   await caption('4. Cut out a cough', 'Hear join plays across the cut');
@@ -438,10 +458,27 @@ test('the studio in use', async ({ browser }) => {
   await point(mp3);
   await pause(3000);
   await caption('');
-  await pause(800);
+  await pause(600);
+  // The end: where to try it, and whom to write to.
+  cues.push([at(), 'Try it yourself: demo.sermon-studio.app', 'Free for churches: write to contact@sermon-studio.app']);
+  await page.evaluate(() => window.__slide(`<h1>Sermon Studio</h1>
+    <p>Try it yourself, with nothing to install<b>demo.sermon-studio.app</b></p>
+    <p>Free for churches: write to us for an account<b>contact@sermon-studio.app</b></p>
+    <p>sermon-studio.app</p>`));
+  await pause(8000);
 
+  const ended = at();
   recorder.stdin.end('q'); // ffmpeg's own key for ending a recording
   expect(await recorded).toBe(0);
+  // The recording began a few seconds before ffmpeg said so: its first timestamp is the clock's (-copyts), so how
+  // long before is known. run.sh cuts that off (video-start), and the poster and the subtitles count from there.
+  const first = Number(execFileSync('/usr/bin/ffprobe', ['-v', 'error', '-show_entries', 'format=start_time', '-of', 'csv=p=0', path.join(OUT, 'video.mkv')], { encoding: 'utf8' }));
+  const lead = began / 1000 - first;
+  expect(lead).toBeGreaterThanOrEqual(0);
+  expect(lead).toBeLessThan(30);
+  fs.writeFileSync(path.join(OUT, 'video-start'), String(lead));
+  fs.writeFileSync(path.join(OUT, 'video-poster'), String(lead + posterAt));
+  for (const [lang, vtt] of Object.entries(subtitles(cues, ended))) fs.writeFileSync(path.join(OUT, `demo.${lang}.vtt`), vtt);
   await context.close();
 
   // What was saved is what the video shows: the drag, the cough, the processing and the intro, and the files.

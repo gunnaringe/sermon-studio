@@ -31,7 +31,7 @@
   "home.cta.invite": "Get it for your church",
 
   "home.video.label": "Video: the studio in use",
-  "home.video.note": "The video is in English, with sound.",
+  "home.video.note": "The video is in English, with sound. It has Norwegian subtitles.",
   "home.video.fallback": "Your browser cannot play this video. <a href=\"media/demo.mp4\">Download it (MP4)</a>.",
 
   "home.demo.h2": "Try it yourself",
