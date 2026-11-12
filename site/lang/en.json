@@ -20,6 +20,8 @@
   "nav.login": "Log in",
   "nav.home": "Sermon Studio, front page",
   "noscript": "This page needs JavaScript to show its text.",
+  "shot.enlarge": "Show the picture larger",
+  "shot.close": "Close",
 
   "home.title": "Sermon Studio: from a service recording to sermon files",
   "home.description": "Sermon Studio turns the recording of a church service into sermon files: cut the sermon out on a waveform, and get evenly loud FLAC, MP3 and Opus.",

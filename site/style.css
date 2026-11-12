@@ -176,6 +176,18 @@ section > p, section > ul, .panel, .lede { max-width: var(--text); }
 }
 figure { margin: 0; }
 
+/* A picture of the studio is a button: a click shows it larger, in the dialog. */
+.zoom { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--radius); }
+.zoom picture, .zoom img { display: block; width: 100%; }
+.zoom:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+#zoom { padding: 0; border: 0; background: none; max-width: 96vw; max-height: 94vh; overflow: visible; cursor: zoom-out; }
+#zoom::backdrop { background: rgb(0 0 0 / 0.7); }
+#zoom img { display: block; width: auto; max-width: 96vw; max-height: 94vh; border-radius: var(--radius); }
+#zoom .close {
+  position: absolute; top: 0.5rem; right: 0.5rem; width: 2.25rem; height: 2.25rem; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--panel); color: var(--fg); font-size: 1.25rem; line-height: 1; cursor: pointer;
+}
+
 video {
   display: block;
   width: 100%;

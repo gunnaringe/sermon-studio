@@ -10,6 +10,9 @@ import { translator, openEditor, waitEditor, toEdit, clearProposed } from './lib
 const DATA = process.env.DATA;
 const OUT = process.env.OUT;
 
+const WIDE = { width: 900, height: 640 };
+const PHONE = { width: 390, height: 720 };
+
 // What differs between the languages, besides the studio's own texts.
 const LANGS = {
   en: { church: 'grace-chapel', labels: [['Communion'], ['Guest speaker'], ['Easter', 'Baptism']], parts: ['Part one', 'Part two', 'Cough'],
@@ -22,24 +25,37 @@ const LANGS = {
 
 test.describe.configure({ mode: 'serial' });
 
-for (const [lang, L] of Object.entries(LANGS)) {
+// SHOT_LANGS=en makes one language only (to try a change; the others keep their pictures).
+const only = (process.env.SHOT_LANGS || '').split(' ').filter(Boolean);
+
+for (const [lang, L] of Object.entries(LANGS).filter(([l]) => !only.length || only.includes(l))) {
   test(`the studio in ${lang}`, async ({ browser }) => {
     const T = translator(lang);
     const dir = path.join(OUT, lang);
     fs.mkdirSync(dir, { recursive: true });
-    const context = await browser.newContext({ baseURL: 'http://localhost:8080/', viewport: { width: 1280, height: 800 } });
+    // A narrow window at twice the density: the pictures are shown small, beside the text, and stay readable; and
+    // each is taken once more as a phone shows it (<name>-phone), for the website on a phone.
+    const context = await browser.newContext({ baseURL: 'http://localhost:8080/', viewport: WIDE, deviceScaleFactor: 2 });
     // The language as the studio's Settings → Appearance keeps it; also for the public share page (another origin).
     await context.addInitScript((l) => localStorage.setItem('lang', l), lang);
     const page = await context.newPage();
     const api = (method, url, data) => page.request.fetch(url, { method, data, headers: { 'X-Tenant': L.church } });
     const save = page.locator('.save-bar button.primary');
     const done = page.getByRole('heading', { name: T('Done'), exact: true });
-    const shot = async (name, target = page) => {
+    // shot takes a picture twice, wide and as a phone; place (if given) scrolls to what it shows, after each resize.
+    const shot = async (name, target = page, place = null, on = page) => {
       // The header and the Save bar stick to the window: in a picture of one part of the page they would sit on top of it.
-      const style = target !== page ? await page.addStyleTag({ content: 'header, .save-bar { position: static !important; }' }) : null;
-      await page.waitForTimeout(400); // a dialog fades in
-      await target.screenshot({ path: path.join(dir, name + '.png') });
+      const style = target !== on ? await on.addStyleTag({ content: 'header, .save-bar { position: static !important; }' }) : null;
+      for (const [size, suffix] of [[WIDE, ''], [PHONE, '-phone']]) {
+        await on.setViewportSize(size);
+        await on.waitForTimeout(600); // the waveform is drawn again; a dialog fades in
+        await place?.();
+        await on.waitForTimeout(200);
+        await target.screenshot({ path: path.join(dir, name + suffix + '.png') });
+      }
+      await on.setViewportSize(WIDE);
       await style?.evaluate((el) => el.remove());
+      await place?.();
     };
 
     // Earlier Sundays: three are done, with labels; the rest wait.
@@ -83,8 +99,7 @@ for (const [lang, L] of Object.entries(LANGS)) {
       window.__editor.addCut(483, 489, p[2]);
     }, L.parts);
     await expect(page.locator('.section')).toHaveCount(2);
-    await toEdit(page);
-    await shot('editor');
+    await shot('editor', page, () => toEdit(page));
 
     const step = (name) => page.locator(`section[aria-labelledby=step-${name}]`);
     await shot('processing', step('processing'));
@@ -99,9 +114,10 @@ for (const [lang, L] of Object.entries(LANGS)) {
     await save.click();
     await expect(page.locator('progress').first()).toBeVisible({ timeout: 60_000 });
     await page.waitForTimeout(1500);
-    await step('output').scrollIntoViewIfNeeded();
-    await page.evaluate(() => window.scrollBy(0, 120));
-    await shot('making');
+    await shot('making', page, async () => {
+      await step('output').scrollIntoViewIfNeeded();
+      await page.evaluate(() => window.scrollBy(0, 120));
+    });
     await expect(done).toBeVisible({ timeout: 600_000 });
 
     // The finished sermon on the recordings page, with its Download menu.
@@ -111,7 +127,11 @@ for (const [lang, L] of Object.entries(LANGS)) {
     await expect(detail.locator('audio').first()).toBeVisible({ timeout: 30_000 });
     await detail.locator('details.download-menu summary').click();
     await expect(detail.locator('details.download-menu')).toHaveAttribute('open', '');
-    await shot('files');
+    // The Download button near the top, so its menu is in the picture on a phone too.
+    await shot('files', page, () => detail.locator('details.download-menu').evaluate((el) => {
+      el.scrollIntoView({ block: 'start' });
+      window.scrollBy(0, -150);
+    }));
     await detail.locator('details.download-menu summary').click();
 
     // A download share for those who were not there, and the public page it gives.
@@ -129,8 +149,7 @@ for (const [lang, L] of Object.entries(LANGS)) {
     const guest = await context.newPage();
     await guest.goto(link);
     await expect(guest.locator('button').filter({ hasText: 'MP3' }).first()).toBeVisible();
-    await guest.waitForTimeout(400);
-    await guest.screenshot({ path: path.join(dir, 'share-page.png') });
+    await shot('share-page', guest, null, guest);
     await guest.close();
 
     // The recordings page: years, status, labels.

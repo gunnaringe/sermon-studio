@@ -62,6 +62,8 @@ async function show(lang) {
   for (const attr of ['alt', 'aria-label', 'content', 'title']) {
     for (const el of document.querySelectorAll(`[data-t-${attr}]`)) el.setAttribute(attr, dict[el.getAttribute(`data-t-${attr}`)] ?? '');
   }
+  // The phone's picture first: a <source> must have its address before the <img> asks for one.
+  for (const source of /** @type {NodeListOf<HTMLSourceElement>} */ (document.querySelectorAll('source[data-shot]'))) source.srcset = `img/shots/${lang}/${source.dataset.shot}.webp`;
   for (const img of document.querySelectorAll('img[data-shot]')) img.src = `img/shots/${lang}/${img.dataset.shot}.webp`;
   const menu = document.getElementById('lang');
   if (menu) {
@@ -130,6 +132,20 @@ document.addEventListener('DOMContentLoaded', () => {
       mark();
     }, { rootMargin: '-30% 0px -60% 0px' }); // a section counts when it crosses a line a third down the window
     sections.forEach((s) => watch.observe(s));
+  }
+  // A click on a picture of the studio shows it larger, in a dialog; a click there, or Escape, closes it.
+  const zoom = /** @type {HTMLDialogElement | null} */ (document.getElementById('zoom'));
+  if (zoom) {
+    const large = /** @type {HTMLImageElement} */ (zoom.querySelector('img'));
+    for (const b of document.querySelectorAll('button.zoom')) {
+      b.addEventListener('click', () => {
+        const img = /** @type {HTMLImageElement} */ (b.querySelector('img'));
+        large.src = img.currentSrc || img.src;
+        large.alt = img.alt;
+        zoom.showModal();
+      });
+    }
+    zoom.addEventListener('click', () => zoom.close());
   }
   // A choice in the phone's menu closes it.
   for (const a of document.querySelectorAll('nav a')) a.addEventListener('click', () => setOpen(false));
