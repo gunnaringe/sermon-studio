@@ -229,6 +229,7 @@ section > ul.features { max-width: none; }
 }
 .panel p:last-child { margin-bottom: 0; }
 .panel .actions { margin: 1.25rem 0; }
+.panel .actions:last-child { margin-bottom: 0; }
 
 /* The guide and the privacy page: text with pictures, at the same width and place as the front page's text. */
 .doc section { max-width: var(--text); padding: 2rem 0; }

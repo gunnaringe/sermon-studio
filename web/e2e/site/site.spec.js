@@ -185,6 +185,13 @@ test('What it does has six cards, transcripts and sharing among them', async ({ 
   expect(dicts.en['home.what.5']).toMatch(/Transcripts.*text and captions/);
 });
 
+test('the front page goes from how it works to getting it, then the demo and running it yourself', async ({ page }) => {
+  await page.goto('/?lang=en');
+  await ready(page);
+  expect(await page.locator('main > section').evaluateAll((s) => s.map((x) => x.id || x.className)))
+    .toEqual(['hero', 'how', 'what', 'mixer', 'churches', 'demo', 'self']);
+});
+
 test('the video has its sources and poster, and they are small', async ({ page, request }) => {
   await page.goto('/?lang=nb');
   await ready(page);
