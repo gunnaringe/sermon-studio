@@ -25,11 +25,11 @@
   "home.description": "Sermon Studio gjer opptaket av ei gudsteneste om til preikefiler: klipp ut preika på ei bølgjeform, og få jamt sterke FLAC, MP3 og Opus.",
   "home.h1": "Frå opptaket av gudstenesta til preikefiler",
   "home.lede": "Sermon Studio køyrer i nettlesaren. Last opp opptaket av heile gudstenesta, merk kvar preika byrjar og sluttar, og trykk Lagre. Du får preika som FLAC, MP3 og Opus, med jamn og vanleg lydstyrke, klar for ein podkast eller nettsida til kyrkjelyden.",
-  "home.cta.how": "Sjå korleis det verkar",
+  "home.free": "Gratis og open kjeldekode. Ingen reklame, inga sporing.",
   "home.cta.demo": "Prøv demoen",
-  "home.hero.alt": "Redigeringa: gudstenesta som bølgjeform, med preika merkt",
+  "home.cta.invite": "Få det til kyrkjelyden",
 
-  "home.video.h2": "Studioet i bruk",
+  "home.video.label": "Video: studioet i bruk",
   "home.video.note": "Videoen er på engelsk, med lyd.",
   "home.video.fallback": "Nettlesaren din kan ikkje spele av denne videoen. <a href=\"media/demo.mp4\">Last han ned (MP4)</a>.",
 
@@ -70,6 +70,7 @@
 
   "home.churches.h2": "For kyrkjelydar",
   "home.churches.p1": "Tek de opp gudstenestene og vil ha preikene på nett? Be om ein invitasjon, med namnet på kyrkjelyden: vi set opp kyrkjelyden i studioet, og så inviterer du dei andre som skal bruke det. Er du invitert? Opne lenkja du fekk: der kan du òg lage ein konto om du ikkje har ein.",
+  "home.churches.free": "<strong>Det kostar ingenting.</strong> Sermon Studio vert drive utan forteneste: skriv til oss, så får kyrkjelyden ein gratis konto.",
   "home.churches.invite": "Be om ein invitasjon",
   "home.churches.p3": "Les korleis studioet vert brukt i <a href=\"guide.html\">rettleiinga</a>, og kva som vert lagra under <a href=\"privacy.html\">personvern</a>.",
 

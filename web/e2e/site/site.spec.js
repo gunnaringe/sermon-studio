@@ -161,6 +161,11 @@ test('the demo is linked from the top and has its own section, which says upload
     await ready(page);
     const DEMO = 'https://demo.sermon-studio.app/';
     await expect(page.locator('.hero').getByRole('link', { name: dicts[lang]['home.cta.demo'] })).toHaveAttribute('href', DEMO);
+    // The top says what it costs, and For churches how to get it.
+    await expect(page.locator('.hero .free')).toHaveText(dicts[lang]['home.free']);
+    await expect(page.locator('.hero').getByRole('link', { name: dicts[lang]['home.cta.invite'] })).toHaveAttribute('href', '#churches');
+    await expect(page.locator('#churches')).toContainText(dicts[lang]['home.churches.free'].replace(/<[^>]+>/g, ''));
+    await expect(page.locator('.hero video')).toHaveAttribute('aria-label', dicts[lang]['home.video.label']);
     const section = page.locator('#demo');
     await expect(section.locator('h2')).toHaveText(dicts[lang]['home.demo.h2']);
     await expect(section).toContainText(dicts[lang]['home.demo.p2']);
