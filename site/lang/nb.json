@@ -53,7 +53,7 @@
   "home.step3.alt": "Behandling: kanaler, støy, nivåer, lydstyrke",
   "home.step3.alt2": "Intro og outro: menighetens intro foran prekenen",
   "home.step4.h3": "4. Lagre",
-  "home.step4.p": "Lagre tar vare på redigeringen og lager filene du har valgt. Du kan følge arbeidet, eller lukke nettleseren: det fortsetter uten deg.",
+  "home.step4.p": "Lagre tar vare på redigeringen og lager filene du har valgt. Du kan følge arbeidet, eller lukke nettleseren: det fortsetter uten deg. En transkripsjon, om menigheten vil ha det, lages etterpå.",
   "home.step4.alt": "Lagre: filene lages, steg for steg",
   "home.step5.h3": "5. Last ned og del",
   "home.step5.p": "De ferdige filene ligger på opptakssiden, med intro og outro eller bare prekenen. Del for nedlasting gir en kode og en lenke, så noen uten innlogging kan laste ned prekenen.",
@@ -69,6 +69,8 @@
   "home.what.2": "<strong>Originalen beholdes.</strong> Filer slettes først når kopien er kontrollert å være lik.",
   "home.what.3": "<strong>Flere menigheter.</strong> Hver menighet har egne opptak, medlemmer, tagger, logo, intro og outro.",
   "home.what.4": "<strong>Også på mobilen.</strong> På engelsk, bokmål og nynorsk, lyst eller mørkt.",
+  "home.what.5": "<strong>Transkripsjon.</strong> Prekenen som tekst og teksting, laget på serveren etter filene, med talemodeller laget for norsk. Les gjennom den før du publiserer.",
+  "home.what.6": "<strong>Delt med en kode.</strong> Med en kode eller en lenke kan noen uten innlogging sende inn et opptak, eller laste ned en ferdig preken, så lenge du bestemmer.",
 
   "home.churches.h2": "For menigheter",
   "home.churches.p1": "Tar dere opp gudstjenestene og vil ha prekenene på nett? Be om en invitasjon, med navnet på menigheten: vi setter opp menigheten i studioet, og så inviterer du de andre som skal bruke det. Er du invitert? Åpne lenken du fikk: der kan du også lage en konto hvis du ikke har en.",
