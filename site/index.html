@@ -50,23 +50,20 @@
     <section class="hero">
       <h1 data-t="home.h1"></h1>
       <p class="lede" data-t="home.lede"></p>
+      <p class="free" data-t="home.free"></p>
       <p class="actions">
-        <a class="button primary" href="#how" data-t="home.cta.how"></a>
-        <a class="button" href="https://demo.sermon-studio.app/" data-t="home.cta.demo"></a>
-        <a class="button" href="#churches" data-t="nav.churches"></a>
+        <a class="button primary" href="https://demo.sermon-studio.app/" data-t="home.cta.demo"></a>
+        <a class="button" href="#churches" data-t="home.cta.invite"></a>
       </p>
-      <img class="shot" data-shot="editor" data-t-alt="home.hero.alt" alt="" width="1280" height="800">
-    </section>
-
-    <section id="video">
-      <h2 data-t="home.video.h2"></h2>
       <!-- The same English video on every language's page (scripts/site-shots.sh video makes it). -->
-      <video controls playsinline preload="none" poster="media/demo-poster.webp" width="1280" height="720">
-        <source src="media/demo.webm" type="video/webm">
-        <source src="media/demo.mp4" type="video/mp4">
-        <p data-t="home.video.fallback"></p>
-      </video>
-      <p class="note" data-t="home.video.note"></p>
+      <div id="video">
+        <video controls playsinline preload="none" poster="media/demo-poster.webp" width="1280" height="720" data-t-aria-label="home.video.label">
+          <source src="media/demo.webm" type="video/webm">
+          <source src="media/demo.mp4" type="video/mp4">
+          <p data-t="home.video.fallback"></p>
+        </video>
+        <p class="note" data-t="home.video.note"></p>
+      </div>
     </section>
 
     <!-- The public demo (gunnaringe/sermon-studio#118): no login, one recording, reset every night. -->
@@ -135,6 +132,7 @@
       <h2 data-t="home.churches.h2"></h2>
       <div class="panel">
         <p data-t="home.churches.p1"></p>
+        <p data-t="home.churches.free"></p>
         <p class="actions">
           <a class="button primary" href="mailto:contact@sermon-studio.app?subject=Sermon%20Studio" data-t="home.churches.invite"></a>
           <a class="button" href="https://my.sermon-studio.app/" data-t="nav.login"></a>

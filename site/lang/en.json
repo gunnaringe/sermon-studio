@@ -25,11 +25,11 @@
   "home.description": "Sermon Studio turns the recording of a church service into sermon files: cut the sermon out on a waveform, and get evenly loud FLAC, MP3 and Opus.",
   "home.h1": "From the recording of a service to sermon files",
   "home.lede": "Sermon Studio runs in the browser. Upload the recording of the whole service, mark where the sermon starts and ends, and press Save. You get the sermon as FLAC, MP3 and Opus, at an even, standard loudness, ready for a podcast or the church's website.",
-  "home.cta.how": "See how it works",
+  "home.free": "Free and open source. No adverts, no tracking.",
   "home.cta.demo": "Try the demo",
-  "home.hero.alt": "The editor: the service as a waveform, with the sermon marked",
+  "home.cta.invite": "Get it for your church",
 
-  "home.video.h2": "The studio in use",
+  "home.video.label": "Video: the studio in use",
   "home.video.note": "The video is in English, with sound.",
   "home.video.fallback": "Your browser cannot play this video. <a href=\"media/demo.mp4\">Download it (MP4)</a>.",
 
@@ -70,6 +70,7 @@
 
   "home.churches.h2": "For churches",
   "home.churches.p1": "Do you record your services and want the sermons online? Ask for an invite, with the name of your church: we set up the church in the studio, and you then invite the others who will use it. Have you been invited? Open the link you got: you can make an account there if you have none.",
+  "home.churches.free": "<strong>It costs nothing.</strong> Sermon Studio is not run for profit: write to us, and your church gets a free account.",
   "home.churches.invite": "Ask for an invite",
   "home.churches.p3": "Read how the studio is used in the <a href=\"guide.html\">guide</a>, and what is stored in <a href=\"privacy.html\">privacy</a>.",
 

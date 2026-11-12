@@ -164,7 +164,8 @@ section > p, section > ul, .panel, .lede { max-width: var(--text); }
 .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 .muted { color: var(--muted); }
 
-/* The front page's top: the words, then the editor. */
+/* The front page's top: the words, then the video of the studio in use. */
+.hero .free { margin-top: 1rem; }
 .hero .actions { margin: 1.5rem 0 2.5rem; }
 .shot {
   display: block;
