@@ -91,6 +91,8 @@ test('cut on the waveform: drag, fields, keys, playback', async ({ page }) => {
   expect(sel.start).toBeLessThan(33);
   expect(sel.end).toBeGreaterThan(67);
   expect(sel.end).toBeLessThan(73);
+  // It is as long as the drag: the end is at the pointer, not some pixels past it.
+  expect(Math.abs(sel.end - sel.start - 40)).toBeLessThan(0.2);
   await expect(page.getByLabel('Section from')).toHaveValue(/^0:[23]\d\.\d\d$/);
 
   // Typing in the fields moves the selection.

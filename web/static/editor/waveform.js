@@ -201,6 +201,11 @@ export function waveformPart(ed) {
     ed.buildFades();
     // A drag on the waveform makes a region: it becomes a section. Sections
     // added by the page are created with their id, and are kept by ed.addSection.
+    // The plugin starts a region being drawn 5 pixels wide and adds the drag to that, so its end would be 5 pixels
+    // past the pointer (seconds, in a long recording). It starts with no width instead: the drag is all of it.
+    regions.on('region-initialized', (r) => {
+      if (!/^(silence|cut|section|pause)-/.test(r.id)) r.end = r.start;
+    });
     regions.on('region-created', (r) => {
       if (/^(silence|cut|section|pause)-/.test(r.id)) return;
       ed.addDrawn(r);
