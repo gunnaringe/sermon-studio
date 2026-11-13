@@ -2,7 +2,7 @@
 // church's inbox from the public share page, or download one sermon (made on
 // the recording, sermons.js). A code is shown once, when the share is made.
 // They have their own overlay (the icon in the header); sharesView fills its box.
-import { api, h, href, formatSize, formatDate, formatDateTime } from './util.js';
+import { api, h, href, formatSize, formatDate, formatDateTime, sendButton } from './util.js';
 import { alertDialog, confirmDialog, formDialog } from './dialog.js';
 import qrcode from './vendor/qrcode/qrcode.esm.js';
 import { t, tn } from './i18n.js';
@@ -113,8 +113,10 @@ function qrOf(text, label) {
 }
 
 // showCode shows a new share's code and link, once: the code and the link each with a button that copies it, and
-// the link as a QR code to point a phone at. title is what the phone's share menu calls it.
-export async function showCode(url, code, title = t('Send recordings')) {
+// the link as a QR code to point a phone at; Share (or Email) sends it on (sendButton). download: a download share's;
+// expires: when it ends, if it does.
+export async function showCode(url, code, { download = false, expires = '' } = {}) {
+  const title = download ? t('Download a sermon') : t('Send recordings');
   const link = linkFor(url, code);
   const note = h('span', { class: 'muted', role: 'status' });
   const codeEl = h('span', { class: 'share-code', title: t('Hold to copy') }, code);
@@ -123,11 +125,12 @@ export async function showCode(url, code, title = t('Send recordings')) {
     await navigator.clipboard.writeText(text);
     note.textContent = done;
   } }, label);
-  // The phone's own share menu, where there is one.
-  const share = navigator.share ? h('button', { type: 'button', name: 'share', onclick: async () => {
-    try { await navigator.share({ title, ...(link ? { url: link } : { text: code }) }); } catch { /* closed */ }
-  } }, t('Share')) : '';
-  await alertDialog({ title: t('Share made'), extra: [share, note], body: [
+  const text = [
+    download ? t('Use this link to download the sermon.') : t('Use this link to send recordings.'),
+    expires ? t('It works until {date}.', { date: formatDateTime(expires) }) : '',
+    link ? t('Or open {url} and enter the code {code}.', { url: url.replace(/\/?$/, '/'), code }) : t('The code is {code}.', { code }),
+  ].filter(Boolean).join(' ');
+  await alertDialog({ title: t('Share made'), extra: [sendButton({ subject: title, text, url: link }), note], body: [
     t('The code is shown only once. Share it before you close this.'),
     h('span', { class: 'share-made' },
       h('span', { class: 'share-texts' },
@@ -173,7 +176,7 @@ export async function sharesView(box) {
       }),
     });
     if (!made) return;
-    await showCode(data.url, made.code);
+    await showCode(data.url, made.code, { expires: made.share.expires });
     await refresh();
   } }, t('New upload share'));
 

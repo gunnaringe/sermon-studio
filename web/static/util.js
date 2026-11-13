@@ -192,6 +192,20 @@ export function h(tag, attrs, ...children) {
   return el;
 }
 
+// sendButton sends a link or code on, with a subject and a text: Share opens the device's own share menu (phones, and
+// most browsers; email is one of its choices), and where there is none, Email opens the user's own mail program with
+// them written. Nothing is sent by the studio.
+export function sendButton({ subject, text, url }) {
+  if (navigator.share) {
+    return h('button', { type: 'button', name: 'share', onclick: async () => {
+      try { await navigator.share({ title: subject, text, ...(url ? { url } : {}) }); } catch { /* closed */ }
+    } }, t('Share'));
+  }
+  const body = url ? `${text}\n\n${url}` : text;
+  return h('a', { class: 'button', name: 'email', href: `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` },
+    t('Email'));
+}
+
 // kbdText turns the <kbd>key</kbd> marks of a (translated) text into <kbd>
 // elements; the rest stays text.
 export function kbdText(text) {

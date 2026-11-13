@@ -314,7 +314,7 @@ export function sermonDetail(entry, ctx = {}) {
             maxDownloads: Number(max.value) || 0,
             expires: expires.value(),
           });
-          await showCode(done.url, done.code, t('Download a sermon'));
+          await showCode(done.url, done.code, { download: true, expires: done.share.expires });
           await recordingShares(entry.path, sharesBox);
           return;
         } catch (err) {

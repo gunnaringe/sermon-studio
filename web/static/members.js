@@ -1,7 +1,7 @@
 // Members, a section of the settings (with the login, --oidc-issuer): an admin sees who the
 // church's members are, changes their role, removes them, and makes and revokes invite links;
 // a member can leave the church. A church always keeps an admin (the server says so).
-import { api, h, formatDate, formatDateTime, ROOT } from './util.js';
+import { api, h, formatDate, formatDateTime, ROOT, sendButton } from './util.js';
 import { alertDialog, confirmDialog } from './dialog.js';
 import { t } from './i18n.js';
 
@@ -95,8 +95,18 @@ export async function membersView(box, church, admin) {
     invites);
 }
 
-// showInvite shows a new invite's link, once, with a button that copies it.
+// showInvite shows a new invite's link, once, with a button that copies it, and Share (or Email,
+// sendButton) with a text for the one invited.
 async function showInvite(link, invite, church) {
+  const date = formatDateTime(invite.expires);
+  const send = sendButton({
+    subject: t('Invitation to {church} in Sermon Studio', { church: church.name }),
+    text: (invite.role === 'admin'
+      ? t('You are invited to {church} in Sermon Studio, as an admin.', { church: church.name })
+      : t('You are invited to {church} in Sermon Studio.', { church: church.name }))
+      + ' ' + t('Open the link, and log in or create an account. The link is for you only: it works once, until {date}.', { date }),
+    url: link,
+  });
   const note = h('span', { class: 'muted', role: 'status' });
   const copy = h('button', { type: 'button', name: 'copy-invite', onclick: async () => {
     try {
@@ -104,7 +114,7 @@ async function showInvite(link, invite, church) {
       note.textContent = t('Link copied.');
     } catch { note.textContent = t('Select the link and copy it.'); }
   } }, t('Copy link'));
-  await alertDialog({ title: t('Invite link made'), extra: [copy, note], body: [
+  await alertDialog({ title: t('Invite link made'), extra: [copy, send, note], body: [
     h('p', {}, invite.role === 'admin'
       ? t('Send this link to the one you invite to {church} as an admin. It is shown only now, and works once, until {date}.', { church: church.name, date: formatDateTime(invite.expires) })
       : t('Send this link to the one you invite to {church} as a member. It is shown only now, and works once, until {date}.', { church: church.name, date: formatDateTime(invite.expires) })),

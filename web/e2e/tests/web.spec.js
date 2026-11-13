@@ -1058,6 +1058,12 @@ test('shares: make a code in the studio, send a recording with the link', async 
   const link = await dialog.locator('.share-link').textContent();
   expect(link).toMatch(/^http:\/\/localhost:8081\/#code=[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/);
   await expect(dialog.getByRole('img', { name: 'QR code of the link' })).toBeVisible();
+  // The test browser has no share menu: Email instead, the subject and text written.
+  await expect(dialog.getByRole('button', { name: 'Share', exact: true })).toHaveCount(0);
+  const email = new URL(await dialog.getByRole('link', { name: 'Email' }).getAttribute('href'));
+  expect(email.searchParams.get('subject')).toBe('Send recordings');
+  expect(email.searchParams.get('body')).toBe('Use this link to send recordings. It works until 2099-12-31 23:59. '
+    + `Or open http://localhost:8081/ and enter the code ${link.split('=')[1]}.\n\n${link}`);
   await page.getByRole('dialog', { name: 'Share made' }).screenshot({ path: path.join(shots, 'share-made.png'), animations: 'disabled' });
   // Holding the code copies it, as Copy code does; Copy link copies the link.
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);

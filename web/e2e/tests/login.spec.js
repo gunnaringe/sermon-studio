@@ -92,6 +92,8 @@ test('an admin sees the members, changes a role and makes an invite link', async
     return r.fulfill({ status: 201, json: { token: 'first-church.secret',
       invite: { id: 'i2', role: 'admin', createdBy: 'Kari Nordmann', created: '2026-10-25T09:00:00Z', expires: '2026-10-26T09:00:00Z' } } });
   });
+  // The phone's share menu, which the test browser has not: what it is given is kept.
+  await page.addInitScript(() => { navigator.share = async (data) => { window.shared = data; }; });
   await page.goto('c/first-church/settings/members');
   const section = page.locator('#members');
   await expect(section.getByRole('heading', { name: 'Members' })).toBeVisible();
@@ -112,6 +114,13 @@ test('an admin sees the members, changes a role and makes an invite link', async
   await expect(dialog.getByText(/invite#first-church\.secret$/)).toBeVisible();
   await expect(dialog.getByText('as an admin')).toBeVisible();
   await dialog.screenshot({ path: path.join(shots, 'invite-made.png') });
+  // Share sends it on, with a text for the one invited (with a share menu, no Email: the menu has it).
+  await expect(dialog.getByRole('link', { name: 'Email' })).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Share' }).click();
+  const shared = await page.evaluate(() => window.shared);
+  expect(shared.title).toMatch(/^Invitation to .+ in Sermon Studio$/);
+  expect(shared.url).toMatch(/invite#first-church\.secret$/);
+  expect(shared.text).toMatch(/^You are invited to .+ in Sermon Studio, as an admin\. .*it works once, until .+\.$/);
   expect(calls[1]).toEqual(['POST', '/api/invites', { role: 'admin', days: 1 }]);
   await dialog.getByRole('button', { name: 'OK' }).click();
 
