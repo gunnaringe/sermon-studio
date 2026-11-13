@@ -139,7 +139,7 @@ export async function showCode(url, code, { download = false, expires = '' } = {
     h('span', { class: 'share-made', 'data-link': link || undefined },
       h('span', { class: 'share-texts' },
         h('span', { class: 'share-line' }, codeEl),
-        link ? h('span', { class: 'share-line muted' }, t('Or open {address} and enter the code.', { address: shortAddress(url) })) : ''),
+        link ? h('span', { class: 'share-line muted' }, t('Enter the code at {address}.', { address: shortAddress(url) })) : ''),
       link ? qrOf(link, t('QR code of the link')) : ''),
   ] });
 }
