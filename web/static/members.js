@@ -95,8 +95,8 @@ export async function membersView(box, church, admin) {
     invites);
 }
 
-// showInvite shows a new invite's link, once, with a button that copies it, and Share (or Email,
-// sendButton) with a text for the one invited.
+// showInvite shows a new invite's link, once, with a button that copies it, and Share
+// (sendButton) with a text for the one invited.
 async function showInvite(link, invite, church) {
   const date = formatDateTime(invite.expires);
   const send = sendButton({

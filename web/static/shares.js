@@ -112,30 +112,30 @@ function qrOf(text, label) {
   return svg;
 }
 
-// showCode shows a new share's code and link, once: the code and the link each with a button that copies it, and
-// the link as a QR code to point a phone at; Share (or Email) sends it on (sendButton). download: a download share's;
-// expires: when it ends, if it does.
+// showCode shows a new share's code and link, once, and the link as a QR code to point a phone at. Copy link copies
+// the link (the code, held, copies the code); Share sends both on with a text (sendButton). download: a download
+// share's; expires: when it ends, if it does.
 export async function showCode(url, code, { download = false, expires = '' } = {}) {
   const title = download ? t('Download a sermon') : t('Send recordings');
   const link = linkFor(url, code);
   const note = h('span', { class: 'muted', role: 'status' });
   const codeEl = h('span', { class: 'share-code', title: t('Hold to copy') }, code);
   holdToCopy(codeEl, code, () => { note.textContent = t('Code copied.'); });
-  const copy = (name, label, text, done) => h('button', { type: 'button', name, class: 'small', onclick: async () => {
-    await navigator.clipboard.writeText(text);
-    note.textContent = done;
-  } }, label);
+  const copy = h('button', { type: 'button', name: link ? 'copy-link' : 'copy-code', onclick: async () => {
+    await navigator.clipboard.writeText(link || code);
+    note.textContent = link ? t('Link copied.') : t('Code copied.');
+  } }, link ? t('Copy link') : t('Copy code'));
   const text = [
     download ? t('Use this link to download the sermon.') : t('Use this link to send recordings.'),
     expires ? t('It works until {date}.', { date: formatDateTime(expires) }) : '',
     link ? t('Or open {url} and enter the code {code}.', { url: url.replace(/\/?$/, '/'), code }) : t('The code is {code}.', { code }),
   ].filter(Boolean).join(' ');
-  await alertDialog({ title: t('Share made'), extra: [sendButton({ subject: title, text, url: link }), note], body: [
+  await alertDialog({ title: t('Share made'), extra: [copy, sendButton({ subject: title, text, url: link }), note], body: [
     t('The code is shown only once. Share it before you close this.'),
     h('span', { class: 'share-made' },
       h('span', { class: 'share-texts' },
-        h('span', { class: 'share-line' }, codeEl, copy('copy-code', t('Copy code'), code, t('Code copied.'))),
-        link ? h('span', { class: 'share-line' }, h('span', { class: 'share-link' }, link), copy('copy-link', t('Copy link'), link, t('Link copied.'))) : ''),
+        h('span', { class: 'share-line' }, codeEl),
+        link ? h('span', { class: 'share-line' }, h('span', { class: 'share-link' }, link)) : ''),
       link ? qrOf(link, t('QR code of the link')) : ''),
   ] });
 }

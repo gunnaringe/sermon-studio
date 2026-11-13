@@ -114,8 +114,7 @@ test('an admin sees the members, changes a role and makes an invite link', async
   await expect(dialog.getByText(/invite#first-church\.secret$/)).toBeVisible();
   await expect(dialog.getByText('as an admin')).toBeVisible();
   await dialog.screenshot({ path: path.join(shots, 'invite-made.png') });
-  // Share sends it on, with a text for the one invited (with a share menu, no Email: the menu has it).
-  await expect(dialog.getByRole('link', { name: 'Email' })).toHaveCount(0);
+  // Share sends it on, with a text for the one invited.
   await dialog.getByRole('button', { name: 'Share' }).click();
   const shared = await page.evaluate(() => window.shared);
   expect(shared.title).toMatch(/^Invitation to .+ in Sermon Studio$/);
