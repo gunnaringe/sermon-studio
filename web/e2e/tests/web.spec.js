@@ -1093,11 +1093,29 @@ test('shares: make a code in the studio, send a recording with the link', async 
   await up.screenshot({ path: path.join(shots, 'share-upload-logo.png') });
   expect((await page.request.delete('api/logo?tenant=first-church')).ok()).toBe(true);
   await expect(up.getByText('3 more files · until 2099-12-31 23:59')).toBeVisible();
+  // While a file is sent, the screen is kept on and closing the page asks first; after, neither.
+  await up.evaluate(() => {
+    const lock = Object.assign(new EventTarget(), { release() { window.locks.released++; this.dispatchEvent(new Event('release')); return Promise.resolve(); } });
+    window.locks = { requested: 0, released: 0 };
+    Object.defineProperty(navigator, 'wakeLock', { value: { request: async () => { window.locks.requested++; return lock; } } });
+  });
+  const leaving = () => up.evaluate(() => !window.dispatchEvent(new Event('beforeunload', { cancelable: true })));
+  expect(await leaving()).toBe(false);
+  let go;
+  const held = new Promise((resolve) => { go = resolve; });
+  await up.route('**/api/share/uploads/*?offset=*', async (r) => { await held; await r.continue(); });
   await up.locator('input[type=file]').setInputFiles({
     name: 'Gudstjeneste 2026-09-13.flac', mimeType: 'audio/flac',
     buffer: fs.readFileSync(path.join(DATA, 'upload.flac')),
   });
+  await expect(up.getByText('Uploading…')).toBeVisible();
+  await expect.poll(() => up.evaluate(() => window.locks)).toEqual({ requested: 1, released: 0 });
+  expect(await leaving()).toBe(true);
+  go();
   await expect(up.getByText('Received. Thank you!')).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => up.evaluate(() => window.locks)).toEqual({ requested: 1, released: 1 });
+  expect(await leaving()).toBe(false);
+  await up.unroute('**/api/share/uploads/*?offset=*');
   await expect(up.getByText('2 more files')).toBeVisible();
   await up.screenshot({ path: path.join(shots, 'share-upload.png') });
   const raw = path.join(DATA, 'root', '2026', '2026-09-13', '2026-09-13_raw.flac');
