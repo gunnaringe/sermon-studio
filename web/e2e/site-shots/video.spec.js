@@ -440,10 +440,10 @@ test('the studio in use', async ({ browser }) => {
   await click(dialog.getByRole('button', { name: 'In a month', exact: true }));
   await pause(700);
   await click(dialog.getByRole('button', { name: 'Make share', exact: true }));
-  const link = page.getByRole('dialog').locator('.share-link');
+  const link = page.getByRole('dialog').locator('.share-made');
   await expect(link).toBeVisible();
   await caption('9. Share it', 'A code, a link and a QR code');
-  const address = await link.textContent();
+  const address = await link.getAttribute('data-link');
   await point(page.getByRole('dialog').locator('canvas, svg, img').last());
   await pause(2500);
   await click(page.getByRole('dialog').getByRole('button', { name: 'OK', exact: true }));

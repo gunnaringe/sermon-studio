@@ -48,7 +48,7 @@ sermon-studio --data-dir /data --oidc-issuer https://id.example.org --oidc-clien
   Every request is one of these, and is refused (403) when the role does not have it; the page shows only what the
   user may do. Without the login, everyone is an admin, unless `--visitor-role` says otherwise.
 - **Settings → Members** (admins): the members with their name and email from the login, their role, Remove; invite
-  links (role, 1, 7 or 30 days), shown once with a copy button; the open invites, with Revoke. A member sees only
+  links (role, 1, 7 or 30 days), shown once with Copy link and, where the device has a share menu, Share (with a text for the one invited); the open invites, with Revoke. A member sees only
   **Leave this church…**. A church always keeps an admin: the last one cannot step down, leave or be removed.
 - **Invite links** are single use and kept only as a hash, in `<church>/invites.json`. Opening one logs in and asks
   to accept; accepting makes that login a member (an admin invite makes a member an admin).

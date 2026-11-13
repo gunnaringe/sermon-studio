@@ -192,6 +192,15 @@ export function h(tag, attrs, ...children) {
   return el;
 }
 
+// sendButton is Share: the device's own share menu (phones, and most browsers; SMS, email and the rest are its
+// choices), given a subject, a text and the link. Nothing where there is none: the dialog's Copy is left.
+export function sendButton({ subject, text, url }) {
+  if (!navigator.share) return '';
+  return h('button', { type: 'button', name: 'share', onclick: async () => {
+    try { await navigator.share({ title: subject, text, ...(url ? { url } : {}) }); } catch { /* closed */ }
+  } }, t('Share'));
+}
+
 // kbdText turns the <kbd>key</kbd> marks of a (translated) text into <kbd>
 // elements; the rest stays text.
 export function kbdText(text) {

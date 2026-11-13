@@ -2,7 +2,7 @@
 // church's inbox from the public share page, or download one sermon (made on
 // the recording, sermons.js). A code is shown once, when the share is made.
 // They have their own overlay (the icon in the header); sharesView fills its box.
-import { api, h, href, formatSize, formatDate, formatDateTime } from './util.js';
+import { api, h, href, formatSize, formatDate, formatDateTime, sendButton } from './util.js';
 import { alertDialog, confirmDialog, formDialog } from './dialog.js';
 import qrcode from './vendor/qrcode/qrcode.esm.js';
 import { t, tn } from './i18n.js';
@@ -69,6 +69,9 @@ function parseExpiry(day, time = '') {
   return new Date(y, m - 1, d, hh, mm, time ? 0 : 59).toISOString();
 }
 
+// shortAddress is the share page's address as said or typed: no https://, no trailing slash.
+const shortAddress = (url) => url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
 function linkFor(url, code) {
   return url ? url.replace(/\/?$/, '/') + '#code=' + code : '';
 }
@@ -112,27 +115,31 @@ function qrOf(text, label) {
   return svg;
 }
 
-// showCode shows a new share's code and link, once: the code and the link each with a button that copies it, and
-// the link as a QR code to point a phone at. title is what the phone's share menu calls it.
-export async function showCode(url, code, title = t('Send recordings')) {
+// showCode shows a new share's code, once, with the share page's short address to type it at, and the link (with the
+// code in it) as a QR code to point a phone at; the link itself is not shown, only copied (Copy link; the code, held,
+// copies the code) or sent on with a text (Share, sendButton). download: a download share's; expires: when it ends,
+// if it does.
+export async function showCode(url, code, { download = false, expires = '' } = {}) {
+  const title = download ? t('Download a sermon') : t('Send recordings');
   const link = linkFor(url, code);
   const note = h('span', { class: 'muted', role: 'status' });
   const codeEl = h('span', { class: 'share-code', title: t('Hold to copy') }, code);
   holdToCopy(codeEl, code, () => { note.textContent = t('Code copied.'); });
-  const copy = (name, label, text, done) => h('button', { type: 'button', name, class: 'small', onclick: async () => {
-    await navigator.clipboard.writeText(text);
-    note.textContent = done;
-  } }, label);
-  // The phone's own share menu, where there is one.
-  const share = navigator.share ? h('button', { type: 'button', name: 'share', onclick: async () => {
-    try { await navigator.share({ title, ...(link ? { url: link } : { text: code }) }); } catch { /* closed */ }
-  } }, t('Share')) : '';
-  await alertDialog({ title: t('Share made'), extra: [share, note], body: [
+  const copy = h('button', { type: 'button', name: link ? 'copy-link' : 'copy-code', onclick: async () => {
+    await navigator.clipboard.writeText(link || code);
+    note.textContent = link ? t('Link copied.') : t('Code copied.');
+  } }, link ? t('Copy link') : t('Copy code'));
+  const text = [
+    download ? t('Use this link to download the sermon.') : t('Use this link to send recordings.'),
+    expires ? t('It works until {date}.', { date: formatDateTime(expires) }) : '',
+    link ? t('Or open {url} and enter the code {code}.', { url: shortAddress(url), code }) : t('The code is {code}.', { code }),
+  ].filter(Boolean).join(' ');
+  await alertDialog({ title: t('Share made'), extra: [copy, sendButton({ subject: title, text, url: link }), note], body: [
     t('The code is shown only once. Share it before you close this.'),
-    h('span', { class: 'share-made' },
+    h('span', { class: 'share-made', 'data-link': link || undefined },
       h('span', { class: 'share-texts' },
-        h('span', { class: 'share-line' }, codeEl, copy('copy-code', t('Copy code'), code, t('Code copied.'))),
-        link ? h('span', { class: 'share-line' }, h('span', { class: 'share-link' }, link), copy('copy-link', t('Copy link'), link, t('Link copied.'))) : ''),
+        h('span', { class: 'share-line' }, codeEl),
+        link ? h('span', { class: 'share-line muted' }, t('Enter the code at {address}.', { address: shortAddress(url) })) : ''),
       link ? qrOf(link, t('QR code of the link')) : ''),
   ] });
 }
@@ -173,7 +180,7 @@ export async function sharesView(box) {
       }),
     });
     if (!made) return;
-    await showCode(data.url, made.code);
+    await showCode(data.url, made.code, { expires: made.share.expires });
     await refresh();
   } }, t('New upload share'));
 
