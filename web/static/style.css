@@ -445,7 +445,6 @@ body.card-page .downloads button .size { font-weight: 400; opacity: 0.85; }
 .share-made { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem; margin-top: 1rem; }
 .share-texts { display: grid; gap: 0.8rem; flex: 1 1 14rem; min-width: 0; }
 .share-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; }
-.share-line .share-link { flex: 1 1 12rem; min-width: 0; font-size: 0.9em; color: var(--muted); }
 .share-qr { width: 9rem; height: 9rem; flex: none; border: 1px solid var(--line); border-radius: var(--radius-inner); }
 .dialog .share-form { margin: 0.6rem 0; }
 .share-form { display: grid; grid-template-columns: 11em minmax(10em, 22em); align-items: center; gap: 0.5rem 0.8rem; }

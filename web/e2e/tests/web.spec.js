@@ -1057,14 +1057,14 @@ test('shares: make a code in the studio, send a recording with the link', async 
   await page.evaluate(() => { navigator.share = async (data) => { window.shared = data; }; });
   await page.getByRole('button', { name: 'Make share' }).click();
   const dialog = page.getByRole('dialog');
-  const link = await dialog.locator('.share-link').textContent();
+  const link = await dialog.locator('.share-made').getAttribute('data-link');
   expect(link).toMatch(/^http:\/\/localhost:8081\/#code=[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/);
   await expect(dialog.getByRole('img', { name: 'QR code of the link' })).toBeVisible();
   await page.getByRole('dialog', { name: 'Share made' }).screenshot({ path: path.join(shots, 'share-made.png'), animations: 'disabled' });
   // Share sends the link with a text that has the code.
   await dialog.getByRole('button', { name: 'Share', exact: true }).click();
   expect(await page.evaluate(() => window.shared)).toEqual({ title: 'Send recordings', url: link,
-    text: `Use this link to send recordings. It works until 2099-12-31 23:59. Or open http://localhost:8081/ and enter the code ${link.split('=')[1]}.` });
+    text: `Use this link to send recordings. It works until 2099-12-31 23:59. Or open localhost:8081 and enter the code ${link.split('=')[1]}.` });
   // Holding the code copies it; Copy link copies the link.
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const code = dialog.locator('.share-code');
@@ -1198,7 +1198,7 @@ test('download shares: share a finished sermon from its row, download it on the 
   await page.screenshot({ path: path.join(shots, 'share-download-dialog.png') });
   await dialog.getByRole('button', { name: 'Make share' }).click();
   const made = page.getByRole('dialog', { name: 'Share made' });
-  const link = await made.locator('.share-link').textContent();
+  const link = await made.locator('.share-made').getAttribute('data-link');
   expect(link).toMatch(/^http:\/\/localhost:8081\/#code=[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/);
   await made.getByRole('button', { name: 'OK' }).click();
   // The sermon's row lists its own shares.

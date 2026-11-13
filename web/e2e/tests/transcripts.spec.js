@@ -233,7 +233,7 @@ test('transcripts: shared for download with the recording, as text and captions'
   await page.screenshot({ path: path.join(shots, 'share-download-all.png') });
   await dialog.getByRole('button', { name: 'Make share' }).click();
   const made = page.getByRole('dialog', { name: 'Share made' });
-  const link = await made.locator('.share-link').textContent();
+  const link = await made.locator('.share-made').getAttribute('data-link');
   await made.getByRole('button', { name: 'OK' }).click();
   await expect(detail.locator('.recording-shares')).toContainText('all formats + transcript');
 

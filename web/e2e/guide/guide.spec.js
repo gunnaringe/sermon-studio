@@ -127,7 +127,7 @@ test('settings and a share for people without a login', async ({ page, context }
   await page.locator('input[name=expires]').fill('2026-12-31');
   await page.getByRole('button', { name: 'Make share' }).click();
   const dialog = page.getByRole('dialog');
-  const link = await dialog.locator('.share-link').textContent();
+  const link = await dialog.locator('.share-made').getAttribute('data-link');
   await shot(page, '13-share-made');
   await dialog.getByRole('button', { name: 'OK' }).click();
   await shot(page, '14-shares');
@@ -155,7 +155,7 @@ test('a finished sermon shared for download', async ({ page, context }) => {
   await shot(page, '20-share-download');
   await dialog.getByRole('button', { name: 'Make share' }).click();
   const made = page.getByRole('dialog', { name: 'Share made' });
-  const link = await made.locator('.share-link').textContent();
+  const link = await made.locator('.share-made').getAttribute('data-link');
   await made.getByRole('button', { name: 'OK' }).click();
   const guest = await context.newPage();
   await guest.goto(link);

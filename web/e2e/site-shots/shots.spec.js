@@ -143,8 +143,8 @@ for (const [lang, L] of Object.entries(LANGS).filter(([l]) => !only.length || on
     await shot('share');
     await dialog.getByRole('button', { name: T('Make share'), exact: true }).click();
     const made = page.getByRole('dialog');
-    await expect(made.locator('.share-link')).toBeVisible();
-    const link = await made.locator('.share-link').textContent();
+    await expect(made.locator('.share-made')).toBeVisible();
+    const link = await made.locator('.share-made').getAttribute('data-link');
     await made.getByRole('button', { name: T('OK'), exact: true }).click();
     const guest = await context.newPage();
     await guest.goto(link);
