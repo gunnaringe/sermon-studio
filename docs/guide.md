@@ -230,6 +230,8 @@ ended one says when it goes. The files it brought, and the sermon a download sha
 The upload page asks for the code, or takes it from the link and removes it from the address bar
 (it is in the fragment, so it never reaches the server's or a proxy's logs). Files go in 16 MB
 chunks, so they pass Cloudflare, and continue after a dropped connection, a reload or a restart.
+While files are being sent the page keeps the screen on (a phone that locks stops the upload), and
+closing the page asks first.
 They are written as `Innboks/.share-<id>.partial`, checked to be the type they claim, and renamed
 when complete (never over a file: `name (2).wav`); then they are ingested like any inbox file.
 Half-written files (stopped uploads, here or in the studio, and encodes cut off by a crash) are

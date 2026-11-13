@@ -234,9 +234,29 @@ function showDownload() {
     h('p', { class: 'muted' }, otherCode()));
 }
 
+// While files are being sent the screen is kept on (a phone that locks stops the upload) and closing
+// the page asks first. Either may be missing in an older browser; the upload works without them.
+let wakeLock = null;
+async function keepAwake() {
+  if (!running || wakeLock || document.visibilityState !== 'visible' || !navigator.wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch {
+    wakeLock = null; // refused, e.g. to save battery
+  }
+}
+document.addEventListener('visibilitychange', keepAwake); // the lock goes when the page is hidden
+window.addEventListener('beforeunload', (e) => {
+  if (!running) return;
+  e.preventDefault();
+  e.returnValue = ''; // older browsers
+});
+
 async function run() {
   if (running) return;
   running = true;
+  keepAwake();
   while (queue.length) {
     const row = queue.shift();
     row.status.className = 'muted';
@@ -253,6 +273,7 @@ async function run() {
     }
   }
   running = false;
+  if (wakeLock) wakeLock.release().catch(() => {});
   const r = await call('GET', 'api/share').catch(() => null);
   if (r && r.resp.ok) {
     info = r.data;
