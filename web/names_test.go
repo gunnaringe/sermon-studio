@@ -45,10 +45,10 @@ func TestUploadNamedSermon(t *testing.T) {
 	if c := upload("2026-10-04", "Kveld", "evening"); c != http.StatusCreated {
 		t.Fatalf("named: %d", c)
 	}
-	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04 Kveld", "2026-10-04 Kveld_raw.flac")); string(b) != "evening" {
+	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04 Kveld", "a.flac")); string(b) != "evening" {
 		t.Error("named sermon missing")
 	}
-	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04", "2026-10-04_raw.flac")); string(b) != "morning" {
+	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04", "a.flac")); string(b) != "morning" {
 		t.Error("the first sermon was touched")
 	}
 	if c := upload("2026-10-04", "../x", "x"); c != http.StatusBadRequest {
@@ -99,6 +99,31 @@ func TestRename(t *testing.T) {
 	}
 	if c := post("2026", `{"date":"2026-10-05","name":""}`); c != http.StatusBadRequest {
 		t.Errorf("not a date folder: %d", c)
+	}
+}
+
+// A recording with a name of its own keeps it on a rename, unless the new folder's files would have it.
+func TestRenameKeepsTheRecordingsName(t *testing.T) {
+	ts := newTestServer(t, normalizer.FFmpeg{})
+	ts.file(t, "2026/2026-10-04/R_1.flac", "one")
+	ts.file(t, "2026/2026-10-11/2026-10-11 Kveld.flac", "two")
+	post := func(path, body string) {
+		t.Helper()
+		if rec := ts.do(t, "POST", "/api/rename?path="+url.QueryEscape(path), json.RawMessage(body)); rec.Code != http.StatusOK {
+			t.Fatalf("rename %s: %d %s", path, rec.Code, rec.Body)
+		}
+	}
+	post("2026/2026-10-04", `{"date":"2026-10-05","name":"Kveld"}`)
+	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-05 Kveld", "R_1.flac")); string(b) != "one" {
+		t.Error("R_1.flac should keep its name")
+	}
+	post("2026/2026-10-11", `{"date":"2026-10-11","name":"Kveld"}`)
+	dir := filepath.Join(ts.root, "2026", "2026-10-11 Kveld")
+	if b, _ := os.ReadFile(filepath.Join(dir, "2026-10-11 Kveld_raw.flac")); string(b) != "two" || fileExists(filepath.Join(dir, "2026-10-11 Kveld.flac")) {
+		t.Error("the recording should not have the name of the folder's FLAC")
+	}
+	if e := ts.entry(dir); !e.Raw || len(e.Outputs) != 0 {
+		t.Errorf("entry %+v", e)
 	}
 }
 

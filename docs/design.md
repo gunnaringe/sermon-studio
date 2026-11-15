@@ -22,10 +22,11 @@ It runs on Linux (a server or the home cluster); the cutting happens in the brow
   recording.json             the recording's facts, the saved sections, cuts and fades, how each file was made
   draft.json                 the adjusted sections, cuts and fades while they are not saved (gone after Save)
   original\                  the whole recording, unedited, after a run
-    <date>_raw.flac
+    R_20261004-101010.flac   (the name it arrived with, else <date>_raw.flac)
 ```
 
-Input placed in the folder: `<date>_raw.wav` (or `_raw.flac`); a run moves it into `original/`. There is no cut file: the outputs are cut straight from the original.
+Input placed in the folder: the one file of an input type there that the studio did not make (any name but
+`<date>.<ext>` and `<date>_sermon.<ext>`; `<date>_raw.wav` first, as before); a run moves it into `original/`. There is no cut file: the outputs are cut straight from the original.
 
 ## Choice of language
 

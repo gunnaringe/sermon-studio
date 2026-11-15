@@ -188,7 +188,7 @@ func (s *Server) measureStorage() storageUse {
 		switch {
 		case dir == clipsDir:
 			u.Clips += info.Size()
-		case dir == normalizer.OriginalDir || strings.Contains(d.Name(), "_raw."):
+		case dir == normalizer.OriginalDir || normalizer.IsArrival(dir, d.Name()):
 			u.Recordings += info.Size()
 			if key, err := cacheKey(path); err == nil {
 				u.Recordings += dirSize(s.analyses.dir(key))

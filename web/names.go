@@ -80,7 +80,7 @@ type renameRequest struct {
 }
 
 // handleRename gives a sermon another date or name: the folder, and the
-// files in it that are named after it (<folder>_raw.flac, <folder>.mp3 ...,
+// files in it that are named after it (<folder>.mp3, <folder>_raw.flac ...,
 // also in original/), are renamed. Outputs keep the tags they were made with.
 func (s *Server) handleRename(w http.ResponseWriter, r *http.Request) {
 	abs, ok := s.pathParam(w, r)
@@ -157,9 +157,12 @@ func (s *Server) rename(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	var oldKey string
+	var oldKey, oldRaw string // the recording's name, if it is not yet in original/
 	if raw := paths.Source(); raw != "" {
 		oldKey, _ = cacheKey(raw)
+		if filepath.Dir(raw) == paths.Folder {
+			oldRaw = filepath.Base(raw)
+		}
 	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
@@ -181,6 +184,13 @@ func (s *Server) rename(src, dst string) error {
 			if err := normalizer.Rename(filepath.Join(dir, de.Name()), filepath.Join(dir, newBase+rest)); err != nil {
 				return fmt.Errorf("the folder was renamed, but %s was not: %w", de.Name(), err)
 			}
+		}
+	}
+	// A recording with a name of its own is not renamed, unless the new folder's files take that name
+	// ("2026-10-04 Evening.flac" in 2026-10-04, renamed to 2026-10-04 Evening): then it is <folder>_raw.
+	if oldRaw != "" && normalizer.Ours(newBase, oldRaw) && !normalizer.Ours(oldBase, oldRaw) && fileExists(filepath.Join(dst, oldRaw)) {
+		if err := normalizer.Rename(filepath.Join(dst, oldRaw), filepath.Join(dst, normalizer.RawName(newBase, "", filepath.Ext(oldRaw)))); err != nil {
+			return fmt.Errorf("the folder was renamed, but %s was not: %w", oldRaw, err)
 		}
 	}
 	if np, err := normalizer.NewPaths(dst); err == nil && oldKey != "" {

@@ -592,6 +592,60 @@ func TestSource(t *testing.T) {
 	}
 }
 
+// A recording in its folder has the name it arrived with: it is the file of an input type the studio did not
+// make, the FLAC first; a folder not named after a date has none.
+func TestArrivalHasItsName(t *testing.T) {
+	p := newTestPipeline(t, "2026-10-04.flac", "2026-10-04_sermon.mp3", ".hidden.flac", "R_1.partial.flac", "notes.txt")
+	if got := p.P.Source(); got != "" {
+		t.Errorf("the studio's own files: %q", got)
+	}
+	os.WriteFile(p.inFolder(".x"), nil, 0o644)
+	wav := filepath.Join(p.P.Folder, "R_1.WAV")
+	os.WriteFile(wav, []byte("x"), 0o644)
+	if got := p.P.Source(); got != wav {
+		t.Errorf("found %q", got)
+	}
+	flac := filepath.Join(p.P.Folder, "R_1.flac")
+	os.WriteFile(flac, []byte("x"), 0o644)
+	if got := p.P.Source(); got != flac {
+		t.Errorf("the conversion's FLAC before the WAV: %q", got)
+	}
+	os.Remove(wav)
+	// Moved into original/ under the name it has.
+	if raw, err := p.ingest(context.Background()); raw != filepath.Join(p.P.Original, "R_1.flac") || err != nil {
+		t.Fatalf("raw=%q err=%v", raw, err)
+	}
+	other := filepath.Join(t.TempDir(), "Lydfiler")
+	os.Mkdir(other, 0o755)
+	os.WriteFile(filepath.Join(other, "a.flac"), []byte("x"), 0o644)
+	if op, _ := NewPaths(other); op.Source() != "" {
+		t.Errorf("a folder not named after a date: %q", op.Source())
+	}
+	for name, want := range map[string]bool{"R_1.flac": true, "2026-10-04_raw.wav": true, "2026-10-04 Kveld.flac": true,
+		"2026-10-04.mp3": false, "2026-10-04_SERMON.flac": false, "notes.txt": false, ".a.flac": false} {
+		if got := IsArrival("2026-10-04", name); got != want {
+			t.Errorf("IsArrival(%q) = %v", name, got)
+		}
+	}
+	if IsArrival("Lydfiler", "a.flac") || !IsArrival("2026-10-04 Kveld", "a.flac") {
+		t.Error("only a folder named after a date has a recording")
+	}
+}
+
+func TestRawName(t *testing.T) {
+	for _, c := range [][4]string{
+		{"2026-10-04", "R_1", ".wav", "R_1.wav"},
+		{"2026-10-04", "", ".wav", "2026-10-04_raw.wav"},
+		{"2026-10-04", "2026-10-04", ".flac", "2026-10-04_raw.flac"},
+		{"2026-10-04", "2026-10-04_sermon", ".mp3", "2026-10-04_raw.mp3"},
+		{"2026-10-04 Kveld", "2026-10-04", ".flac", "2026-10-04.flac"},
+	} {
+		if got := RawName(c[0], c[1], c[2]); got != c[3] {
+			t.Errorf("RawName(%q, %q, %q) = %q, want %q", c[0], c[1], c[2], got, c[3])
+		}
+	}
+}
+
 // A recording keeps the name it arrived with in original/: it is moved there under it, and found there.
 func TestIngestKeepsName(t *testing.T) {
 	p := newTestPipeline(t)

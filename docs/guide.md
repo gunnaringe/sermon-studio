@@ -162,14 +162,17 @@ Each can have a label, which shows on the waveform.
 - **Newly imported:** a recording that arrived (upload, inbox, share) in the last 7 days is also listed
   on top of the first page, with when it came. It folds open and shut like a year and is shut at first; the import time is kept in its `recording.json`.
 - **Upload** (at the top of the recordings page): drop or pick the recording and its date (suggested from the file name or the file's
-  date); it goes straight into the date folder (`<year>/<date>/<date>_raw.*`, see `--layout`).
+  date); it goes straight into the date folder (`<year>/<date>/`, see `--layout`), under the name it has.
   Uploads are sent in chunks, so they pass proxies that limit request size (Cloudflare: 100 MB)
   and continue after a dropped connection. No inbox needed.
 - **Names:** a recording can have a name (upload form, optional), e.g. for two sermons a day. Its folder is
-  `<year>/<date> <name>` and its files `<date> <name>_raw.flac`, `<date> <name>.mp3`... A recording without
+  `<year>/<date> <name>` and the files made `<date> <name>.flac`, `<date> <name>.mp3`... A recording without
   a name, uploaded or from the inbox, on a date that has one already gets the next number: `<date> 2`,
   `<date> 3`... (up to 20 a day). The pencil beside the title of a sermon's page (**Rename…**) changes its date or name (the folder and
-  the files named after it, also in `original/`; files already made keep their tags).
+  the files named after it, also in `original/`; files already made keep their tags). The recording keeps the
+  name it arrived with: `R_20261115-101010.wav` is `R_20261115-101010.flac` once converted, in the date folder and
+  in `original/`. A name the studio uses for its own files (`<date>.flac`, `<date>_sermon.mp3`), or none, is
+  `<date>_raw.<ext>`.
 - **Delete and the trash:** **Danger zone** at the end of a recording's edit page. *Delete recording…* (after a confirmation) moves
   its whole folder, with its files and the original, into the church's trash; nothing is removed yet. **Settings → Trash** lists what is there, how long it has
   left (30 days, `--trash-days`), and has *Restore* (back where it was, unless that date has a recording again) and
@@ -307,7 +310,7 @@ made again by itself. Setting up the models: [transcripts](transcripts.md).
 ## Inbox
 
 - **The inbox is any folder**: a synced folder or a file share. A recording (any of the types
-  above) that has stopped changing for 30 s is moved into its date folder as `<date>_raw.*`
+  above) that has stopped changing for 30 s is moved into its date folder under the name it has
   (and converted and prepared there), without anyone opening it. The date is taken from the
   file name, else the recording's tags, else its modification time. If that date already has a
   raw recording, the new one goes in `<date> 2`, `<date> 3`... Hidden files and `*.partial*`

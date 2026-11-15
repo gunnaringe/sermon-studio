@@ -2,7 +2,7 @@
 
 ```
 2026-10-04/
-  2026-10-04_raw.flac  the whole recording, untouched by runs
+  R_1.flac             the whole recording, under the name it arrived with, untouched by runs
   2026-10-04.flac      master: mono, 48 kHz / 24-bit, -19 LUFS
   2026-10-04.mp3       mono, 96 kbps
   2026-10-04.opus      mono, 48 kbps
@@ -70,7 +70,9 @@ so there is nothing else to keep in step.
 
 - The recording is moved into `original/` as it is, under the name it arrived with (`R_20261018-104506.wav` is kept as
   `R_20261018-104506.flac`; a video's sound as `.mka`; an MP3 stays `.mp3`). The name is kept in `recording.json` as `sourceName`;
-  a recording that has none (from before) is `<date>_raw.<ext>`. Either is found in `original/` (`_raw.flac`, `_raw.mp3`, `_raw.mka`...); a
+  a recording that has none (from before) is `<date>_raw.<ext>`. It has that name in the date folder already, from when it arrives (`<date>_raw.<ext>` if
+  the name is one the studio uses for its files, `<date>.flac`, `<date>_sermon.mp3`). Either is found in the folder and in `original/`
+  (`Paths.Source`: the file of an input type the studio did not make, the FLAC first); a
   WAV or video not converted yet is converted there first, and **deleted only if the audio is
   identical**. Across disks a file is copied, verified and only then deleted.
 - A recording already in `original/` is never replaced by a run that only adds files; one that redoes files replaces it.
