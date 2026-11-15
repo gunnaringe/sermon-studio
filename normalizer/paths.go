@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Paths are the files for one date folder.
@@ -57,35 +58,92 @@ func (p Paths) RawOriginal() string {
 	if f := p.findRaw(p.Original); f != "" {
 		return f
 	}
-	des, _ := os.ReadDir(p.Original)
+	return bestInput(p.Original, func(string) bool { return true })
+}
+
+// arrival is the whole recording in the date folder, not yet moved into original/, or "": <date>_raw.<ext>
+// (as all were named before), else the file of an input type there that the studio did not make (Ours).
+// Only a folder named after a date has one.
+func (p Paths) arrival() string {
+	if f := p.findRaw(p.Folder); f != "" {
+		return f
+	}
+	if !datedName(p.Date) {
+		return ""
+	}
+	return bestInput(p.Folder, func(name string) bool { return !Ours(p.Date, name) })
+}
+
+// bestInput is the file in dir of an input type that ok takes, the first type of InputTypes if there are
+// several (the FLAC a conversion made before its WAV, the sound of a video before the video). Hidden files
+// and ones being written are never recordings.
+func bestInput(dir string, ok func(name string) bool) string {
+	des, _ := os.ReadDir(dir)
 	best, rank := "", len(inputTypes)
 	for _, de := range des {
-		if !de.Type().IsRegular() || strings.HasPrefix(de.Name(), ".") {
+		name := de.Name()
+		if !de.Type().IsRegular() || strings.HasPrefix(name, ".") || IsPartial(name) || !ok(name) {
 			continue
 		}
 		for i, t := range inputTypes {
-			if i < rank && strings.EqualFold(filepath.Ext(de.Name()), t.ext) {
-				best, rank = filepath.Join(p.Original, de.Name()), i
+			if i < rank && strings.EqualFold(filepath.Ext(name), t.ext) {
+				best, rank = filepath.Join(dir, name), i
 			}
 		}
 	}
 	return best
 }
 
-// originalFile is the name a recording being moved into original/ gets: the one it arrived
-// with (ext is the extension of what is kept), else <date>_raw.<ext>.
-func (p *Pipeline) originalFile(ext string) string {
-	if p.Opt.OriginalName == "" {
-		return p.P.Date + rawName + ext
+// datedName reports whether a folder name is that of a recording: <date> or <date> <name>.
+func datedName(name string) bool {
+	if len(name) < 10 || (len(name) > 10 && name[10] != ' ') {
+		return false
 	}
-	return p.Opt.OriginalName + ext
+	_, err := time.Parse("2006-01-02", name[:10])
+	return err == nil
 }
 
-// rawName is the name of the whole recording: <date>_raw.<ext>, ext one of
+// Ours reports whether name is a file the studio makes in the folder of a recording called folder (its
+// outputs <folder>.<ext>, <folder>_sermon.<ext>, and hidden work files), not the recording.
+// A recording that arrives with such a name is given another (RawName).
+func Ours(folder, name string) bool {
+	if strings.HasPrefix(name, ".") || IsPartial(name) {
+		return true
+	}
+	stem := strings.TrimSuffix(name, filepath.Ext(name))
+	return strings.EqualFold(stem, folder) || strings.EqualFold(stem, folder+SermonOnly)
+}
+
+// IsArrival reports whether name, in the folder of a recording called folder, is the recording (of an input
+// type, not one the studio made), as arrival finds it.
+func IsArrival(folder, name string) bool {
+	_, ok := KindOf(name)
+	return ok && datedName(folder) && !Ours(folder, name)
+}
+
+// RawName is the name of a recording in its folder (called folder): stem, the name it arrived with, and
+// ext, unless stem is empty or the studio uses that name itself (Ours); then <folder>_raw<ext>.
+func RawName(folder, stem, ext string) string {
+	if stem == "" || Ours(folder, stem+ext) {
+		return folder + rawName + ext
+	}
+	return stem + ext
+}
+
+// originalFile is the name a recording src being moved into original/ gets, with the extension of what is
+// kept (ext): the name it arrived with (OriginalName), else the one it has.
+func (p *Pipeline) originalFile(src, ext string) string {
+	if p.Opt.OriginalName != "" {
+		return p.Opt.OriginalName + ext
+	}
+	return strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + ext
+}
+
+// rawName is what the name of a recording without one of its own ends in: <date>_raw.<ext>, ext one of
 // InputTypes.
 const rawName = "_raw"
 
-// findRaw is the whole recording in dir, or "".
+// findRaw is the recording named <date>_raw.<ext> in dir, or "".
 func (p Paths) findRaw(dir string) string {
 	for _, ext := range InputTypes() {
 		if f := filepath.Join(dir, p.Date+rawName+ext); exists(f) {
@@ -103,7 +161,7 @@ func (p *Pipeline) inFolder(suffix string) string {
 // Source is the whole recording a run would use, found the same way as the
 // pipeline: in the date folder first (a new arrival), then in original/.
 func (p Paths) Source() string {
-	if raw := p.findRaw(p.Folder); raw != "" {
+	if raw := p.arrival(); raw != "" {
 		return raw
 	}
 	return p.RawOriginal()

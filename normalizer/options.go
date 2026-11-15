@@ -24,7 +24,7 @@ type Options struct {
 	// from it, also with Force; one it says no to is never used. Unset, an existing master is used unless Force.
 	MasterFresh func(path string) bool
 	// OriginalName is the name (no extension) the recording is kept under in original/: the name it
-	// arrived with. "" = <date>_raw.
+	// arrived with. "" = the name it has in the folder.
 	OriginalName string
 	Start, End   float64 // cut raw to edit (seconds); 0 = from the beginning / to the end
 	Cuts         []Span  // parts of Start..End to leave out (seconds in the recording), e.g. a song

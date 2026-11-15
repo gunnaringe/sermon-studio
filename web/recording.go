@@ -192,6 +192,18 @@ func cleanSourceName(name string) string {
 	return name
 }
 
+// rawFile is where a recording that arrived as name goes in folder: under that name (cleanSourceName), the
+// extension in lower case, unless it has none to keep, the studio uses it (normalizer.RawName), or it would make
+// a path too long for Windows; then <folder>_raw.<ext>.
+func rawFile(folder, name string) string {
+	ext := strings.ToLower(filepath.Ext(name))
+	stem := stemOf(cleanSourceName(name))
+	if !fitsWindows(filepath.Join(folder, normalizer.OriginalDir, stem+".aiff.partial")) {
+		stem = ""
+	}
+	return filepath.Join(folder, normalizer.RawName(filepath.Base(folder), stem, ext))
+}
+
 // stemOf is a file name without its extension.
 func stemOf(name string) string { return strings.TrimSuffix(name, filepath.Ext(name)) }
 

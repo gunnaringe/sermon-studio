@@ -130,7 +130,7 @@ func (p *Pipeline) stepRaw(ctx context.Context) error {
 // A recording already in original/ is replaced only with Force.
 func (p *Pipeline) ingest(ctx context.Context) (string, error) {
 	have := p.P.RawOriginal()
-	src := p.P.findRaw(p.P.Folder)
+	src := p.P.arrival()
 	switch {
 	case src == "":
 		if have != "" {
@@ -141,14 +141,14 @@ func (p *Pipeline) ingest(ctx context.Context) (string, error) {
 		p.warnf("%s is already in original/; leaving %s in the folder.", filepath.Base(have), filepath.Base(src))
 		return have, nil
 	}
-	dst := filepath.Join(p.P.Original, p.originalFile(filepath.Ext(src)))
+	dst := filepath.Join(p.P.Original, p.originalFile(src, filepath.Ext(src)))
 	if to := ConvertsTo(src); to == "" {
 		if err := MoveFile(src, dst); err != nil {
 			return "", err
 		}
 		p.logf("Moved %s to %s.", filepath.Base(src), dst)
 	} else {
-		dst = filepath.Join(p.P.Original, p.originalFile(filepath.Ext(to)))
+		dst = filepath.Join(p.P.Original, p.originalFile(src, filepath.Ext(to)))
 		var progress func(float64)
 		if total := p.lengthFor(ctx, src); total > 0 {
 			p.OnProgress(0)

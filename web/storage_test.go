@@ -48,7 +48,7 @@ func TestStorageCounts(t *testing.T) {
 // Removing from the trash frees the space at once: the next answer has it.
 func TestStorageAfterChange(t *testing.T) {
 	ts := newTestServer(t, normalizer.FFmpeg{})
-	ts.file(t, "2026/2026-10-04/2026-10-04_raw.flac", strings.Repeat("r", 1000))
+	ts.file(t, "2026/2026-10-04/R_1.flac", strings.Repeat("r", 1000)) // a recording with the name it arrived with
 	ts.storageChanged()
 	if got := decode[storageAnswer](t, ts.do(t, "GET", "/api/storage", nil)); got.Use.Recordings != 1000 {
 		t.Fatalf("before: %+v", got)

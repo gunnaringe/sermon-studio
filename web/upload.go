@@ -34,7 +34,7 @@ const uploadStale = 2 * time.Minute
 // the file with that name. (A claim asked again, its answer lost, gets the
 // same folder: an empty upload is not one coming in.) Chunks are appended to a hidden
 // file in the date folder; a chunk at the wrong offset gets 409 with the
-// offset to continue from. The last chunk renames it to <folder>_raw.<ext>
+// offset to continue from. The last chunk gives it the name it was sent with (rawFile)
 // and starts the FLAC conversion (for a WAV) and the waveform right away,
 // without waiting for them.
 func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
@@ -71,9 +71,8 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	ext := strings.ToLower(filepath.Ext(name))
 	base := filepath.Base(folder) // <date> or <date> <name>
-	final := filepath.Join(folder, base+"_raw"+ext)
+	final := rawFile(folder, name)
 	tmp := uploadTmp(folder)
 	sermon = strings.TrimPrefix(strings.TrimPrefix(base, date), " ") // "" or the name, maybe one freeRawFolder gave
 
@@ -132,9 +131,9 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer s.release(tmp) // the file counts from now on (measured from here), or is gone
-	if fileExists(final) {
+	if paths, err := normalizer.NewPaths(folder); err == nil && paths.Source() != "" {
 		normalizer.Remove(tmp)
-		writeError(w, http.StatusConflict, fmt.Errorf("%s appeared meanwhile", filepath.Base(final)))
+		writeError(w, http.StatusConflict, fmt.Errorf("%s has got a recording meanwhile", base))
 		return
 	}
 	if err := normalizer.Rename(tmp, final); err != nil {

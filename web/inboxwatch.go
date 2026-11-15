@@ -3,7 +3,6 @@ package web
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/gunnaringe/sermon-studio/normalizer"
@@ -87,8 +86,8 @@ func (w *inboxWatcher) scan() {
 	w.s.waitingFiles(keep) // forgets those that left the inbox
 }
 
-// ingest moves a recording from the inbox into its date folder as
-// <date>_raw.<ext> and starts the FLAC conversion and the waveform there. The
+// ingest moves a recording from the inbox into its date folder, under the
+// name it has (see rawFile), and starts the FLAC conversion and the waveform there. The
 // date is guessed (see suggestDate). If the date already has a raw recording
 // the folder becomes "<date> 2", "<date> 3"... (see freeRawFolder) until it is given a name.
 // The inbox may be on another disk: MoveFile then copies, verifies and
@@ -120,7 +119,7 @@ func (s *Server) ingest(name string) error {
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		return err
 	}
-	dst := filepath.Join(folder, filepath.Base(folder)+"_raw"+strings.ToLower(filepath.Ext(name)))
+	dst := rawFile(folder, name)
 	if err := normalizer.MoveFile(src, dst); err != nil {
 		return err
 	}
