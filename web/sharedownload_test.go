@@ -447,3 +447,45 @@ func TestShareDownloadPreparing(t *testing.T) {
 	}
 	srv.jobs.active("2026/2026-10-18 Advent").cancel()
 }
+
+// Listening gets an address for the page's player: the file inline, not counted as a download, nor in the
+// log or the studio's downloads; only while the code can still be used, and only for the sermon's formats.
+func TestShareListen(t *testing.T) {
+	st, code := downloadTest(t, `{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"maxDownloads":1,"label":"Lytt"}`)
+	listen := func(ip, format string) (int, string) {
+		b, _ := json.Marshal(map[string]any{"format": format, "listen": true})
+		w := st.call("POST", "/api/share/downloads", code, ip, b)
+		var out struct{ URL string }
+		json.Unmarshal(w.Body.Bytes(), &out)
+		return w.Code, out.URL
+	}
+	c, addr := listen("1.1.1.1", "mp3")
+	if c != http.StatusCreated {
+		t.Fatalf("listen: %d", c)
+	}
+	if c, again := listen("1.1.1.1", "mp3"); c != http.StatusOK || again != addr {
+		t.Errorf("again: %d %q", c, again)
+	}
+	resp := st.fetch(addr, "bytes=4-")
+	if b := readAll(resp); resp.StatusCode != http.StatusPartialContent || b != "the mp3 file" ||
+		resp.Header.Get("Content-Disposition") != `inline; filename="2026-10-18 Advent.mp3"` {
+		t.Errorf("file: %d %q %v", resp.StatusCode, b, resp.Header)
+	}
+	if left := *st.info(code).DownloadsLeft; left != 1 {
+		t.Errorf("listening was counted: %d left", left)
+	}
+	list := decode[struct{ Shares []shareView }](t, do(st.studio, "GET", "/api/shares", ""))
+	if s := list.Shares[0]; s.Count != 0 || len(s.Log) != 0 || s.Resumable != 0 {
+		t.Errorf("in the studio: %+v", s)
+	}
+	if c, _ := listen("1.1.1.1", "txt"); c != http.StatusBadRequest {
+		t.Errorf("listening to the transcript: %d", c)
+	}
+	// Used up: no more listening either (an address already given still plays).
+	if c, _ := st.download(code, "2.2.2.2", "mp3"); c != http.StatusCreated {
+		t.Fatalf("download: %d", c)
+	}
+	if c, _ := listen("3.3.3.3", "mp3"); c != http.StatusForbidden {
+		t.Errorf("listening when used up: %d", c)
+	}
+}

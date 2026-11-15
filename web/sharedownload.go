@@ -21,6 +21,8 @@ import (
 // Pressing Download counts one download and hands out a ticket: a plain
 // address of the file that works for ticketFor, so the browser can download
 // and resume it (Range) without the code, and without counting again.
+// Listening gets a ticket too, for the page's player: the file sent inline,
+// not counted as a download, while the code can still be used.
 
 const (
 	kindUpload   = "upload"
@@ -70,6 +72,7 @@ type downloadTicket struct {
 	Format  string    `json:"format"`
 	IP      string    `json:"ip"`
 	Expires time.Time `json:"expires"`
+	Listen  bool      `json:"listen,omitempty"` // for the player: sent inline, not counted
 }
 
 // outputPath is the file of an output by its format: the main one, or with sermonOnly the sermon without its
@@ -337,7 +340,8 @@ func (a *App) downloadInfo(w http.ResponseWriter, t *tenant, sh *Share) {
 
 // handleShareDownloadStart counts a download and returns the address to fetch it from:
 // POST api/share/downloads {format} → {url}. Pressing again for the same file, from the same
-// address, while that download can still be resumed counts nothing.
+// address, while that download can still be resumed counts nothing. With listen, the address is for
+// the page's player (one of the sermon's formats): not counted, nor in the share's log.
 func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	t, sh, ip, ok := a.downloadShareFor(w, r)
 	if !ok {
@@ -345,12 +349,13 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	}
 	var q struct {
 		Format string `json:"format"`
+		Listen bool   `json:"listen"`
 	}
 	if err := decodeRequest(r, &q); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if !sh.gives(q.Format) {
+	if !sh.gives(q.Format) || (q.Listen && !slices.Contains(downloadFormats, q.Format)) {
 		writeError(w, http.StatusBadRequest, errors.New("this code does not give that format"))
 		return
 	}
@@ -372,7 +377,7 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	defer a.shareMu.Unlock()
 	now := time.Now()
 	for id, tk := range sh.Tickets {
-		if tk.IP == ip && tk.Format == q.Format && now.Before(tk.Expires) {
+		if tk.IP == ip && tk.Format == q.Format && tk.Listen == q.Listen && now.Before(tk.Expires) {
 			writeJSON(w, http.StatusOK, map[string]string{"url": "api/share/downloads/" + id})
 			return
 		}
@@ -385,7 +390,16 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	if sh.Tickets == nil {
 		sh.Tickets = map[string]*downloadTicket{}
 	}
-	sh.Tickets[id] = &downloadTicket{Format: q.Format, IP: ip, Expires: now.Add(ticketFor).UTC()}
+	sh.Tickets[id] = &downloadTicket{Format: q.Format, IP: ip, Expires: now.Add(ticketFor).UTC(), Listen: q.Listen}
+	if q.Listen {
+		if err := a.saveShares(t); err != nil {
+			delete(sh.Tickets, id)
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"url": "api/share/downloads/" + id})
+		return
+	}
 	counted := slices.Contains(downloadFormats, q.Format) // the transcript is not a download of the sermon
 	if counted {
 		sh.Count++
@@ -465,19 +479,25 @@ func (a *App) handleShareDownloadFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errors.New("this file is not there now; ask the church that gave you the code"))
 		return
 	}
-	a.shareMu.Lock()
-	a.share.sending[sh.ID]++
-	a.shareMu.Unlock()
-	defer func() {
+	if !tk.Listen { // listening is not a download going on
 		a.shareMu.Lock()
-		if a.share.sending[sh.ID]--; a.share.sending[sh.ID] <= 0 {
-			delete(a.share.sending, sh.ID)
-		}
+		a.share.sending[sh.ID]++
 		a.shareMu.Unlock()
-	}()
+		defer func() {
+			a.shareMu.Lock()
+			if a.share.sending[sh.ID]--; a.share.sending[sh.ID] <= 0 {
+				delete(a.share.sending, sh.ID)
+			}
+			a.shareMu.Unlock()
+		}()
+	}
 	// The listener's write timeout is for short requests; a sermon to a slow phone takes longer.
 	http.NewResponseController(w).SetWriteDeadline(time.Now().Add(downloadWriteFor))
 	w.Header().Set("Content-Type", downloadTypes[tk.Format])
-	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": st.Name()}))
+	disposition := "attachment"
+	if tk.Listen {
+		disposition = "inline" // for the page's player
+	}
+	w.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": st.Name()}))
 	http.ServeContent(w, r, st.Name(), st.ModTime(), f)
 }

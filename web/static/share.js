@@ -211,6 +211,28 @@ function showDownload() {
     b.addEventListener('click', () => press(f, b));
     return b;
   });
+  // Listen: a player for the sermon, from an address that is not counted as a download. MP3 first, as every
+  // browser plays it.
+  const playable = ['mp3', 'opus', 'flac'].map((f) => info.files.find((x) => x.format === f)).find(Boolean);
+  const listen = h('p', { class: 'listen' });
+  if (playable) {
+    const button = h('button', { type: 'button', name: 'listen' }, t('▶ Listen'));
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        const r = await call('POST', 'api/share/downloads', { format: playable.format, listen: true });
+        if (!r.resp.ok) throw new Error(errorText(r.resp, r.data));
+        const player = h('audio', { controls: true, src: r.data.url, 'aria-label': t('The sermon') });
+        listen.replaceChildren(player);
+        player.play().catch(() => {}); // a browser that wants another press shows the controls
+      } catch (e) {
+        status.className = 'error';
+        status.textContent = e.message;
+        button.disabled = false;
+      }
+    });
+    listen.replaceChildren(button, ' ', h('span', { class: 'muted' }, t('Not counted as a download.')));
+  }
   // the artist and date, unless the church's name or the title says it already
   const what = [info.artist !== info.church ? info.artist : '', info.date && !(info.title || '').includes(info.date) ? info.date : '']
     .filter(Boolean).join(' · ');
@@ -226,6 +248,7 @@ function showDownload() {
     limits,
     // the sermon's files, then the transcript's
     ...(ended ? [h('p', { class: 'error' }, ended)] : [
+      playable ? listen : '',
       h('p', { class: 'downloads' }, buttons.filter((b) => b.classList.contains('primary'))),
       h('p', { class: 'downloads' }, buttons.filter((b) => !b.classList.contains('primary')))]),
     !ended && preparing.length ? h('p', { class: 'muted preparing' },
