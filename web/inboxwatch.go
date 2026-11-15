@@ -86,7 +86,7 @@ func (w *inboxWatcher) scan() {
 	w.s.waitingFiles(keep) // forgets those that left the inbox
 }
 
-// ingest moves a recording from the inbox into its date folder, under the
+// ingest moves a recording from the inbox into its date folder's original/, under the
 // name it has (see rawFile), and starts the FLAC conversion and the waveform there. The
 // date is guessed (see suggestDate). If the date already has a raw recording
 // the folder becomes "<date> 2", "<date> 3"... (see freeRawFolder) until it is given a name.
@@ -116,10 +116,10 @@ func (s *Server) ingest(name string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(folder, 0o755); err != nil {
+	dst := rawFile(folder, name)
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	dst := rawFile(folder, name)
 	if err := normalizer.MoveFile(src, dst); err != nil {
 		return err
 	}

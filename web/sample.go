@@ -140,7 +140,8 @@ func (s *Server) handleJoinSample(w http.ResponseWriter, r *http.Request) {
 }
 
 // sampleAllowed takes the sample slot (the caller gives it back), or answers why not. A sample can be made while
-// the recording's files are being made, once its recording is in original/: only the first run moves it there.
+// the recording's files are being made, once its recording is in original/ (an import goes there; a recording
+// put in the date folder itself is moved there by its first run).
 func (s *Server) sampleAllowed(w http.ResponseWriter, abs string, paths normalizer.Paths) bool {
 	if s.jobs.active(s.relPath(abs)) != nil && paths.Source() != paths.RawOriginal() {
 		writeError(w, http.StatusConflict, errors.New("the files of this recording are being made; try again when that is done"))

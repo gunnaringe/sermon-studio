@@ -638,8 +638,9 @@ test('upload straight into a new date folder, in chunks', async ({ page }) => {
   await expect(page).toHaveURL(/\/c\/first-church\/recordings\/2026-09-27\/edit$/);
   await expect(page.locator('#waveform')).toBeVisible({ timeout: 30_000 });
   const dir = path.join(DATA, 'root/2026/2026-09-27');
-  expect(fs.readdirSync(dir).filter((f) => f !== 'recording.json')).toEqual(['Gudstjeneste 2026-09-27.flac']); // the name it was sent with
-  expect(fs.readFileSync(path.join(dir, 'Gudstjeneste 2026-09-27.flac')).equals(fs.readFileSync(path.join(DATA, 'upload.flac')))).toBe(true);
+  expect(fs.readdirSync(dir).filter((f) => f !== 'recording.json')).toEqual(['original']); // kept there from the start
+  expect(fs.readdirSync(path.join(dir, 'original'))).toEqual(['Gudstjeneste 2026-09-27.flac']); // the name it was sent with
+  expect(fs.readFileSync(path.join(dir, 'original', 'Gudstjeneste 2026-09-27.flac')).equals(fs.readFileSync(path.join(DATA, 'upload.flac')))).toBe(true);
   // It is on top of the first page, among the new ones, and opens there.
   await page.locator('a.brand').click();
   // Folded at first, like a year that is not the newest; opened, it stays open.
@@ -670,7 +671,7 @@ test('inbox: a recording lands in its date folder by itself', async ({ page }) =
   await page.locator('.year').getByRole('button', { name: '2026-09-20', exact: true }).click();
   await page.getByRole('link', { name: 'Open in the editor' }).click();
   await expect(page.locator('#waveform')).toBeVisible({ timeout: 30_000 });
-  expect(fs.readdirSync(path.join(DATA, 'root/2026/2026-09-20')).filter((f) => f !== 'recording.json')).toEqual(['Gudstjeneste 2026-09-20.flac']);
+  expect(fs.readdirSync(path.join(DATA, 'root/2026/2026-09-20/original'))).toEqual(['Gudstjeneste 2026-09-20.flac']);
   expect(fs.readdirSync(path.join(DATA, 'inbox'))).toEqual([]);
 });
 
@@ -776,7 +777,7 @@ test('two sermons the same day: the second gets 2, then a name', async ({ page }
   await page.locator('input[aria-label=Name]').fill('Aften');
   await page.getByRole('button', { name: 'Rename', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('2026-11-01 Aften', { timeout: 10_000 });
-  expect(fs.readdirSync(path.join(DATA, 'root/2026/2026-11-01 Aften'))).toContain('upload.flac'); // the recording keeps its name
+  expect(fs.readdirSync(path.join(DATA, 'root/2026/2026-11-01 Aften/original'))).toContain('upload.flac'); // the recording keeps its name
 });
 
 test('a sermon can be given a name on upload', async ({ page }) => {
@@ -1117,7 +1118,7 @@ test('shares: make a code in the studio, send a recording with the link', async 
   await up.unroute('**/api/share/uploads/*?offset=*');
   await expect(up.getByText('2 more files')).toBeVisible();
   await up.screenshot({ path: path.join(shots, 'share-upload.png') });
-  const raw = path.join(DATA, 'root', '2026', '2026-09-13', 'Gudstjeneste 2026-09-13.flac');
+  const raw = path.join(DATA, 'root', '2026', '2026-09-13', 'original', 'Gudstjeneste 2026-09-13.flac');
   await expect.poll(() => fs.existsSync(raw), { timeout: 30_000 }).toBe(true);
   expect(fs.readFileSync(raw).equals(fs.readFileSync(path.join(DATA, 'upload.flac')))).toBe(true);
 

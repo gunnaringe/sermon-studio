@@ -23,8 +23,8 @@ type Paths struct {
 // SermonOnly is what the names of the sermon-only outputs end in, before the extension.
 const SermonOnly = "_sermon"
 
-// OriginalDir is the folder in a date folder that holds the whole recording
-// once a run has been made.
+// OriginalDir is the folder in a date folder that holds the whole recording: the studio puts an upload or
+// a recording from the inbox there, and a run moves one that was put in the date folder itself.
 const OriginalDir = "original"
 
 // NewPaths resolves the files for a date folder.
@@ -51,7 +51,7 @@ func NewPaths(folder string) (Paths, error) {
 	}, nil
 }
 
-// RawOriginal is the whole recording kept in original/ after a run, of any
+// RawOriginal is the whole recording kept in original/, of any
 // input type, or "" if there is none: <date>_raw.<ext>, else the one file of an
 // input type there is (a recording keeps the name it arrived with).
 func (p Paths) RawOriginal() string {
@@ -61,7 +61,8 @@ func (p Paths) RawOriginal() string {
 	return bestInput(p.Original, func(string) bool { return true })
 }
 
-// arrival is the whole recording in the date folder, not yet moved into original/, or "": <date>_raw.<ext>
+// arrival is the whole recording put in the date folder itself (by hand, or by a studio before imports went
+// into original/), not yet moved into original/ by a run, or "": <date>_raw.<ext>
 // (as all were named before), else the file of an input type there that the studio did not make (Ours).
 // Only a folder named after a date has one.
 func (p Paths) arrival() string {
@@ -159,7 +160,7 @@ func (p *Pipeline) inFolder(suffix string) string {
 }
 
 // Source is the whole recording a run would use, found the same way as the
-// pipeline: in the date folder first (a new arrival), then in original/.
+// pipeline: in the date folder first (one put there itself), then in original/.
 func (p Paths) Source() string {
 	if raw := p.arrival(); raw != "" {
 		return raw

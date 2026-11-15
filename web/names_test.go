@@ -45,10 +45,10 @@ func TestUploadNamedSermon(t *testing.T) {
 	if c := upload("2026-10-04", "Kveld", "evening"); c != http.StatusCreated {
 		t.Fatalf("named: %d", c)
 	}
-	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04 Kveld", "a.flac")); string(b) != "evening" {
+	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04 Kveld", "original", "a.flac")); string(b) != "evening" {
 		t.Error("named sermon missing")
 	}
-	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04", "a.flac")); string(b) != "morning" {
+	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04", "original", "a.flac")); string(b) != "morning" {
 		t.Error("the first sermon was touched")
 	}
 	if c := upload("2026-10-04", "../x", "x"); c != http.StatusBadRequest {

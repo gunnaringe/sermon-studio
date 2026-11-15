@@ -178,8 +178,7 @@ Each can have a label, which shows on the waveform.
   a name, uploaded or from the inbox, on a date that has one already gets the next number: `<date> 2`,
   `<date> 3`... (up to 20 a day). The pencil beside the title of a sermon's page (**Rename…**) changes its date or name (the folder and
   the files named after it, also in `original/`; files already made keep their tags). The recording keeps the
-  name it arrived with: `R_20261115-101010.wav` is `R_20261115-101010.flac` once converted, in the date folder and
-  in `original/`. A name the studio uses for its own files (`<date>.flac`, `<date>_sermon.mp3`), or none, is
+  name it arrived with: `R_20261115-101010.wav` is `original/R_20261115-101010.flac` once converted. A name the studio uses for its own files (`<date>.flac`, `<date>_sermon.mp3`), or none, is
   `<date>_raw.<ext>`.
 - **Delete and the trash:** **Danger zone** at the end of a recording's edit page. *Delete recording…* (after a confirmation) moves
   its whole folder, with its files and the original, into the church's trash; nothing is removed yet. **Settings → Trash** lists what is there, how long it has

@@ -310,7 +310,7 @@ func TestUploadInChunks(t *testing.T) {
 	if rec.Code != http.StatusCreated || decode[map[string]any](t, rec)["path"] != "2026/2026-10-04" {
 		t.Fatalf("last chunk: %d %s", rec.Code, rec.Body)
 	}
-	raw := filepath.Join(ts.root, "2026", "2026-10-04", "ZOOM0001.wav") // its own name, the extension in lower case
+	raw := filepath.Join(ts.root, "2026", "2026-10-04", "original", "ZOOM0001.wav") // its own name, the extension in lower case
 	if b, _ := os.ReadFile(raw); string(b) != "abcdefgh" {
 		t.Errorf("uploaded %q", b)
 	}
@@ -318,8 +318,9 @@ func TestUploadInChunks(t *testing.T) {
 		t.Errorf("mtime %v, want the browser's lastModified", st.ModTime())
 	}
 	entries, _ := os.ReadDir(filepath.Dir(raw))
-	if len(entries) != 2 || entries[1].Name() != stateName {
-		t.Errorf("only the recording and its state should be left: %v", entries)
+	folder, _ := os.ReadDir(filepath.Dir(filepath.Dir(raw)))
+	if len(entries) != 1 || len(folder) != 2 || folder[0].Name() != "original" || folder[1].Name() != stateName {
+		t.Errorf("only the recording (in original/) and its state should be left: %v %v", folder, entries)
 	}
 	if rec := chunk(t, ts, "2026-10-04", "again.flac", 3, 0, "abc", time.Time{}); rec.Code != http.StatusConflict ||
 		!strings.Contains(rec.Body.String(), "already has a raw recording") {
@@ -377,7 +378,7 @@ func TestUploadSameDayWithoutName(t *testing.T) {
 	if c, got := upload(t, ts, "2", "a.wav", 6, 3, "def"); c != http.StatusCreated || got["path"] != "2026/2026-10-04 2" {
 		t.Errorf("the rest of the second: %d %v", c, got)
 	}
-	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04 2", "a.wav")); string(b) != "abcdef" {
+	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04 2", "original", "a.wav")); string(b) != "abcdef" {
 		t.Errorf("the second is %q", b)
 	}
 	// A whole file at once without a claim (as an older page sends it) is refused, as before.
@@ -408,7 +409,7 @@ func TestInboxIngest(t *testing.T) {
 			t.Errorf("%s should have left the inbox", name)
 		}
 	}
-	for rel, want := range map[string]string{"2026/2026-09-27/Gudstjeneste 2026-09-27.flac": "audio", "2026/2026-10-04/ZOOM0001.flac": "audio3"} {
+	for rel, want := range map[string]string{"2026/2026-09-27/original/Gudstjeneste 2026-09-27.flac": "audio", "2026/2026-10-04/original/ZOOM0001.flac": "audio3"} {
 		if b, _ := os.ReadFile(filepath.Join(ts.root, filepath.FromSlash(rel))); string(b) != want {
 			t.Errorf("%s: %q", rel, b)
 		}
@@ -417,7 +418,7 @@ func TestInboxIngest(t *testing.T) {
 	if err := ts.ingest("again 2026-09-27.flac"); err != nil {
 		t.Fatal(err)
 	}
-	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-09-27 2", "again 2026-09-27.flac")); string(b) != "audio2" {
+	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-09-27 2", "original", "again 2026-09-27.flac")); string(b) != "audio2" {
 		t.Error("second recording of the day missing")
 	}
 	entry := ts.entry(filepath.Join(ts.root, "2026", "2026-09-27 2"))

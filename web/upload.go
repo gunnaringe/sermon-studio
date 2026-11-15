@@ -34,7 +34,7 @@ const uploadStale = 2 * time.Minute
 // the file with that name. (A claim asked again, its answer lost, gets the
 // same folder: an empty upload is not one coming in.) Chunks are appended to a hidden
 // file in the date folder; a chunk at the wrong offset gets 409 with the
-// offset to continue from. The last chunk gives it the name it was sent with (rawFile)
+// offset to continue from. The last chunk moves it into original/ under the name it was sent with (rawFile)
 // and starts the FLAC conversion (for a WAV) and the waveform right away,
 // without waiting for them.
 func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +73,10 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	base := filepath.Base(folder) // <date> or <date> <name>
 	final := rawFile(folder, name)
+	if err := os.MkdirAll(filepath.Dir(final), 0o755); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
 	tmp := uploadTmp(folder)
 	sermon = strings.TrimPrefix(strings.TrimPrefix(base, date), " ") // "" or the name, maybe one freeRawFolder gave
 
