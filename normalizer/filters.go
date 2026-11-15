@@ -63,13 +63,13 @@ func (o Options) CompressionName() string {
 	return o.Compression
 }
 
-// tidyFilter is the first part of the master chain: the channels that get published, the noise
-// taken out, the levels evened out. It does not set the level: that is done by measuring (finish).
+// tidyFilter is the first part of the master chain: the channels that get published, rumble and
+// clicks taken out (Repair), then the noise, the levels evened out. It does not set the level: that is done by measuring (finish).
 func (p *Pipeline) tidyFilter() (string, error) {
 	// Convert first, whatever the input has (mono, stereo, more), so the rest
 	// of the chain works on the channels that get published. A mono recording
 	// made stereo is the same signal on both sides.
-	f := []string{"aformat=channel_layouts=" + p.Opt.Channels()}
+	f := append([]string{"aformat=channel_layouts=" + p.Opt.Channels()}, p.Opt.Repair.filters()...)
 	switch {
 	case p.Opt.NoiseMethodName() == "off":
 	case p.Opt.NoiseMethodName() == "speech":

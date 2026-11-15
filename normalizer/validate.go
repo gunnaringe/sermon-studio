@@ -27,6 +27,8 @@ func (o Options) Validate() error {
 		return errors.New("target loudness must be from -70 to -5 LUFS")
 	case o.TruePeak < -20 || o.TruePeak > 0:
 		return errors.New("max true peak must be from -20 to 0 dBTP")
+	case o.Repair.validate() != nil:
+		return o.Repair.validate()
 	case o.RoomSound < 0 || o.RoomSound > 100:
 		return errors.New("room sound must be from 0 to 100")
 	case !slices.Contains(NoiseMethods, o.NoiseMethodName()):

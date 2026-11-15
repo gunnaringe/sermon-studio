@@ -1,8 +1,10 @@
+import { REPAIR_KEYS } from '../repair.js';
+
 // What the parts of the editor share: the keys of its choices, and the editor itself (Editor), which each
 // part is given. A part reads and sets the edit through it, and calls the other parts' functions on it.
 
 // SOUND_KEYS are the processing choices that are kept with a sermon.
-export const SOUND_KEYS = ['stereo', 'noiseReduction', 'noiseMethod', 'roomSound', 'leveling', 'compression', 'targetLufs', 'truePeak', 'mp3Bitrate', 'opusBitrate'];
+export const SOUND_KEYS = ['stereo', 'noiseReduction', 'noiseMethod', 'roomSound', ...REPAIR_KEYS, 'leveling', 'compression', 'targetLufs', 'truePeak', 'mp3Bitrate', 'opusBitrate'];
 
 // DEFAULT_KEYS are what the church's default processing sets: the sound and the fades.
 export const DEFAULT_KEYS = [...SOUND_KEYS, 'fadeIn', 'fadeOut'];

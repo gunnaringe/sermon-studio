@@ -1541,18 +1541,20 @@ test('processing: the church\'s defaults in Settings; a recording goes back to t
     await settings.locator('select[name=compression]').selectOption('strong');
     await settings.locator('input[name=fadeIn]').fill('2');
     await settings.getByLabel('Opus bitrate Stereo').fill('80k');
+    await settings.locator('select[name=lowCutChoice]').selectOption('80');
     await settings.getByRole('button', { name: 'Save' }).click();
     await expect(settings.getByText('Saved.')).toBeVisible();
     await page.getByRole('heading', { name: 'Processing' }).scrollIntoViewIfNeeded();
     await settings.screenshot({ path: path.join(shots, 'settings-processing.png') });
     const defaults = async () => (await (await page.request.get('api/config')).json()).defaults;
-    expect((await defaults()).processing).toMatchObject({ compression: 'strong', fadeIn: 2, stereoLevels: { opusBitrate: '80k' } });
+    expect((await defaults()).processing).toMatchObject({ compression: 'strong', fadeIn: 2, lowCut: 80, declick: 0, stereoLevels: { opusBitrate: '80k' } });
 
     // A recording without its own processing starts with them.
     await openEditor(page, '2026/2026-10-04');
     await editor(page, () => window.__editor.addSection(10, 90));
     const proc = page.locator('.panel.processing');
     await expect(page.locator('select[name=compression]')).toHaveValue('strong');
+    await expect(page.locator('select[name=lowCutChoice]')).toHaveValue('80');
     expect((await editor(page, () => window.__editor.fades)).fadeIn).toBe(2);
     await expect(proc.getByText("The same as the church's defaults.", { exact: true })).toBeVisible();
     await expect(proc.getByRole('button', { name: 'Use the defaults' })).toBeDisabled();
@@ -1664,6 +1666,59 @@ test('processing: speech noise reduction hides the dB, is kept with the sermon, 
   await expect(page.locator('input[name=noiseReduction]')).toBeVisible();
   await page.locator('input[name=roomSound]').fill('0');
   await expect.poll(() => sound()?.noiseMethod ?? null, { timeout: 15_000 }).toBeNull();
+});
+
+test('processing: clean up with a low cut and click removal, presets or exact values, kept with the sermon', async ({ page }) => {
+  await openEditor(page, '2026/2026-10-04');
+  await editor(page, () => window.__editor.addSection(10, 90));
+  const sound = () => {
+    const st = sermonOf('2026/2026-10-04');
+    return (st.adjusted || st.saved)?.sound;
+  };
+  const proc = page.locator('.panel.processing');
+  await expect(page.locator('select[name=lowCutChoice]')).toHaveValue('0');
+  await expect(page.locator('select[name=declickChoice]')).toHaveValue('0');
+
+  // The simple choices set the exact values under Advanced.
+  await page.locator('select[name=lowCutChoice]').selectOption('80');
+  await page.locator('select[name=declickChoice]').selectOption('2');
+  await proc.getByText('Advanced', { exact: true }).click();
+  await expect(page.locator('input[name=lowCut]')).toHaveValue('80');
+  await expect(page.locator('input[name=declick]')).toHaveValue('2');
+  await expect(page.locator('input[name=declickWindow]')).toBeEnabled();
+  await expect.poll(sound, { timeout: 15_000 }).toMatchObject({ lowCut: 80, declick: 2, lowCutSteep: false, declickWindow: 0 });
+
+  // An exact value no choice has is Custom; one that a choice has is that choice again.
+  await page.locator('input[name=lowCut]').fill('95');
+  await page.locator('input[name=lowCutSteep]').check();
+  await page.locator('input[name=declickWindow]').fill('40');
+  await expect(page.locator('select[name=lowCutChoice]')).toHaveValue('custom');
+  await page.locator('input[name=declick]').fill('1');
+  await expect(page.locator('select[name=declickChoice]')).toHaveValue('1');
+  await expect.poll(sound, { timeout: 15_000 }).toMatchObject({ lowCut: 95, lowCutSteep: true, declick: 1, declickWindow: 40 });
+  await page.locator('section.step').nth(3).screenshot({ path: path.join(shots, 'edit-clean-up.png') });
+
+  // Kept: back after a reload.
+  await page.reload();
+  await page.waitForFunction(() => window.__editor && window.__editor.ws.getDuration() > 0, null, { timeout: 60_000 });
+  await expect(page.locator('select[name=lowCutChoice]')).toHaveValue('custom');
+  await expect(page.locator('select[name=declickChoice]')).toHaveValue('1');
+
+  // The sample runs them through ffmpeg.
+  await editor(page, () => window.__editor.ws.setTime(30));
+  await page.getByRole('button', { name: 'Hear a sample' }).click();
+  const player = page.getByLabel('The sample');
+  await expect(player).toBeVisible({ timeout: 60_000 });
+  await expect.poll(() => player.evaluate((a) => a.duration), { timeout: 15_000 }).toBeGreaterThan(20);
+
+  // Off again: nothing of them does anything, and empty exact values are off.
+  await page.locator('select[name=lowCutChoice]').selectOption('0');
+  await page.locator('select[name=declickChoice]').selectOption('0');
+  await proc.getByText('Advanced', { exact: true }).click();
+  await expect(page.locator('input[name=lowCut]')).toHaveValue('');
+  await expect(page.locator('input[name=lowCutSteep]')).toBeDisabled();
+  await expect(page.locator('input[name=declickWindow]')).toBeDisabled();
+  await expect.poll(sound, { timeout: 15_000 }).toMatchObject({ lowCut: 0, declick: 0 });
 });
 
 test('one player at a time: one that starts pauses the others, the waveform too', async ({ page }) => {

@@ -340,6 +340,8 @@ tr.row.target { animation: target 2.5s ease-out; }
 .processing-defaults label .muted { grid-column: auto; }
 .processing-defaults input, .processing-defaults input[type=text] { width: 7.5em; }
 .processing-defaults select { width: auto; min-width: 7.5em; }
+.processing-defaults input[type=checkbox] { width: auto; }
+details.advanced { margin-top: 0.2rem; }
 .options .tag input[type=text] { width: 14em; }
 button.link { border: 0; background: none; box-shadow: none; color: var(--accent); font-size: 0.9rem; padding: 0 0.3rem; cursor: pointer; }
 
