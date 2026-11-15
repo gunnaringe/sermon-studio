@@ -13,7 +13,7 @@ The standard library, `golang.org/x/sys` (for Windows), `coreos/go-oidc` + `gola
 scripts/test.sh                       # unit tests, seconds — run after every change
 scripts/test.sh changed               # before a PR: the checks for what the branch changes, cheapest first
                                       # (PLAN_ONLY=1 prints which without running them)
-scripts/test.sh all ./web/ -run X     # with real ffmpeg, one package/test (container)
+scripts/test.sh all ./web/ -run X     # with real ffmpeg, one package/test (the host's from mise.toml, else a container)
 scripts/test.sh all                   # everything (~3 min, normalizer integration is slow)
 scripts/test.sh js                    # the check of the JavaScript (~5 s); after changing web/static or site/*.js
 scripts/test.sh e2e [-g name]         # browser tests (~4.5 min, one test ~20 s); after changing web/static
@@ -31,11 +31,11 @@ ffmpeg (no login, one church with the JFK speech in its inbox, fresh data each s
 runs it as demo.sermon-studio.app does (`--visitor-role demo`, and the intro and outro from `demo/` when made).
 `scripts/dev.sh logs`, `scripts/dev.sh stop`. Use it for curl checks and one-off screenshots; don't start the binary by hand.
 
-**Tools on the host:** `mise install` (`mise.toml`: Go as CI and the images have it, `gh`, `oxipng`; `mise trust` once in a
-new checkout). `TestToolVersions` checks that `mise.toml`, `go.mod`, `scripts/lib.sh`, the Dockerfile and CI name the same Go;
-change them together. `demo/` has its own `mise.toml`.
+**Tools on the host:** `mise install` (`mise.toml`: Go as CI and the images have it, `gh`, `oxipng`, and ffmpeg: the
+ffmpeg-lgpl release of `packaging/ffmpeg-release`; `mise trust` once in a new checkout). `TestToolVersions` checks that
+`mise.toml`, `go.mod`, `scripts/lib.sh`, the Dockerfile and CI name the same Go, and the same ffmpeg release; change them together. `demo/` has its own `mise.toml`.
 
-ffmpeg is not on the dev host; `all`/`e2e` run in podman, in images with ffmpeg that `test.sh` builds
+`all` uses the host's Go and ffmpeg when both are there (mise), else a container; `e2e` runs in podman, in images with ffmpeg that `test.sh` builds
 once (`scripts/test-images/`, retagged when the file, the base image or the ffmpeg release changes). The desktop
 app's ffmpeg and these test images' is the ffmpeg-lgpl release in `packaging/ffmpeg-release` (checked against
 `packaging/ffmpeg.sha256`; the system's ffmpeg in the test images is there only for ffprobe, which some tests use). The
@@ -285,7 +285,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   queue (`transcriptsFailed`, in memory). `folderState.TranscriptOrder` is the old place of the queue, moved over at
   start (`moveOrders`).
 - Measure with `ebur128` (`FFmpeg.Measure`), not `loudnorm`.
-- Noise reduction has two methods (`NoiseMethod`): standard (`afftdn`, the default, `""`) and speech (`arnndn`, the model
+- Noise reduction has three methods (`NoiseMethod`): off (no filter; the dB and room sound do nothing, and are 0 in `madeFrom`), standard (`afftdn`, the default, `""`) and speech (`arnndn`, the model
   `normalizer/models/speech.rnnn` embedded and written to the temporary folder, `speech.go`; a path in a filter option goes
   through `filterPath`). A new choice of the sound is `omitempty` in the JSON and in `madeFrom` at its default, so files made
   before it are not out of date.

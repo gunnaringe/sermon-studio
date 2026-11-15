@@ -42,4 +42,11 @@ func TestMadeFromNoiseMethod(t *testing.T) {
 	if madeFrom(o, "mp3", "") == before {
 		t.Error("speech did not change the fingerprint")
 	}
+	// Off: the dB and the room sound do nothing, so changing them does not make the files out of date.
+	o.NoiseMethod = "off"
+	off := madeFrom(o, "mp3", "")
+	o.NoiseReduction, o.RoomSound = 20, 50
+	if off == before || madeFrom(o, "mp3", "") != off {
+		t.Error("off: the fingerprint should differ from standard, and not follow the dB or the room sound")
+	}
 }

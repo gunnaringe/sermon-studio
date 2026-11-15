@@ -1,7 +1,13 @@
-# The tools for working on the studio on the host: `mise install` here (once: `mise trust`). The checks themselves run
-# in containers (scripts/test.sh, scripts/lib.sh), and use the host's Go only for the unit tests; demo/ has its own.
+# The tools for working on the studio on the host: `mise install` here (once: `mise trust`). Most checks run in
+# containers (scripts/test.sh, scripts/lib.sh); the Go tests use the host's Go, and its ffmpeg for `all`; demo/ has its own.
 # Go follows go.mod, the images (scripts/lib.sh, Dockerfile) and CI: TestToolVersions checks they agree.
 [tools]
 go = "1.27.3"
 gh = "2.103.2"  # scripts/ci-wait.sh, pr-land.sh, pr-shots.sh
 oxipng = "10.2.1" # scripts/make-icons.sh, make-og-image.sh (optional there)
+# ffmpeg as the desktop app and the test images have it (packaging/ffmpeg-release; TestToolVersions): with it,
+# scripts/test.sh all runs the tests with ffmpeg here instead of in a container.
+"github:gunnaringe/ffmpeg-lgpl" = { version = "9.0.2-3", bin = "ffmpeg" }
+# ffprobe, which some integration tests read the files with (the release has none). Its ffmpeg is not used: the
+# one above comes first.
+"conda:ffmpeg" = "9.0.2"

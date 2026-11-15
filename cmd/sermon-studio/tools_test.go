@@ -57,4 +57,9 @@ func TestToolVersions(t *testing.T) {
 	if img := versionOf("scripts/lib.sh", `playwright:v(\d+\.\d+\.\d+)-`); img != pkg {
 		t.Errorf("scripts/lib.sh has the Playwright image %s, web/e2e/package.json Playwright %s", img, pkg)
 	}
+	// The host's ffmpeg (mise.toml) is the release the desktop app and the test images have.
+	if host, rel := versionOf("mise.toml", `"github:gunnaringe/ffmpeg-lgpl" = \{ version = "([^"]+)"`),
+		versionOf("packaging/ffmpeg-release", `(?m)^FFMPEG_RELEASE=(\S+)$`); host != rel {
+		t.Errorf("mise.toml has ffmpeg-lgpl %s, packaging/ffmpeg-release %s", host, rel)
+	}
 }
