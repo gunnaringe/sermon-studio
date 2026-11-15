@@ -750,6 +750,7 @@ test('settings: default tags are saved and used on the sermon page', async ({ pa
   await expect(tagsPanel.getByText('Saved.')).toBeVisible();
   await page.screenshot({ path: path.join(shots, 'settings.png') });
 
+  forget('2026/2026-10-04'); // a recording not saved yet takes the defaults (a saved one keeps its own)
   await page.goto(editPage('2026/2026-10-04'));
   await expect(page.locator('input[name=title]')).toHaveValue('2026-10-04');
   await expect(page.locator('input[name=artist]')).toHaveValue('Norkirken Melhus');
@@ -1530,6 +1531,29 @@ test('fades are set with the knobs on the waveform: drag, keys, kept', async ({ 
   await expect(fadeKnob(page, 'fadeOut')).toHaveAttribute('aria-valuenow', String(want.fadeOut));
 });
 
+
+test('tags: the sermon keeps its own once typed; the church\'s come back with a button', async ({ page }) => {
+  const folder = '2026/2026-10-04';
+  await openEditor(page, folder);
+  await editor(page, () => window.__editor.addSection(21, 79));
+  const step = page.locator('section[aria-labelledby=step-metadata]');
+  const title = step.locator('input[name=title]');
+  if (!(await title.isVisible())) await step.getByRole('button', { name: 'Metadata added to the file' }).click();
+  const churchTitle = await title.inputValue();
+  const back = step.getByRole('button', { name: "Use the church's tags" });
+  await expect(back).toBeDisabled();
+  // Not typed: the edit has no tags of its own, so Save takes the church's as they are then.
+  await expect.poll(() => sermonOf(folder).adjusted?.sections?.length, { timeout: 15_000 }).toBe(1);
+  expect(sermonOf(folder).adjusted.tags).toBeUndefined();
+  await title.fill('Påskemorgen');
+  await expect(back).toBeEnabled();
+  await expect.poll(() => sermonOf(folder).adjusted?.tags?.title, { timeout: 15_000 }).toBe('Påskemorgen');
+  await step.evaluate((el) => el.scrollIntoView({ block: 'center' })); // clear of the header and the bar at the bottom
+  await step.screenshot({ path: path.join(shots, 'edit-tags.png') });
+  await back.click();
+  await expect(title).toHaveValue(churchTitle);
+  await expect.poll(() => sermonOf(folder).adjusted?.tags, { timeout: 15_000 }).toBeUndefined();
+});
 
 test('processing: the church\'s defaults in Settings; a recording goes back to them or makes its own the defaults', async ({ page }) => {
   const reset = () => page.request.put('api/processing', { data: { processing: null } });

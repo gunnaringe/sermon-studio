@@ -48,16 +48,32 @@ export function processingPart(ed) {
   let processingEl = processingPanel();
 
   // metadataPanel is the tags: title, artist and album, in every file.
+  const tagInputs = {};
+  const churchTagsButton = h('button', { type: 'button', name: 'church-tags', onclick: () => { setTags(null); ed.changed(); } }, t('Use the church\'s tags'));
   function metadataPanel() {
-    const tag = (key, label) => h('label', { class: 'tag' }, h('span', { class: 'name' }, label), h('input', {
+    const tag = (key, label) => h('label', { class: 'tag' }, h('span', { class: 'name' }, label), tagInputs[key] = h('input', {
       type: 'text', name: key, value: tags[key], maxlength: 200,
-      oninput: (e) => { tags[key] = e.target.value; ed.changed(); },
+      oninput: (e) => { tags[key] = e.target.value; ed.ownTags = true; showTagsButton(); ed.changed(); },
     }));
+    showTagsButton();
     return h('div', { class: 'panel' },
-      info.tags
+      info.tags || ed.ownTags
         ? h('div', { class: 'options' }, tag('title', t('Title')), tag('artist', t('Artist')), tag('album', t('Album')))
         : h('span', { class: 'muted' }, info.tagsError ? tr(info.tagsError) : t('No tags')),
-      h('p', { class: 'muted' }, t('Written into the FLAC, MP3 and Opus files. A field left empty is left out.')));
+      h('p', { class: 'muted' }, t('Written into the FLAC, MP3 and Opus files. A field left empty is left out. Save keeps them with the sermon: the church\'s defaults changed later do not change them.')),
+      info.tags ? h('p', {}, churchTagsButton) : '');
+  }
+
+  // setTags puts the sermon's own tags on the page, or with null the church's defaults for it (Save keeps those).
+  function setTags(own) {
+    Object.assign(tags, { title: '', artist: '', album: '' }, own || info.tags || {});
+    ed.ownTags = Boolean(own);
+    for (const [k, el] of Object.entries(tagInputs)) el.value = tags[k];
+    showTagsButton();
+  }
+  function showTagsButton() {
+    const d = info.tags || {};
+    churchTagsButton.disabled = ['title', 'artist', 'album'].every((k) => (tags[k] || '') === (d[k] || ''));
   }
 
   // redrawProcessing shows the processing choices again, after they were set from outside (a revert).
@@ -261,5 +277,5 @@ export function processingPart(ed) {
     if (quietWarning.hidden === warn) quietWarning.hidden = !warn;
   }
 
-  return { metadataEl: metadataPanel(), processingEl, channelWarning, quietWarning, defaultsNote, redrawProcessing, showDefaults, setStereo, showChannelWarning, showQuietWarning };
+  return { metadataEl: metadataPanel(), setTags, processingEl, channelWarning, quietWarning, defaultsNote, redrawProcessing, showDefaults, setStereo, showChannelWarning, showQuietWarning };
 }

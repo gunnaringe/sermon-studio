@@ -48,11 +48,13 @@ func (s *Server) savedRequest(abs string) (runRequest, error) {
 	if sf == nil || sf.Saved == nil {
 		return runRequest{}, errors.New("this sermon is not saved yet: open it in the editor and press Save")
 	}
-	q := s.processing().start() // for one saved before the studio kept its sound
-	q.cutting = sf.Saved.cutting
-	q.FadeIn, q.FadeOut = sf.Saved.FadeIn, sf.Saved.FadeOut
-	q.Intro, q.Outro = sf.Saved.Intro, sf.Saved.Outro
-	sf.Saved.Sound.applyTo(&q)
+	saved := s.withDefaults(abs, *sf.Saved) // for one saved before Save kept them
+	q := s.processing().start()
+	q.cutting = saved.cutting
+	q.FadeIn, q.FadeOut = saved.FadeIn, saved.FadeOut
+	q.Intro, q.Outro = saved.Intro, saved.Outro
+	saved.Sound.applyTo(&q)
+	q.tags, q.clipPause = saved.Tags, saved.ClipPause
 	q.Flac, q.Mp3, q.Opus = false, false, false
 	return q, nil
 }

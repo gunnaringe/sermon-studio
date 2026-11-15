@@ -135,8 +135,9 @@ test('editor: the intro and outro of a sermon, its own clip, and a deleted one',
   await expect(step.getByRole('button', { name: "Add to the church's clips" })).toHaveCount(0); // once
 
   // The intro chosen by name, then deleted: the editor says so, and the run is refused until another is chosen.
-  await intro.selectOption({ label: 'Jingle' });
-  await expect.poll(() => draft().intro).toBe(jingle);
+  // Save kept the church's default as the clip it is: the sermon keeps it when the default changes.
+  await expect(intro).toHaveValue(jingle);
+  expect(JSON.parse(fs.readFileSync(path.join(dir, 'recording.json'), 'utf8')).saved.intro).toBe(jingle);
   expect((await request.put('api/clips/defaults', { data: { intro: '', outro: '' } })).ok()).toBe(true);
   expect((await request.post('api/clips/' + jingle + '/delete')).ok()).toBe(true);
   await page.reload();

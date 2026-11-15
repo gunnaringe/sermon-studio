@@ -152,6 +152,7 @@ func New(cfg Config) (*Server, error) {
 	if cfg.ClipsDir != "" {
 		s.clips.sweep()
 	}
+	s.keepDefaults() // recordings saved before Save kept the church's defaults: they keep those they follow now
 	s.transcriptLang, s.transcriptModels, s.transcriptWordsSet = cfg.Transcript, cfg.TranscriptModels, cfg.TranscriptWords
 	s.transcriptsFailed = map[string]*transcriptFailed{}
 	s.jobs = newJobs(s)

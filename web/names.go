@@ -193,6 +193,7 @@ func (s *Server) rename(src, dst string) error {
 			return fmt.Errorf("the folder was renamed, but %s was not: %w", oldRaw, err)
 		}
 	}
+	s.retagRenamed(oldBase, dst)
 	if np, err := normalizer.NewPaths(dst); err == nil && oldKey != "" {
 		if raw := np.Source(); raw != "" {
 			s.analyses.carry(oldKey, raw)
