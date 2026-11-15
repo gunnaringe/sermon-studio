@@ -1626,7 +1626,7 @@ test('processing: the choices are kept with the sermon, and a sample can be hear
   await page.locator('input[name=noiseReduction]').fill('6');
 });
 
-test('processing: speech noise reduction hides the dB, is kept with the sermon, and makes a sample', async ({ page }) => {
+test('processing: speech noise reduction hides the dB, is kept with the sermon, and makes a sample; off too', async ({ page }) => {
   await openEditor(page, '2026/2026-10-04');
   await editor(page, () => window.__editor.addSection(10, 90));
   const sound = () => {
@@ -1651,6 +1651,13 @@ test('processing: speech noise reduction hides the dB, is kept with the sermon, 
   await expect(player).toBeVisible({ timeout: 60_000 });
   await expect.poll(() => player.evaluate((a) => a.duration), { timeout: 15_000 }).toBeGreaterThan(20);
   await page.locator('section.step').nth(3).screenshot({ path: path.join(shots, 'edit-noise-speech.png') });
+
+  // Off hides the dB and the room sound, and is kept.
+  await page.locator('select[name=noiseMethod]').selectOption('off');
+  await expect(page.locator('input[name=noiseReduction]')).toBeHidden();
+  await expect(page.locator('input[name=roomSound]')).toBeHidden();
+  await expect.poll(sound, { timeout: 15_000 }).toMatchObject({ noiseMethod: 'off' });
+  await page.locator('section.step').nth(3).screenshot({ path: path.join(shots, 'edit-noise-off.png') });
 
   // Back to the standard one: the dB again, and nothing of the method kept.
   await page.locator('select[name=noiseMethod]').selectOption('');

@@ -11,9 +11,9 @@ import (
 	"strings"
 )
 
-// NoiseMethods are the ways noise can be taken out: "standard" (afftdn, by the noise's spectrum) and
-// "speech" (arnndn, a small neural network trained to keep speech; see models/README.md).
-var NoiseMethods = []string{"standard", "speech"}
+// NoiseMethods are the ways noise can be taken out: "off" (none), "standard" (afftdn, by the noise's
+// spectrum) and "speech" (arnndn, a small neural network trained to keep speech; see models/README.md).
+var NoiseMethods = []string{"off", "standard", "speech"}
 
 // speechModel is the network arnndn uses for "speech": rnnoise-nu's somnolent-hogwash, for speech in
 // a recording with steady noise (fans, ventilation, hum).

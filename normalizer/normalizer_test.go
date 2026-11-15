@@ -192,6 +192,18 @@ func TestTidyFilterSpeech(t *testing.T) {
 	}
 }
 
+// Off takes no noise out, whatever the dB and the room sound say.
+func TestTidyFilterOff(t *testing.T) {
+	p := &Pipeline{Opt: DefaultOptions()}
+	p.Opt.NoiseMethod, p.Opt.NoiseReduction, p.Opt.RoomSound = "off", 12, 30
+	if err := p.Opt.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if f := tidy(t, p); strings.Contains(f, "afftdn") || strings.Contains(f, "arnndn") {
+		t.Errorf("off: %q", f)
+	}
+}
+
 func TestFilterPath(t *testing.T) {
 	for in, want := range map[string]string{
 		"/tmp/m.rnnn":          "/tmp/m.rnnn",

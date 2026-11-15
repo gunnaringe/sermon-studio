@@ -2,7 +2,7 @@
 # One entry point for checks, with short output (ok lines and failures only).
 #
 #   scripts/test.sh            unit tests (no ffmpeg; seconds; host Go or container)
-#   scripts/test.sh all [args] vet + all tests with ffmpeg, in a container;
+#   scripts/test.sh all [args] vet + all tests with ffmpeg, on the host with mise.toml's (else in a container);
 #                              args go to "go test" (default ./...), e.g.
 #                              scripts/test.sh all ./web/ -run Inbox
 #   scripts/test.sh desktop    the desktop program as released (ffmpeg built in, Linux amd64) from the
@@ -39,6 +39,11 @@ unit)
 	;;
 all)
 	[ $# -eq 0 ] && set -- ./...
+	if command -v go >/dev/null && command -v ffmpeg >/dev/null; then # the host's (mise.toml), else a container's
+		test -z "$(gofmt -l cmd models normalizer web)" || { gofmt -l cmd models normalizer web; echo "gofmt needed" >&2; exit 1; }
+		go vet ./... && FFMPEG_REQUIRED=1 go test "$@"
+		exit
+	fi
 	IMAGE=$(testimage go "$golang") incontainer 'test -z "$(gofmt -l cmd models normalizer web)" && go vet ./... && FFMPEG_REQUIRED=1 go test "$@"' "$@"
 	;;
 desktop)

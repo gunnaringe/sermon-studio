@@ -14,7 +14,7 @@
 | Stereo | off (mono) | stereo moves the defaults to -16 LUFS, MP3 128k, Opus 96k |
 | Fade in / out | 0 | seconds of fade at the start and end of the sermon, 0 = off |
 | Pause | 0 | seconds of silence put in where a section ends or a cut is |
-| Noise reduction | Standard, 6 dB | Standard (`afftdn`, 0 dB = off) or Speech (`arnndn` with the speech model in `normalizer/models/`) |
+| Noise reduction | Standard, 6 dB | Off, Standard (`afftdn`, 0 dB = off too) or Speech (`arnndn` with the speech model in `normalizer/models/`) |
 | Room sound kept | 0 % | Standard: raises the floor the noise reduction works down to; Speech: mixes that much of the sound before it back in (0 to 100) |
 | Leveling | normal | off, gentle, normal, strong (`dynaudnorm`) |
 | Compression | off | off, light, normal, strong (`acompressor`, after the gain) |

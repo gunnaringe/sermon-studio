@@ -10,13 +10,13 @@ The tools for the host (Go, `gh`) are in `mise.toml`: run `mise install`. Everyt
 ```bash
 scripts/test.sh            # unit tests, seconds: run after every change
 scripts/test.sh changed    # the checks for what your branch changes
-scripts/test.sh all        # vet + all tests with real ffmpeg (container)
+scripts/test.sh all        # vet + all tests with real ffmpeg (mise.toml's on the host, else a container)
 scripts/test.sh e2e        # browser tests (Playwright, container); after changing web/static
 scripts/test.sh image      # the Docker build; before release changes
 ```
 
 The integration tests run the whole pipeline with real ffmpeg on synthetic recordings;
-`docker build .` runs them too. `ffmpeg` is not needed on the host: `all` and `e2e` use podman or docker.
+`docker build .` runs them too. `ffmpeg` is not needed on the host: without it (`mise install` has it), `all` uses podman or docker, as `e2e` always does.
 `scripts/dev.sh` runs the studio from your checkout at http://127.0.0.1:8090/, with a sample recording.
 
 ## Pull requests
