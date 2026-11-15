@@ -739,6 +739,28 @@ func TestParallelRuns(t *testing.T) {
 	}
 }
 
+// Once a recording is in original/, its sound can be tried while its files are being made, one sample at a time.
+func TestSampleDuringRun(t *testing.T) {
+	ts := newTestServerWith(t, normalizer.FFmpeg{}, func(c *Config) { c.limits = newLimits(1) })
+	ts.file(t, "2026-10-11/original/2026-10-11_raw.flac", "x")
+	ts.jobs.sem <- struct{}{} // another run works: this one waits, and the only run slot is taken
+	defer func() { <-ts.jobs.sem }()
+	q := defaultRequest()
+	q.Sections = []span{{Start: 30, End: 3600}}
+	if snap := decode[jobSnapshot](t, ts.do(t, "POST", "/api/run?path=2026-10-11", q)); snap.State != "queued" {
+		t.Fatalf("run: %+v", snap)
+	}
+	// Not refused (the test's ffmpeg cannot make it).
+	if rec := ts.do(t, "POST", "/api/sample?path=2026-10-11&at=0", defaultRequest()); rec.Code == http.StatusConflict {
+		t.Errorf("sample during its run: %d %s", rec.Code, rec.Body)
+	}
+	ts.limits.sample <- struct{}{}
+	defer func() { <-ts.limits.sample }()
+	if rec := ts.do(t, "POST", "/api/sample?path=2026-10-11&at=0", defaultRequest()); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "another sample") {
+		t.Errorf("second sample: %d %s", rec.Code, rec.Body)
+	}
+}
+
 // Errors from the os package reach the page without the server's paths, only the file's name.
 func TestErrorsWithoutPaths(t *testing.T) {
 	dir := t.TempDir()

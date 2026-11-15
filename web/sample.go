@@ -17,7 +17,7 @@ const sampleSeconds = 30
 // handleSample makes a sample to hear what the sound settings do: POST api/sample?path=<date folder>&at=<seconds>
 // with the settings as for a run; the answer is an MP3 of sampleSeconds from the recording at that time,
 // made as the files are (the cuts, pauses and fades are not applied). It is short enough to be done in the
-// request, and only when no other conversion is running.
+// request, one at a time; also while the files are being made (sampleAllowed).
 func (s *Server) handleSample(w http.ResponseWriter, r *http.Request) {
 	abs, ok := s.pathParam(w, r)
 	if !ok {
@@ -59,17 +59,10 @@ func (s *Server) handleSample(w http.ResponseWriter, r *http.Request) {
 	if math.IsNaN(at) || at < 0 {
 		at = 0
 	}
-	if s.jobs.active(s.relPath(abs)) != nil { // it may be moving the recording
-		writeError(w, http.StatusConflict, errors.New("the files of this recording are being made; try again when that is done"))
+	if !s.sampleAllowed(w, abs, paths) {
 		return
 	}
-	select {
-	case s.limits.encode <- struct{}{}:
-		defer func() { <-s.limits.encode }()
-	default:
-		writeError(w, http.StatusConflict, errors.New("another conversion is running; try again when it is done"))
-		return
-	}
+	defer func() { <-s.limits.sample }()
 	tmp, err := os.CreateTemp(s.cfg.CacheDir, "sample-*.mp3")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
@@ -120,17 +113,10 @@ func (s *Server) handleJoinSample(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, errors.New("the recording is still being converted or prepared; try again in a moment"))
 		return
 	}
-	if s.jobs.active(s.relPath(abs)) != nil { // it may be moving the recording
-		writeError(w, http.StatusConflict, errors.New("the files of this recording are being made; try again when that is done"))
+	if !s.sampleAllowed(w, abs, pl.paths) {
 		return
 	}
-	select {
-	case s.limits.encode <- struct{}{}:
-		defer func() { <-s.limits.encode }()
-	default:
-		writeError(w, http.StatusConflict, errors.New("another conversion is running; try again when it is done"))
-		return
-	}
+	defer func() { <-s.limits.sample }()
 	tmp, err := os.CreateTemp(s.cfg.CacheDir, "join-*.mp3")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
@@ -151,4 +137,20 @@ func (s *Server) handleJoinSample(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "audio/mpeg")
 	w.Header().Set("Cache-Control", "no-store")
 	http.ServeContent(w, r, "join.mp3", time.Now(), f)
+}
+
+// sampleAllowed takes the sample slot (the caller gives it back), or answers why not. A sample can be made while
+// the recording's files are being made, once its recording is in original/: only the first run moves it there.
+func (s *Server) sampleAllowed(w http.ResponseWriter, abs string, paths normalizer.Paths) bool {
+	if s.jobs.active(s.relPath(abs)) != nil && paths.Source() != paths.RawOriginal() {
+		writeError(w, http.StatusConflict, errors.New("the files of this recording are being made; try again when that is done"))
+		return false
+	}
+	select {
+	case s.limits.sample <- struct{}{}:
+		return true
+	default:
+		writeError(w, http.StatusConflict, errors.New("another sample is being made; try again in a moment"))
+		return false
+	}
 }
