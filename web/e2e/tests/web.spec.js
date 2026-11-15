@@ -1208,14 +1208,8 @@ test('download shares: share a finished sermon from its row, download it on the 
   await expect(down.locator('#heading')).toHaveText('Download a sermon');
   await expect(down.getByText(/^From .+\. 1 more download · until 2099-12-31 23:59\.$/)).toBeVisible();
   await expect(down.getByRole('button', { name: /^Download FLAC/ })).toHaveCount(0);
-  // Listening plays it on the page, and is not counted.
-  await down.locator('main, body').first().screenshot({ path: path.join(shots, 'share-listen-button.png') });
-  await down.getByRole('button', { name: '▶ Listen' }).click();
-  await expect(down.getByLabel('The sermon')).toHaveAttribute('src', /^api\/share\/downloads\//);
-  await down.screenshot({ path: path.join(shots, 'share-listen.png') });
-  const started = await down.request.get(await down.getByLabel('The sermon').evaluate((a) => a.src), { headers: { Range: 'bytes=0-' } });
-  expect(started.headers()['content-disposition']).toMatch(/^inline/);
-  await expect(down.getByText(/^From .+\. 1 more download · until 2099-12-31 23:59\.$/)).toBeVisible();
+  // A share with a limit on its downloads has no player (its file could be kept).
+  await expect(down.getByRole('button', { name: '▶ Listen' })).toHaveCount(0);
   const [file] = await Promise.all([down.waitForEvent('download'), down.getByRole('button', { name: /^Download MP3/ }).click()]);
   expect(file.suggestedFilename()).toBe('2025-12-24 Christmas.mp3');
   expect(fs.readFileSync(await file.path()).equals(mp3)).toBe(true);
@@ -1248,6 +1242,20 @@ test('download shares: share a finished sermon from its row, download it on the 
   await page.reload(); // the row was drawn before the download
   await expect(own.locator('details.share-group.ended > summary')).toHaveText('Ended (1)');
   await expect(own.locator('details.share-group')).toHaveCount(1);
+
+  // A share without a limit plays the sermon on the page, and listening is not counted.
+  const free = await (await page.request.post('api/shares', { data: { kind: 'download', recording: folder, formats: ['mp3'], label: 'Lytt' } })).json();
+  const listen = await context.newPage();
+  await listen.goto('http://localhost:8081/#code=' + free.code);
+  await expect(listen.getByRole('button', { name: '▶ Listen' })).toBeVisible();
+  await listen.screenshot({ path: path.join(shots, 'share-listen-button.png') });
+  await listen.getByRole('button', { name: '▶ Listen' }).click();
+  await expect(listen.getByLabel('The sermon')).toHaveAttribute('src', /^api\/share\/downloads\//);
+  await listen.screenshot({ path: path.join(shots, 'share-listen.png') });
+  const played = await listen.request.get(await listen.getByLabel('The sermon').evaluate((a) => a.src), { headers: { Range: 'bytes=0-' } });
+  expect(played.headers()['content-disposition']).toMatch(/^inline/);
+  const listed = await (await page.request.get('api/shares')).json();
+  expect(listed.shares.find((x) => x.label === 'Lytt').count).toBe(0);
   fs.rmSync(dir, { recursive: true });
 });
 

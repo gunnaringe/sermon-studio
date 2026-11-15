@@ -198,7 +198,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   rename, a recording in the trash is not found). `POST api/share/downloads` counts one and hands out a ticket (`GET api/share/downloads/{id}`,
   no code, Range, `ticketFor`); the same file from the same address while its ticket lasts counts nothing. With `listen` (the
   page's player, the sermon's formats only) the ticket sends the file inline and counts nothing: not in `Count`, the log,
-  `Resumable` or the downloads going on; it still needs a code that can be used (`state`).
+  `Resumable` or the downloads going on; it still needs a code that can be used (`state`), and only a share without `MaxDownloads` has it.
 - `web/transcribe.go`: transcripts (docs/transcripts.md): a church's language and words (`transcript`, `transcriptWords` in
   `church.json`, `api/transcription`), one made at a time (the queue, `transcriptqueue.go`) after a run only when there is none (`afterRun`), or by `POST api/transcript`; never
   made again by itself (`otherModel`, `earlierCut` only say so). `<date>.transcript.json` is the transcript (with the model's

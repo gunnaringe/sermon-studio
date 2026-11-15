@@ -22,7 +22,8 @@ import (
 // address of the file that works for ticketFor, so the browser can download
 // and resume it (Range) without the code, and without counting again.
 // Listening gets a ticket too, for the page's player: the file sent inline,
-// not counted as a download, while the code can still be used.
+// not counted as a download, while the code can still be used; only a share
+// without a limit on its downloads has it.
 
 const (
 	kindUpload   = "upload"
@@ -357,6 +358,10 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	}
 	if !sh.gives(q.Format) || (q.Listen && !slices.Contains(downloadFormats, q.Format)) {
 		writeError(w, http.StatusBadRequest, errors.New("this code does not give that format"))
+		return
+	}
+	if q.Listen && sh.MaxDownloads > 0 { // a player's file can be kept too: it would get round the limit
+		writeError(w, http.StatusForbidden, errors.New("this code gives a number of downloads, not listening"))
 		return
 	}
 	abs := a.findRecordings(t, sh)[sh]
