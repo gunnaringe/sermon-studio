@@ -173,7 +173,7 @@ func TestShareUploadToInbox(t *testing.T) {
 	}
 
 	// Ingested into its date folder, with nothing left behind in the inbox.
-	want := filepath.Join(st.church, "Taler", "2026", "2026-10-04", "2026-10-04 Gudstjeneste.wav")
+	want := filepath.Join(st.church, "Taler", "2026", "2026-10-04", "original", "2026-10-04 Gudstjeneste.wav")
 	deadline := time.Now().Add(5 * time.Second)
 	for !fileExists(want) && time.Now().Before(deadline) {
 		time.Sleep(20 * time.Millisecond)

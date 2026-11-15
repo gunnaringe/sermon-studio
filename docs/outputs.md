@@ -54,8 +54,9 @@ With transcripts on, the date folder also gets `<date>.transcript.json`, `<date>
 
 ## The original recording
 
-A run moves the whole recording into `original/` in the date folder, as FLAC, so the date folder
-ends up with the finished files, the saved cuts and that one folder. No cut file is made: the
+The whole recording is kept in `original/` in the date folder: an upload or a recording from the inbox goes
+there as it arrives, and nothing moves it again. The date folder has the finished files, the saved cuts and that
+one folder. No cut file is made: the
 outputs are made straight from the original, using the sections and cuts (`recording.json`),
 so there is nothing else to keep in step.
 
@@ -70,11 +71,10 @@ so there is nothing else to keep in step.
     2026-10-04_raw.flac         the whole recording
 ```
 
-- The recording is moved into `original/` as it is, under the name it arrived with (`R_20261018-104506.wav` is kept as
+- The recording goes into `original/` as it is, under the name it arrived with (`R_20261018-104506.wav` is kept as
   `R_20261018-104506.flac`; a video's sound as `.mka`; an MP3 stays `.mp3`). The name is kept in `recording.json` as `sourceName`;
-  a recording that has none (from before) is `<date>_raw.<ext>`. It has that name in the date folder already, from when it arrives (`<date>_raw.<ext>` if
-  the name is one the studio uses for its files, `<date>.flac`, `<date>_sermon.mp3`). Either is found in the folder and in `original/`
-  (`Paths.Source`: the file of an input type the studio did not make, the FLAC first); a
-  WAV or video not converted yet is converted there first, and **deleted only if the audio is
-  identical**. Across disks a file is copied, verified and only then deleted.
+  a recording that has none (from before) is `<date>_raw.<ext>`, as is one whose name the studio uses for its files (`<date>.flac`,
+  `<date>_sermon.mp3`). A WAV or video is converted there as it arrives, and **deleted only if the audio is identical**. A
+  recording put in the date folder itself (by hand, or before imports went to `original/`) is found there too (`Paths.Source`:
+  the file of an input type the studio did not make, the FLAC first) and moved into `original/` by the first run. Across disks a file is copied, verified and only then deleted.
 - A recording already in `original/` is never replaced by a run that only adds files; one that redoes files replaces it.

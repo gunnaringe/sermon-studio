@@ -254,8 +254,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - Outputs go through `FFmpeg.RunTo` (`.partial`, renamed on success); existing
   outputs are skipped by a run; the editor's Save (Force in the API) redoes the stale ones it turns on. Save keeps the edit first, then runs.
 - Delete a source only after its copy is verified identical (`FFmpeg.Convert`: `SameAudio` for
-  WAV/AIFF→FLAC, the same packets for a video's sound; byte MD5 for copies). A run moves the whole
-  recording into `<date>/original/` as it is (any of `normalizer.InputTypes`), named as it arrived, already so in the date folder (`web.rawFile`, `normalizer.RawName`: `<date>_raw.<ext>` for none or a name of the studio's own files, `normalizer.Ours`); `Paths.Source` finds the input-type file that is not `Ours`, `<date>_raw.*` first; the outputs are cut
+  WAV/AIFF→FLAC, the same packets for a video's sound; byte MD5 for copies). An upload or an inbox recording goes
+  straight into `<date>/original/` as it is (any of `normalizer.InputTypes`), named as it arrived (`web.rawFile`, `normalizer.RawName`: `<date>_raw.<ext>` for none or a name of the studio's own files, `normalizer.Ours`), so nothing moves it during a run. One put in the date folder itself (by hand, or older imports) is still found there (`Paths.Source`: the input-type file that is not `Ours`, `<date>_raw.*` first, before `original/`) and moved by the first run; the outputs are cut
   straight from it using the sections + cuts, there is no edit file. Every input file is read through `GuardInputs` (`normalizer/ffmpeg.go`: `-protocol_whitelist file` and
   `-format_whitelist`, so no playlist or script reaches other files); an input of another kind (lavfi) names its `-f`. Every encode maps only `0:a:0`
   (an MP3's cover picture or a video must not end up in the outputs).

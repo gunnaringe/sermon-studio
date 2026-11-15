@@ -21,11 +21,12 @@ It runs on Linux (a server or the home cluster); the cutting happens in the brow
   <date>.opus                mono, 48 kbps
   recording.json             the recording's facts, the saved sections, cuts and fades, how each file was made
   draft.json                 the adjusted sections, cuts and fades while they are not saved (gone after Save)
-  original\                  the whole recording, unedited, after a run
+  original\                  the whole recording, unedited, from when it arrives
     R_20261004-101010.flac   (the name it arrived with, else <date>_raw.flac)
 ```
 
-Input placed in the folder: the one file of an input type there that the studio did not make (any name but
+An upload or a recording from the inbox goes straight into `original/`. Input placed in the folder itself (by hand,
+or before imports went to `original/`): the one file of an input type there that the studio did not make (any name but
 `<date>.<ext>` and `<date>_sermon.<ext>`; `<date>_raw.wav` first, as before); a run moves it into `original/`. There is no cut file: the outputs are cut straight from the original.
 
 ## Choice of language

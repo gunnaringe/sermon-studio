@@ -333,7 +333,7 @@ func TestIntegrationInboxWatcher(t *testing.T) {
 	// Arriving slowly, like a sync client writing it in place.
 	dst := filepath.Join(ts.inbox, "ZOOM0001 2026-10-04.WAV")
 	folder := filepath.Join(ts.root, "2026", "2026-10-04")
-	flac := filepath.Join(folder, "ZOOM0001 2026-10-04.flac") // the name it arrived with, converted
+	flac := filepath.Join(folder, "original", "ZOOM0001 2026-10-04.flac") // the name it arrived with, converted
 	if err := os.WriteFile(dst, content[:len(content)/2], 0o644); err != nil {
 		t.Fatal(err)
 	}
