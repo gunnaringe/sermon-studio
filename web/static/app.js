@@ -119,26 +119,35 @@ function suggestDate(file) {
 
 // sendFile uploads file into the date folder in chunks: each request stays
 // small (proxies limit request bodies), and after a network error or a
-// server restart it continues where the server has it.
+// server restart it continues where the server has it. Without a name, an
+// empty first chunk asks the server for the folder (2, 3... on a date that
+// has one), and the file is sent with the name it says.
 async function sendFile(file, date, sermon, onProgress) {
   const chunk = Number(localStorage.getItem('uploadChunk')) || Math.min(32 << 20, config.chunk);
   let offset = 0;
   let failures = 0;
   let sent = false; // a chunk may have arrived even if its answer did not
+  let claimed = sermon !== '';
   for (;;) {
     const url = forTenant(`api/upload?date=${q(date)}&sermon=${q(sermon)}&name=${q(file.name)}&size=${file.size}&offset=${offset}&modified=${file.lastModified}`);
     let resp;
     let data = {};
     try {
-      resp = await fetch(url, { method: 'POST', body: file.slice(offset, offset + chunk) });
+      resp = await fetch(url, { method: 'POST', body: claimed ? file.slice(offset, offset + chunk) : new Blob([]) });
       data = await resp.json().catch(() => ({}));
     } catch (e) {
-      sent = true;
+      sent ||= claimed;
       if (++failures > 6) throw new Error(t('the connection keeps failing: {error}', { error: e.message }));
       await sleep(1000 * 2 ** failures);
       continue;
     }
     if (resp.status === 201) return data.slug;
+    if (resp.ok && !claimed) {
+      sermon = data.sermon;
+      claimed = true;
+      failures = 0;
+      continue;
+    }
     if (resp.ok) {
       offset = data.offset;
       sent = true;

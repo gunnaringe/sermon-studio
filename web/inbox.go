@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -121,7 +123,39 @@ func (s *Server) newRawFolder(date, name string) (string, int, error) {
 		return "", http.StatusInternalServerError, err
 	}
 	if raw := paths.Source(); raw != "" {
-		return "", http.StatusConflict, fmt.Errorf("%s already has a raw recording (%s); give this one a name", filepath.Base(folder), filepath.Base(raw))
+		return "", http.StatusConflict, fmt.Errorf("%s already has a raw recording (%s); use another name", filepath.Base(folder), filepath.Base(raw))
 	}
 	return folder, 0, nil
+}
+
+// maxPerDay is how many recordings without a name a date can get: <date>, <date> 2 ... <date> 20.
+const maxPerDay = 20
+
+// freeRawFolder is the first folder of date a new recording without a name can take: <date>, else <date> 2,
+// <date> 3... A folder that an upload is still coming in to is taken too.
+func (s *Server) freeRawFolder(date string) (string, int, error) {
+	for n := 1; ; n++ {
+		suffix := ""
+		if n > 1 {
+			suffix = strconv.Itoa(n)
+		}
+		folder, status, err := s.newRawFolder(date, suffix)
+		if err == nil && uploadComing(folder) {
+			status, err = http.StatusConflict, fmt.Errorf("another upload to %s is in progress", filepath.Base(folder))
+		}
+		if err == nil || status != http.StatusConflict || n >= maxPerDay {
+			return folder, status, err
+		}
+	}
+}
+
+// uploadTmp is the file an upload to folder is written to until it is complete.
+func uploadTmp(folder string) string {
+	return filepath.Join(folder, "."+filepath.Base(folder)+"_raw.upload") // one per sermon, whatever the format
+}
+
+// uploadComing reports whether an upload to folder has sent a chunk lately (and is not finished).
+func uploadComing(folder string) bool {
+	st, err := os.Stat(uploadTmp(folder))
+	return err == nil && st.Size() > 0 && time.Since(st.ModTime()) < uploadStale
 }
