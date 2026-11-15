@@ -212,8 +212,8 @@ function showDownload() {
     return b;
   });
   // Listen: a player for the sermon, from an address that is not counted as a download. MP3 first, as every
-  // browser plays it.
-  const playable = ['mp3', 'opus', 'flac'].map((f) => info.files.find((x) => x.format === f)).find(Boolean);
+  // browser plays it. Not for a share with a limit on its downloads: the player's file could be kept.
+  const playable = info.downloadsLeft === undefined && ['mp3', 'opus', 'flac'].map((f) => info.files.find((x) => x.format === f)).find(Boolean);
   const listen = h('p', { class: 'listen' });
   if (playable) {
     const button = h('button', { type: 'button', name: 'listen' }, t('▶ Listen'));
