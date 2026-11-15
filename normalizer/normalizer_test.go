@@ -192,6 +192,35 @@ func TestTidyFilterSpeech(t *testing.T) {
 	}
 }
 
+// The repair comes before the noise reduction: the low cut (twice for 24 dB per octave), then the clicks.
+func TestTidyFilterRepair(t *testing.T) {
+	p := &Pipeline{Opt: DefaultOptions()}
+	p.Opt.Repair = Repair{LowCut: 80, LowCutSteep: true, Declick: 2, DeclickWindow: 40}
+	if err := p.Opt.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	f := tidy(t, p)
+	want := "highpass=f=80,highpass=f=80,adeclick=t=2:w=40,afftdn"
+	if !strings.Contains(f, want) {
+		t.Errorf("got %q, want %q in it", f, want)
+	}
+	p.Opt.Repair = Repair{LowCut: 120, Declick: 1.5}
+	if f := tidy(t, p); !strings.Contains(f, "highpass=f=120,adeclick=t=1.5,afftdn") || strings.Count(f, "highpass") != 1 {
+		t.Errorf("one low cut, the click window adeclick's own: %q", f)
+	}
+	p.Opt.Repair = Repair{LowCutSteep: true, DeclickWindow: 40} // nothing without the filters they belong to
+	if f := tidy(t, p); strings.Contains(f, "highpass") || strings.Contains(f, "adeclick") {
+		t.Errorf("off: %q", f)
+	}
+	for _, r := range []Repair{{LowCut: 10}, {LowCut: 400}, {Declick: 0.5}, {Declick: 30}, {Declick: 2, DeclickWindow: 5}, {Declick: 2, DeclickWindow: 200}} {
+		o := DefaultOptions()
+		o.Repair = r
+		if o.Validate() == nil {
+			t.Errorf("%+v should be refused", r)
+		}
+	}
+}
+
 // Off takes no noise out, whatever the dB and the room sound say.
 func TestTidyFilterOff(t *testing.T) {
 	p := &Pipeline{Opt: DefaultOptions()}

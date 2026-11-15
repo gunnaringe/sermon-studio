@@ -4,6 +4,7 @@ import { confirmDialog } from '../dialog.js';
 import { t, tr } from '../i18n.js';
 import { api, q, h, forTenant } from '../util.js';
 import { SOUND_KEYS, DEFAULT_KEYS } from './common.js';
+import { repairControls, REPAIR_KEYS } from '../repair.js';
 import { verdict } from './info.js';
 
 /** @param {import('./common.js').Editor} ed */
@@ -67,6 +68,7 @@ export function processingPart(ed) {
     const p = {
       ...config.defaults.processing,
       stereo: opts.stereo, noiseReduction: Math.round(opts.noiseReduction), noiseMethod: opts.noiseMethod, roomSound: opts.roomSound,
+      ...Object.fromEntries(REPAIR_KEYS.map((k) => [k, opts[k]])),
       leveling: opts.leveling, compression: opts.compression, truePeak: opts.truePeak,
       fadeIn: opts.fadeIn, fadeOut: opts.fadeOut,
       [opts.stereo ? 'stereoLevels' : 'mono']: levels,
@@ -119,6 +121,7 @@ export function processingPart(ed) {
       ed.changed();
     } }, [['off', t('noise|Off')], ['', t('noise|Standard')], ['speech', t('noise|Speech')]].map(([value, label]) =>
       h('option', { value, selected: (opts.noiseMethod || '') === value }, label))));
+    const repair = repairControls(opts, () => ed.changed(), field);
     const strengths = (off, a, b, c) => [['off', off], ['gentle', a], ['normal', b], ['strong', c]];
 
     const sample = h('audio', { class: 'player', controls: true, hidden: true, 'aria-label': t('The sample') });
@@ -150,6 +153,11 @@ export function processingPart(ed) {
     return h('div', { class: 'panel processing' },
       group(t('Defaults'), h('p', {}, useDefaultsButton, ' ', makeDefaultsButton), defaultsNote),
       group(t('Channels'), channels, channelWarning),
+      group(t('Clean up'),
+        repair.lowCut,
+        repair.declick,
+        hint(t('The low cut takes out rumble under the voice: traffic, ventilation, a hand on the microphone. Remove clicks takes out short clicks and crackle, as from a loose cable or a wireless microphone; it makes the files slower to make. Listen to a sample.')),
+        repair.advanced),
       group(t('Noise'),
         method,
         strength,

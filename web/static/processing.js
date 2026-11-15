@@ -2,6 +2,7 @@
 // its own. A section of the settings; processingView fills its box.
 import { api, h } from './util.js';
 import { t } from './i18n.js';
+import { repairControls } from './repair.js';
 
 export async function processingView(box, saved) {
   const { defaults } = await api('GET', 'api/config');
@@ -41,6 +42,8 @@ export async function processingView(box, saved) {
   } }, [['off', t('noise|Off')], ['', t('noise|Standard')], ['speech', t('noise|Speech')]].map(([value, label]) =>
     h('option', { value, selected: (p.noiseMethod || '') === value }, label))));
 
+  const repair = repairControls(p, touched, (label, el) => row(label, el));
+
   const save = h('button', { class: 'primary', name: 'save-processing', onclick: async () => {
     try {
       await api('PUT', 'api/processing', { processing: p });
@@ -60,6 +63,9 @@ export async function processingView(box, saved) {
     h('p', { class: 'muted' }, t('What a recording starts with in the editor. A recording keeps its own processing once it is changed there; Use the defaults in the editor brings these back.')),
     h('div', { class: 'panel tags processing-defaults' },
       channels,
+      repair.lowCut,
+      repair.declick,
+      repair.advanced,
       method,
       strength,
       room,

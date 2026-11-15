@@ -449,13 +449,14 @@ type runRequest struct {
 	NoiseReduction int     `json:"noiseReduction"`
 	NoiseMethod    string  `json:"noiseMethod,omitempty"` // "" = standard
 	RoomSound      int     `json:"roomSound"`
-	Leveling       string  `json:"leveling"`
-	Compression    string  `json:"compression"`
-	TargetLUFS     float64 `json:"targetLufs"`
-	TruePeak       float64 `json:"truePeak"`
-	Mp3Bitrate     string  `json:"mp3Bitrate"`
-	OpusBitrate    string  `json:"opusBitrate"`
-	Force          bool    `json:"force"`
+	normalizer.Repair
+	Leveling    string  `json:"leveling"`
+	Compression string  `json:"compression"`
+	TargetLUFS  float64 `json:"targetLufs"`
+	TruePeak    float64 `json:"truePeak"`
+	Mp3Bitrate  string  `json:"mp3Bitrate"`
+	OpusBitrate string  `json:"opusBitrate"`
+	Force       bool    `json:"force"`
 	// Intro and Outro are the sermon's choices of clips (sermonSettings.Intro/Outro).
 	Intro string `json:"intro"`
 	Outro string `json:"outro"`
@@ -473,7 +474,7 @@ func requestFrom(o normalizer.Options) runRequest {
 		cutting: cutting{Sections: []span{}, Cuts: []span{}},
 		Flac:    o.Outputs.Flac, Mp3: o.Outputs.Mp3, Opus: o.Outputs.Opus,
 		Stereo: o.Stereo, FadeIn: o.FadeIn, FadeOut: o.FadeOut,
-		NoiseReduction: o.NoiseReduction, NoiseMethod: o.NoiseMethod, RoomSound: o.RoomSound, Leveling: o.Leveling, Compression: o.Compression,
+		NoiseReduction: o.NoiseReduction, NoiseMethod: o.NoiseMethod, RoomSound: o.RoomSound, Repair: o.Repair, Leveling: o.Leveling, Compression: o.Compression,
 		TargetLUFS: o.TargetLUFS, TruePeak: o.TruePeak,
 		Mp3Bitrate: o.Mp3Bitrate, OpusBitrate: o.OpusBitrate,
 		Force: o.Force,
@@ -484,7 +485,7 @@ func (q runRequest) options() (normalizer.Options, error) {
 	o := normalizer.Options{
 		Outputs: normalizer.Outputs{Flac: q.Flac, Mp3: q.Mp3, Opus: q.Opus},
 		Stereo:  q.Stereo, FadeIn: q.FadeIn, FadeOut: q.FadeOut,
-		NoiseReduction: q.NoiseReduction, NoiseMethod: q.NoiseMethod, RoomSound: q.RoomSound, Leveling: q.Leveling, Compression: q.Compression,
+		NoiseReduction: q.NoiseReduction, NoiseMethod: q.NoiseMethod, RoomSound: q.RoomSound, Repair: q.Repair, Leveling: q.Leveling, Compression: q.Compression,
 		TargetLUFS: q.TargetLUFS, TruePeak: q.TruePeak,
 		Mp3Bitrate: strings.TrimSpace(q.Mp3Bitrate), OpusBitrate: strings.TrimSpace(q.OpusBitrate),
 		Force: q.Force,

@@ -16,17 +16,18 @@ const maxDefaultFade = 30
 // recording.json. Loudness and bitrates have a value for mono and one for
 // stereo: switching the channels in the editor moves between them.
 type processing struct {
-	Stereo         bool          `json:"stereo"` // the channels a recording starts with
-	NoiseReduction int           `json:"noiseReduction"`
-	NoiseMethod    string        `json:"noiseMethod,omitempty"` // "" = standard
-	RoomSound      int           `json:"roomSound"`
-	Leveling       string        `json:"leveling"`
-	Compression    string        `json:"compression"`
-	TruePeak       float64       `json:"truePeak"`
-	FadeIn         float64       `json:"fadeIn"`
-	FadeOut        float64       `json:"fadeOut"`
-	Mono           channelLevels `json:"mono"`
-	StereoLevels   channelLevels `json:"stereoLevels"`
+	Stereo         bool   `json:"stereo"` // the channels a recording starts with
+	NoiseReduction int    `json:"noiseReduction"`
+	NoiseMethod    string `json:"noiseMethod,omitempty"` // "" = standard
+	RoomSound      int    `json:"roomSound"`
+	normalizer.Repair
+	Leveling     string        `json:"leveling"`
+	Compression  string        `json:"compression"`
+	TruePeak     float64       `json:"truePeak"`
+	FadeIn       float64       `json:"fadeIn"`
+	FadeOut      float64       `json:"fadeOut"`
+	Mono         channelLevels `json:"mono"`
+	StereoLevels channelLevels `json:"stereoLevels"`
 }
 
 // channelLevels are the defaults that depend on the channels.
@@ -44,7 +45,7 @@ func levelsOf(q runRequest) channelLevels {
 func builtinProcessing() processing {
 	m := requestFrom(normalizer.DefaultOptions())
 	return processing{
-		Stereo: m.Stereo, NoiseReduction: m.NoiseReduction, NoiseMethod: m.NoiseMethod, RoomSound: m.RoomSound,
+		Stereo: m.Stereo, NoiseReduction: m.NoiseReduction, NoiseMethod: m.NoiseMethod, RoomSound: m.RoomSound, Repair: m.Repair,
 		Leveling: m.Leveling, Compression: m.Compression, TruePeak: m.TruePeak,
 		FadeIn: m.FadeIn, FadeOut: m.FadeOut,
 		Mono: levelsOf(m), StereoLevels: levelsOf(stereoDefaults()),
@@ -55,7 +56,7 @@ func builtinProcessing() processing {
 func (p processing) request(stereo bool) runRequest {
 	q := requestFrom(normalizer.DefaultOptions())
 	q.Stereo, q.NoiseReduction, q.NoiseMethod, q.RoomSound, q.Leveling, q.Compression = stereo, p.NoiseReduction, p.NoiseMethod, p.RoomSound, p.Leveling, p.Compression
-	q.TruePeak, q.FadeIn, q.FadeOut = p.TruePeak, p.FadeIn, p.FadeOut
+	q.TruePeak, q.FadeIn, q.FadeOut, q.Repair = p.TruePeak, p.FadeIn, p.FadeOut, p.Repair
 	l := p.Mono
 	if stereo {
 		l = p.StereoLevels

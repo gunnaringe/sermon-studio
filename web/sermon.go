@@ -28,16 +28,17 @@ type sermonSettings struct {
 // soundSettings are the processing of a sermon: channels, noise, levels, loudness and bitrates.
 // They are kept with the sermon, so the files can be made again the same way.
 type soundSettings struct {
-	Stereo         bool    `json:"stereo"`
-	NoiseReduction int     `json:"noiseReduction"`
-	NoiseMethod    string  `json:"noiseMethod,omitempty"` // "" = standard
-	RoomSound      int     `json:"roomSound"`
-	Leveling       string  `json:"leveling"`
-	Compression    string  `json:"compression"`
-	TargetLUFS     float64 `json:"targetLufs"`
-	TruePeak       float64 `json:"truePeak"`
-	Mp3Bitrate     string  `json:"mp3Bitrate"`
-	OpusBitrate    string  `json:"opusBitrate"`
+	Stereo         bool   `json:"stereo"`
+	NoiseReduction int    `json:"noiseReduction"`
+	NoiseMethod    string `json:"noiseMethod,omitempty"` // "" = standard
+	RoomSound      int    `json:"roomSound"`
+	normalizer.Repair
+	Leveling    string  `json:"leveling"`
+	Compression string  `json:"compression"`
+	TargetLUFS  float64 `json:"targetLufs"`
+	TruePeak    float64 `json:"truePeak"`
+	Mp3Bitrate  string  `json:"mp3Bitrate"`
+	OpusBitrate string  `json:"opusBitrate"`
 }
 
 // applyTo puts the sound in a run request.
@@ -46,7 +47,7 @@ func (s *soundSettings) applyTo(q *runRequest) {
 		return
 	}
 	q.Stereo, q.NoiseReduction, q.NoiseMethod, q.RoomSound, q.Leveling, q.Compression = s.Stereo, s.NoiseReduction, s.NoiseMethod, s.RoomSound, s.Leveling, s.Compression
-	q.TargetLUFS, q.TruePeak, q.Mp3Bitrate, q.OpusBitrate = s.TargetLUFS, s.TruePeak, s.Mp3Bitrate, s.OpusBitrate
+	q.TargetLUFS, q.TruePeak, q.Mp3Bitrate, q.OpusBitrate, q.Repair = s.TargetLUFS, s.TruePeak, s.Mp3Bitrate, s.OpusBitrate, s.Repair
 }
 
 // withSound is c with the church's processing as its sound when it has none (saved before the sound was
@@ -54,7 +55,7 @@ func (s *soundSettings) applyTo(q *runRequest) {
 func (c sermonSettings) withSound(p processing) sermonSettings {
 	if c.Sound == nil {
 		q := p.start()
-		c.Sound = &soundSettings{Stereo: q.Stereo, NoiseReduction: q.NoiseReduction, NoiseMethod: q.NoiseMethod, RoomSound: q.RoomSound, Leveling: q.Leveling,
+		c.Sound = &soundSettings{Stereo: q.Stereo, NoiseReduction: q.NoiseReduction, NoiseMethod: q.NoiseMethod, RoomSound: q.RoomSound, Repair: q.Repair, Leveling: q.Leveling,
 			Compression: q.Compression, TargetLUFS: q.TargetLUFS, TruePeak: q.TruePeak, Mp3Bitrate: q.Mp3Bitrate, OpusBitrate: q.OpusBitrate}
 	}
 	return c
