@@ -427,7 +427,7 @@ func TestIntegrationInputTypes(t *testing.T) {
 }
 
 // A sample is a few seconds of the recording with the processing settings, as an MP3; it is refused for
-// bad settings, a missing recording and while another conversion is running.
+// bad settings and a missing recording.
 func TestIntegrationSample(t *testing.T) {
 	ff := requireFFmpeg(t)
 	ts := newTestServer(t, ff)

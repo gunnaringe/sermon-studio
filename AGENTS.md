@@ -75,7 +75,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - `web/app.go`: `App` = the churches (tenants). A church is a folder in
   `--data-dir`: `<id>/church.json` (name, tags; optional), `<id>/Taler`,
   `<id>/Innboks`. Picks the `Server` per request (`?tenant=` / `X-Tenant`, default
-  = first), shared limits: `--parallel-runs` encodes (runs, samples; 1 by default), one decode. A `Server` is one church.
+  = first), shared limits: `--parallel-runs` runs (1 by default), one decode, one sample (also during a run of its recording, once the recording is in original/). A `Server` is one church.
   `--root`/`--inbox` = one church without a folder (settings not saved).
 - `web/login.go`: the studio's own login (`--oidc-issuer`, `AppConfig.OIDC`): authorization code + PKCE, the ID token checked by
   go-oidc (+ nonce), then a session of its own (cookie `studio_session`, 30 days; `<data-dir>/sessions.json` keeps the cookie's hash and

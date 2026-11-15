@@ -67,12 +67,13 @@ type Config struct {
 	church      string       // set by App: the church's id, its jobs' in the queue ("" for --root)
 }
 
-// limits keeps the heavy work in check, across all churches: runs and samples (encode) up to runs at a time,
-// and one conversion or preparation of a new recording or clip (decode).
-type limits struct{ encode, decode chan struct{} }
+// limits keeps the heavy work in check, across all churches: runs up to runs at a time (encode), one
+// conversion or preparation of a new recording or clip (decode), and one sample (sample: short, so the sound
+// can be tried while files are being made).
+type limits struct{ encode, decode, sample chan struct{} }
 
 func newLimits(runs int) *limits {
-	return &limits{encode: make(chan struct{}, max(runs, 1)), decode: make(chan struct{}, 1)}
+	return &limits{encode: make(chan struct{}, max(runs, 1)), decode: make(chan struct{}, 1), sample: make(chan struct{}, 1)}
 }
 
 // DefaultLayout puts imported recordings in <year>/<date>/.
