@@ -153,6 +153,10 @@ func (s *Server) defaultTags(folder string) (Meta, time.Time, error) {
 func (s *Server) runTags(folder string, q runRequest) (normalizer.Tags, string) {
 	def, date, err := s.defaultTags(folder)
 	msg := ""
+	if q.tags != nil { // the saved version's, as they are kept
+		def, err = Meta{Title: q.tags.Title, Artist: q.tags.Artist, Album: q.tags.Album}, nil
+		q.Title, q.Artist, q.Album = nil, nil, nil
+	}
 	if err != nil {
 		msg = "Default tags not applied: " + err.Error()
 	}

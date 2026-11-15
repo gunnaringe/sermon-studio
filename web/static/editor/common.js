@@ -30,6 +30,9 @@ export const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.
  * @property {any} config the studio's config (api/config): the church's defaults
  * @property {Record<string, any>} opts the choices: the processing, the fades, the formats, the clips
  * @property {Record<string, string>} tags the tags written into the files
+ * @property {boolean} ownTags the tags are the sermon's own (kept with it, or typed); else the church's defaults
+ * @property {() => void} keepSaved show what Save kept of the church's defaults as the sermon's own
+ * @property {(own: Record<string, string> | null) => void} setTags put the sermon's own tags on the page, or the church's (null)
  * @property {(() => void)[]} cleanups what is undone when the page is left
  * @property {boolean} alive the page is still shown
  * @property {import('../vendor/wavesurfer/wavesurfer.esm.js').default} ws the waveform, once it is there

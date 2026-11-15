@@ -466,6 +466,11 @@ type runRequest struct {
 	Album  *string `json:"album"`
 	// Transcript, when given, is made from the files once the run has made them (transcribe.go).
 	Transcript *transcriptAsk `json:"transcript,omitempty"`
+
+	// For a run of the saved version (savedRequest): its tags as they are kept, written as they are, and its
+	// pause around the clips; nil = the form's tags or the church's defaults, and the church's pause.
+	tags      *sermonTags
+	clipPause *float64
 }
 
 // requestFrom is the defaults of a run, without a sermon selected.
@@ -526,7 +531,12 @@ func (s *Server) check(abs string, q runRequest) plan {
 		return fail(err)
 	}
 	pl.paths = paths
-	if pl.Clips, err = s.applyClips(abs, q.Intro, q.Outro, &pl.opt); err != nil {
+	if q.clipPause == nil { // the editor does not send it: the pause the sermon kept (Save keeps the church's)
+		if st := readState(abs); st.Saved != nil {
+			q.clipPause = st.Saved.ClipPause
+		}
+	}
+	if pl.Clips, err = s.applyClips(abs, q.Intro, q.Outro, q.clipPause, &pl.opt); err != nil {
 		return fail(err)
 	}
 	var note string
@@ -584,7 +594,7 @@ func (s *Server) savedStatus(abs string, paths normalizer.Paths) map[string]outp
 	if err != nil {
 		return nil
 	}
-	clips, err := s.applyClips(abs, q.Intro, q.Outro, &o)
+	clips, err := s.applyClips(abs, q.Intro, q.Outro, q.clipPause, &o)
 	if err != nil {
 		return nil
 	}

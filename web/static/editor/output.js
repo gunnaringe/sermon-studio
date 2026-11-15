@@ -131,6 +131,7 @@ export function outputPart(ed) {
     try {
       if (unsaved()) {
         ed.sermon = await api('POST', 'api/sermon/save?path=' + q(path));
+        ed.keepSaved();
         ed.setSaveNote(t('Saved.'));
         ed.renderVersion();
       }

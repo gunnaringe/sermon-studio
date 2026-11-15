@@ -123,7 +123,12 @@ Each can have a label, which shows on the waveform.
   what is left, joined with a 15 ms fade on each side so the join does not click; the length
   shown is that of the sections after the cuts.
 - **Metadata added to the file:** title, artist and album, from the church's defaults (Settings), for this recording; a field you
-  empty is left out of the files.
+  empty is left out of the files. Save keeps them with the sermon, so a change to the defaults later does not change them;
+  **Use the church's tags** takes the defaults as they are now. Renamed, a tag that is what the church's template made for the
+  old date and name follows the new one.
+- **The church's defaults are what a recording starts with.** Save keeps them with the sermon: the processing, the tags, the
+  intro and outro (the clips they are) and the pause at each join. A default changed later only reaches recordings saved after
+  it; **Use the defaults** (processing) and **Use the church's tags** take today's defaults into one recording.
 - **Processing:** how the sermon is made into files, kept with the sermon (with the saved version; *Revert* brings them back too).
   *Channels* (**Mono** or **Stereo**; stereo for a recording that is mono in effect shows a warning, with *Use mono*). *Clean up*,
   before the noise: **Low cut** (off, rumble at 80 Hz, strong rumble at 120 Hz: takes out traffic, ventilation and handling
@@ -296,7 +301,8 @@ one run; a field you empty is left out. Saved in the church's `church.json` (wit
 **Settings → Intro and outro** has the church's clips: **Upload clip…** (any audio a recording can be, up to 5 minutes and
 90 MB; it is converted and checked, and a silent file or one that is not audio says so), a player, **Rename…** and **Replace…**
 (new audio for the same clip: sermons made with the old say so on the recordings page). The **default intro** and **default
-outro** are what new sermons start with, and the **pause at each join** goes for every sermon (0.5 s to begin with).
+outro** are what new sermons start with, and so is the **pause at each join** (0.5 s to begin with): Save keeps them with the
+sermon. **Replace…** is the exception: a sermon that uses the clip uses its new audio when its files are made again.
 
 **Archive** takes a clip out of the choices for new sermons, but keeps it: sermons that use it can still be made again with it.
 Archived clips are under **Archived**, with **Restore** and **Delete…**. Deleting one that sermons chose warns how many: their

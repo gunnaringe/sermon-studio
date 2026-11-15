@@ -87,8 +87,9 @@ func (s *Server) resolveClip(folder, which, choice string) (*clipRef, string, er
 	return &clipRef{ID: c.ID, Version: c.Version, Name: c.Name, Seconds: c.Seconds}, s.clips.clipFile(id), nil
 }
 
-// applyClips resolves the intro and outro of a run into its options.
-func (s *Server) applyClips(folder string, intro, outro string, o *normalizer.Options) (runClips, error) {
+// applyClips resolves the intro and outro of a run into its options, with the pause around them (nil = the
+// church's).
+func (s *Server) applyClips(folder string, intro, outro string, pause *float64, o *normalizer.Options) (runClips, error) {
 	var rc runClips
 	var err error
 	if rc.Intro, o.Intro, err = s.resolveClip(folder, "intro", intro); err != nil {
@@ -98,9 +99,13 @@ func (s *Server) applyClips(folder string, intro, outro string, o *normalizer.Op
 		return rc, err
 	}
 	if rc.Intro != nil || rc.Outro != nil {
-		s.clips.mu.Lock()
-		rc.Pause = s.clips.lib.pause()
-		s.clips.mu.Unlock()
+		if pause != nil {
+			rc.Pause = *pause
+		} else {
+			s.clips.mu.Lock()
+			rc.Pause = s.clips.lib.pause()
+			s.clips.mu.Unlock()
+		}
 		o.ClipPause = rc.Pause
 	}
 	return rc, nil

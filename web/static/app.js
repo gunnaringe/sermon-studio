@@ -453,7 +453,7 @@ async function settingsView(box, part) {
       ownClips ? clips : '',
       settings ? h('section', { id: 'tags' },
           h('h3', {}, t('Default tags')),
-          h('p', { class: 'muted' }, t('Written into all generated recordings. You can change them for one recording in the editor. Placeholders:')),
+          h('p', { class: 'muted' }, t('What a new recording\'s files are tagged with. Save keeps the tags with the recording, so a change here only reaches recordings saved after it; you can change them for one recording in the editor. Placeholders:')),
           h('p', { class: 'placeholders' }, data.placeholders.map((p) => h('button', { type: 'button', class: 'small', title: tr(p.help),
             onclick: () => insert('{' + p.name + '}') }, h('code', {}, '{' + p.name + '}'), ' ', h('span', { class: 'muted' }, tr(p.help))))),
           h('div', { class: 'panel tags' }, rows, h('div', {}, save, ' ', status))) : '') : '',

@@ -26,7 +26,9 @@ export function historyPart(ed) {
     if (list.some((c) => c.end - c.start < 0.05)) return null; // one outside the sermon is fine
     if (!(opts.fadeIn >= 0) || !(opts.fadeOut >= 0)) return null;
     if ([opts.noiseReduction, opts.roomSound, opts.targetLufs, opts.truePeak].some(Number.isNaN)) return null;
-    return { sections: secs, cuts: list, fadeIn: opts.fadeIn, fadeOut: opts.fadeOut, sound: Object.fromEntries(SOUND_KEYS.map((k) => [k, opts[k]])), ...ed.clipChoices() };
+    // The tags only once they are the sermon's own (kept, or typed): else Save takes the church's.
+    const tags = ed.ownTags ? { tags: { title: ed.tags.title, artist: ed.tags.artist, album: ed.tags.album } } : {};
+    return { sections: secs, cuts: list, fadeIn: opts.fadeIn, fadeOut: opts.fadeOut, sound: Object.fromEntries(SOUND_KEYS.map((k) => [k, opts[k]])), ...ed.clipChoices(), ...tags };
   }
 
   // persistAdjusted keeps what is on the page as the adjustments.
@@ -212,6 +214,7 @@ export function historyPart(ed) {
       ed.sermon = await api('POST', 'api/sermon/revert?path=' + q(path));
       ed.lastSent = JSON.stringify(ed.sermon.saved);
       applySettings(ed.sermon.saved);
+      ed.setTags(ed.sermon.saved.tags || null);
       record();
       saveNote.textContent = t('Back to the saved version.');
     } catch (e) {
@@ -220,12 +223,25 @@ export function historyPart(ed) {
     renderVersion();
   }
 
+  // keepSaved shows what Save kept of the church's defaults as the sermon's own: the clips they are and the
+  // tags. Not a step to undo: the edit is the same.
+  function keepSaved() {
+    const saved = ed.sermon && ed.sermon.saved;
+    if (!saved) return;
+    for (const key of CLIP_KEYS) opts[key] = saved[key] || '';
+    ed.drawClips();
+    ed.setTags(saved.tags || null);
+    present = snapshot();
+    ed.lastSent = JSON.stringify(currentSettings());
+    keepHistory();
+  }
+
   // setSaveNote tells in the bar how keeping or saving went.
   const setSaveNote = (text) => { saveNote.textContent = text; };
 
   return {
     saveState: h('div', { class: 'save-state' }, versionOut, ' ', saveNote), undoButton, redoButton, revertButton,
     currentSettings, persistAdjusted, saveSoon, applySettings, record, recordSoon, undo, redo, startHistory, history,
-    renderVersion, setSaveNote, describe,
+    renderVersion, setSaveNote, describe, keepSaved,
   };
 }

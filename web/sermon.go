@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"reflect"
@@ -23,6 +24,12 @@ type sermonSettings struct {
 	// not be lost), the run says so.
 	Intro string `json:"intro,omitempty"`
 	Outro string `json:"outro,omitempty"`
+	// Tags are the tags written into its files; nil = the church's defaults for its folder (defaults.go:
+	// Save fills them in, as it does the intro and outro and the sound).
+	Tags *sermonTags `json:"tags,omitempty"`
+	// ClipPause is the pause between the clips and the sermon (seconds), filled in by Save when it has a
+	// clip; nil = the church's.
+	ClipPause *float64 `json:"clipPause,omitempty"`
 }
 
 // soundSettings are the processing of a sermon: channels, noise, levels, loudness and bitrates.
@@ -75,6 +82,7 @@ func validSermon(c *sermonSettings) *sermonSettings {
 		return nil
 	}
 	c.normalize()
+	c.Tags.normalize()
 	if c.Validate() != nil {
 		return nil
 	}
@@ -88,6 +96,12 @@ func (c sermonSettings) Validate() error {
 	}
 	if !validClipChoice(c.Intro) || !validClipChoice(c.Outro) {
 		return errors.New("the intro or outro is not one that can be chosen")
+	}
+	if err := c.Tags.check(); err != nil {
+		return err
+	}
+	if c.ClipPause != nil && !(*c.ClipPause >= 0 && *c.ClipPause <= normalizer.MaxClipPause) {
+		return fmt.Errorf("the pause at the intro and outro can be from 0 to %g seconds", normalizer.MaxClipPause)
 	}
 	q := requestFrom(normalizer.DefaultOptions())
 	c.Sound.applyTo(&q)
@@ -113,7 +127,7 @@ func readSermon(folder string) *sermonFile {
 }
 
 // changeSermon changes the sermon in the folder (recording.json and draft.json) and returns it.
-func (s *Server) changeSermon(w http.ResponseWriter, r *http.Request, fn func(f *sermonFile) error) {
+func (s *Server) changeSermon(w http.ResponseWriter, r *http.Request, fn func(abs string, f *sermonFile) error) {
 	abs, ok := s.pathParam(w, r)
 	if !ok {
 		return
@@ -125,7 +139,7 @@ func (s *Server) changeSermon(w http.ResponseWriter, r *http.Request, fn func(f 
 	var f sermonFile
 	_, err := s.updateState(abs, func(st *folderState) error {
 		f = sermonFile{Saved: st.Saved, SavedAt: st.SavedAt, Adjusted: readDraft(abs)}
-		if err := fn(&f); err != nil {
+		if err := fn(abs, &f); err != nil {
 			return err
 		}
 		st.Saved, st.SavedAt = f.Saved, f.SavedAt
@@ -152,13 +166,17 @@ func (s *Server) handleSermonPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.normalize()
+	c.Tags.normalize()
 	if err := c.Validate(); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	p := s.processing()
-	s.changeSermon(w, r, func(f *sermonFile) error {
-		if f.Saved != nil && reflect.DeepEqual(f.Saved.withSound(p), c.withSound(p)) {
+	s.changeSermon(w, r, func(abs string, f *sermonFile) error {
+		if f.Saved != nil && c.ClipPause == nil {
+			c.ClipPause = f.Saved.ClipPause // the editor does not set it: the saved version's
+		}
+		// The same as the saved version, with what each takes from the church as it would be saved now.
+		if f.Saved != nil && reflect.DeepEqual(s.withDefaults(abs, *f.Saved), s.withDefaults(abs, c)) {
 			f.Adjusted = nil
 		} else {
 			f.Adjusted = &c
@@ -167,9 +185,10 @@ func (s *Server) handleSermonPut(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// POST api/sermon/save makes the adjustments the saved version.
+// POST api/sermon/save makes the adjustments the saved version, with the church's defaults it takes filled
+// in as they are now (withDefaults): it keeps them.
 func (s *Server) handleSermonSave(w http.ResponseWriter, r *http.Request) {
-	s.changeSermon(w, r, func(f *sermonFile) error {
+	s.changeSermon(w, r, func(abs string, f *sermonFile) error {
 		if f.Adjusted == nil {
 			if f.Saved == nil {
 				return errors.New("there is nothing to save yet")
@@ -177,14 +196,15 @@ func (s *Server) handleSermonSave(w http.ResponseWriter, r *http.Request) {
 			return nil // already saved
 		}
 		now := time.Now().UTC().Truncate(time.Second)
-		f.Saved, f.SavedAt, f.Adjusted = f.Adjusted, &now, nil
+		kept := s.withDefaults(abs, *f.Adjusted)
+		f.Saved, f.SavedAt, f.Adjusted = &kept, &now, nil
 		return nil
 	})
 }
 
 // POST api/sermon/revert drops the adjustments, back to the saved version.
 func (s *Server) handleSermonRevert(w http.ResponseWriter, r *http.Request) {
-	s.changeSermon(w, r, func(f *sermonFile) error {
+	s.changeSermon(w, r, func(_ string, f *sermonFile) error {
 		if f.Saved == nil {
 			return errors.New("there is no saved version to go back to")
 		}

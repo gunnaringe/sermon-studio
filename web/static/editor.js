@@ -37,8 +37,8 @@ export async function editorView(view, slug, config) {
   // The formats are this recording's own: those it has, or the defaults when it
   // has none. Choosing here changes nothing elsewhere.
   if (info.outputs.length) for (const f of FORMAT_KEYS) opts[f] = info.outputs.some((o) => o.format === f);
-  // Tags are per sermon: the church's defaults for this folder, editable for this run.
-  const tags = { title: '', artist: '', album: '', ...(info.tags || {}) };
+  // Tags are per sermon: those kept with it, else the church's defaults for this folder (Save keeps those).
+  const tags = { title: '', artist: '', album: '', ...((kept && kept.tags) || info.tags || {}) };
   const sections = [], cuts = [];
 
   // Another date or name for this sermon: renames the folder and its files. A pencil beside the title, a dialog.
@@ -60,7 +60,7 @@ export async function editorView(view, slug, config) {
   renameButton.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>'; // Feather's edit-2 (MIT)
 
   const ed = /** @type {import('./editor/common.js').Editor} */ ({
-    view, path, info, config, opts, tags, cleanups, sections, cuts,
+    view, path, info, config, opts, tags, ownTags: Boolean(kept && kept.tags), cleanups, sections, cuts,
     get alive() { return alive; },
     ws: null, regions: null, duration: 0, // the waveform, once it is there
     sermon: info.sermon || { saved: null, adjusted: null },

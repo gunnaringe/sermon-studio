@@ -71,7 +71,7 @@ export async function processingView(box, saved) {
   } }, t('Use the built-in values'));
 
   box.replaceChildren(
-    h('p', { class: 'muted' }, t('What a recording starts with in the editor. A recording keeps its own processing once it is changed there; Use the defaults in the editor brings these back.')),
+    h('p', { class: 'muted' }, t('What a new recording starts with in the editor. Save keeps the processing with the recording, so a change here only reaches recordings saved after it; Use the defaults in the editor brings these into one.')),
     h('div', { class: 'panel tags processing-defaults' },
       channels,
       repair.lowCut,

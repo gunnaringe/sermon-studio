@@ -126,6 +126,12 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - `web/meta.go`: a church's default tags (title/artist/album templates with
   `{yyyy}` `{mm}` `{dd}` `{date}` `{weekday}` `{name}`...), settings API, the tags of a run.
   Stored per church in its `church.json`; `normalizer.Tags` carries them to ffmpeg.
+- `web/defaults.go`: the church's defaults are what a recording starts with, not what it follows. `withDefaults` fills in what a
+  sermon takes from the church (sound saved as nil, intro/outro `default` as the clip id, tags for its folder as the template
+  makes them, the clip pause); Save (`handleSermonSave`) keeps that, `handleSermonPut` compares with it, `savedRequest` runs it
+  (its tags verbatim via `runRequest.tags`, its pause via `clipPause`), and `keepDefaults` fills in recordings saved before at
+  startup, with the files' fingerprints (`madeFrom`) unchanged (`TestKeepDefaultsOnStart`). `retagRenamed`: a kept tag the
+  template made for the old folder follows a rename.
 - `web/processing.go`: a church's default processing (`processing` in `church.json`; `PUT api/processing`, null = the built-in),
   what a recording starts with (`config.defaults.start`, plus `mono`/`stereo` for the switch); a recording's own is the sermon's `sound`.
   Settings → Processing is `processing.js`.
