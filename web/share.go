@@ -327,7 +327,7 @@ func (sh *Share) view(now time.Time) shareView {
 		v.Kind, v.Types, v.MaxFileSize, v.Recording, v.Formats, v.MaxDownloads = kindDownload, []string{}, 0, sh.Recording, sh.formats(), sh.MaxDownloads
 		v.SermonOnly, v.AllFormats, v.Transcript = sh.SermonOnly, sh.AllFormats, sh.Transcript
 		for _, tk := range sh.Tickets {
-			if now.Before(tk.Expires) {
+			if now.Before(tk.Expires) && !tk.Listen { // listening is not a download
 				v.Resumable++
 			}
 		}

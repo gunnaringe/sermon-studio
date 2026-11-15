@@ -1208,6 +1208,14 @@ test('download shares: share a finished sermon from its row, download it on the 
   await expect(down.locator('#heading')).toHaveText('Download a sermon');
   await expect(down.getByText(/^From .+\. 1 more download · until 2099-12-31 23:59\.$/)).toBeVisible();
   await expect(down.getByRole('button', { name: /^Download FLAC/ })).toHaveCount(0);
+  // Listening plays it on the page, and is not counted.
+  await down.locator('main, body').first().screenshot({ path: path.join(shots, 'share-listen-button.png') });
+  await down.getByRole('button', { name: '▶ Listen' }).click();
+  await expect(down.getByLabel('The sermon')).toHaveAttribute('src', /^api\/share\/downloads\//);
+  await down.screenshot({ path: path.join(shots, 'share-listen.png') });
+  const started = await down.request.get(await down.getByLabel('The sermon').evaluate((a) => a.src), { headers: { Range: 'bytes=0-' } });
+  expect(started.headers()['content-disposition']).toMatch(/^inline/);
+  await expect(down.getByText(/^From .+\. 1 more download · until 2099-12-31 23:59\.$/)).toBeVisible();
   const [file] = await Promise.all([down.waitForEvent('download'), down.getByRole('button', { name: /^Download MP3/ }).click()]);
   expect(file.suggestedFilename()).toBe('2025-12-24 Christmas.mp3');
   expect(fs.readFileSync(await file.path()).equals(mp3)).toBe(true);

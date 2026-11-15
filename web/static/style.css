@@ -432,6 +432,7 @@ body.card-page .files li { box-shadow: none; background: var(--panel-2); }
 body.card-page .downloads { flex-direction: column; }
 body.card-page .downloads button { display: flex; justify-content: space-between; gap: 1rem; width: 100%; padding: 0.75rem 1rem; text-align: left; }
 body.card-page .downloads button .size { font-weight: 400; opacity: 0.85; }
+body.card-page .listen audio { display: block; width: 100%; }
 @media (max-width: 640px) {
   body.card-page main.narrow { margin: 1rem auto; padding: 1.2rem 1.1rem; }
 }
