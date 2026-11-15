@@ -285,6 +285,10 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   queue (`transcriptsFailed`, in memory). `folderState.TranscriptOrder` is the old place of the queue, moved over at
   start (`moveOrders`).
 - Measure with `ebur128` (`FFmpeg.Measure`), not `loudnorm`.
+- Before the noise, `normalizer.Repair` (embedded in `Options` and in the web's sound structs, so it is one field to copy):
+  a low cut (`highpass`) and clicks (`adeclick`); zero does nothing, and `madeFrom` has it only when it does something
+  (`repairKey`). `web/static/repair.js` is its controls, simple choices with the exact values under Advanced, in the editor
+  and Settings.
 - Noise reduction has three methods (`NoiseMethod`): off (no filter; the dB and room sound do nothing, and are 0 in `madeFrom`), standard (`afftdn`, the default, `""`) and speech (`arnndn`, the model
   `normalizer/models/speech.rnnn` embedded and written to the temporary folder, `speech.go`; a path in a filter option goes
   through `filterPath`). A new choice of the sound is `omitempty` in the JSON and in `madeFrom` at its default, so files made

@@ -260,15 +260,31 @@ func madeFrom(o normalizer.Options, format, clips string) string {
 		NoiseReduction              int
 		NoiseMethod                 string `json:",omitempty"` // omitted for the standard one: older fingerprints stay as they were
 		RoomSound                   int
+		Repair                      *normalizer.Repair `json:",omitempty"` // omitted when it does nothing: older fingerprints stay as they were
 		Leveling, Compression       string
 		TargetLUFS, TruePeak        float64
 		Tags                        normalizer.Tags
 		Format, Bitrate             string
 		Clips                       string `json:",omitempty"` // omitted without clips: older fingerprints stay as they were
-	}{o.Start, o.End, o.FadeIn, o.FadeOut, o.Cuts, o.Pauses, o.Stereo, nr, noiseMethodKey(o), room, o.LevelingName(), o.CompressionName(), o.TargetLUFS, o.TruePeak, o.Tags, format, bitrateFor(o, format), clips}
+	}{o.Start, o.End, o.FadeIn, o.FadeOut, o.Cuts, o.Pauses, o.Stereo, nr, noiseMethodKey(o), room, repairKey(o.Repair), o.LevelingName(), o.CompressionName(), o.TargetLUFS, o.TruePeak, o.Tags, format, bitrateFor(o, format), clips}
 	data, _ := json.Marshal(v)
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:8])
+}
+
+// repairKey is the repair in madeFrom: nil when it does nothing. A setting that does nothing without its
+// filter (the steepness without a low cut, the window without declick) is left out.
+func repairKey(r normalizer.Repair) *normalizer.Repair {
+	if r.LowCut == 0 {
+		r.LowCutSteep = false
+	}
+	if r.Declick == 0 || r.DeclickWindow == normalizer.DefaultDeclickWindow {
+		r.DeclickWindow = 0
+	}
+	if r == (normalizer.Repair{}) {
+		return nil
+	}
+	return &r
 }
 
 // noiseMethodKey is the noise method in madeFrom: "" for the standard one.

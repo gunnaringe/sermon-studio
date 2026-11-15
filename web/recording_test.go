@@ -29,6 +29,28 @@ func TestCleanSourceName(t *testing.T) {
 	}
 }
 
+// The repair is in the fingerprint only when it does something, so files made before it are not out of date.
+func TestMadeFromRepair(t *testing.T) {
+	o := normalizer.DefaultOptions()
+	before := madeFrom(o, "mp3", "")
+	for _, r := range []normalizer.Repair{{LowCutSteep: true}, {DeclickWindow: 40}, {Declick: 2, DeclickWindow: normalizer.DefaultDeclickWindow}} {
+		o.Repair = r
+		if r.Declick == 0 && madeFrom(o, "mp3", "") != before {
+			t.Errorf("%+v does nothing, but changed the fingerprint", r)
+		}
+	}
+	o.Repair = normalizer.Repair{Declick: 2}
+	declick := madeFrom(o, "mp3", "")
+	o.Repair.DeclickWindow = normalizer.DefaultDeclickWindow
+	if declick == before || madeFrom(o, "mp3", "") != declick {
+		t.Error("declick should change the fingerprint, its own window not")
+	}
+	o.Repair = normalizer.Repair{LowCut: 80}
+	if madeFrom(o, "mp3", "") == before {
+		t.Error("the low cut did not change the fingerprint")
+	}
+}
+
 // The noise method is in the fingerprint only when it is not the standard one, so files made before it
 // was a choice are not out of date.
 func TestMadeFromNoiseMethod(t *testing.T) {

@@ -125,7 +125,12 @@ Each can have a label, which shows on the waveform.
 - **Metadata added to the file:** title, artist and album, from the church's defaults (Settings), for this recording; a field you
   empty is left out of the files.
 - **Processing:** how the sermon is made into files, kept with the sermon (with the saved version; *Revert* brings them back too).
-  *Channels* (**Mono** or **Stereo**; stereo for a recording that is mono in effect shows a warning, with *Use mono*). *Noise*: **Noise reduction**, **Off**,
+  *Channels* (**Mono** or **Stereo**; stereo for a recording that is mono in effect shows a warning, with *Use mono*). *Clean up*,
+  before the noise: **Low cut** (off, rumble at 80 Hz, strong rumble at 120 Hz: takes out traffic, ventilation and handling
+  noise under the voice) and **Remove clicks** (off, light, normal, strong: short clicks and crackle, as from a loose cable or a
+  wireless microphone; it makes the files slower to make, about 1.5 minutes an hour). **Advanced** has the exact values: the
+  low cut's frequency (20–300 Hz) and 24 dB per octave instead of 12, the click threshold (1–20, lower finds more, but also
+  takes some speech for clicks) and window (10–100 ms, longer for longer crackle); values no choice has show as *Custom*. *Noise*: **Noise reduction**, **Off**,
   **Standard** (its strength in dB, 0 = off) or **Speech** (a model trained to keep speech: it takes out more of what is not
   speech, such as a fan or hum, but can also take out singing and make the voice thin, so listen to a sample first), and
   **Keep room sound** (how much of the room's own sound, such as its reverb, is kept: less reduction or more room sound sounds more natural).
