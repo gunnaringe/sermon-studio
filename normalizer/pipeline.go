@@ -239,6 +239,9 @@ func (p *Pipeline) stepMaster(ctx context.Context) error {
 	if p.Opt.Stereo {
 		p.checkStereo(ctx)
 	}
+	if p.Opt.NoiseMethodName() == "speech" && p.Opt.RoomSound >= 100 {
+		p.warnf("with Speech, keeping 100 %% of the room sound takes no noise out: lower it, or choose Standard")
+	}
 	var length float64
 	if p.Opt.FadeIn > 0 || p.Opt.FadeOut > 0 {
 		var err error

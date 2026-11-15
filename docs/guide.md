@@ -133,7 +133,10 @@ Each can have a label, which shows on the waveform.
   takes some speech for clicks) and window (10–100 ms, longer for longer crackle); values no choice has show as *Custom*. *Noise*: **Noise reduction**, **Off**,
   **Standard** (its strength in dB, 0 = off) or **Speech** (a model trained to keep speech: it takes out more of what is not
   speech, such as a fan or hum, but can also take out singing and make the voice thin, so listen to a sample first), and
-  **Keep room sound** (how much of the room's own sound, such as its reverb, is kept: less reduction or more room sound sounds more natural).
+  **Keep room sound** (how much of the room's own sound, such as its reverb, is kept: less reduction or more room sound sounds more natural); with Speech, 80 % or more shows a note, since at 100 % it takes nothing out). A sermon recorded very
+  quietly (its loud parts at -30 dB or lower, where -12 to -6 is usual) shows a warning above the noise choices: it is raised to
+  the target loudness, and its hiss with it, so raise the recording level at the mixer; Standard at 20 to 30 dB helps such a
+  recording.
   *Levels*: **Leveling** (off, gentle, normal, strong) and **Compression** (off, light, normal, strong). *Loudness*: the target
   (LUFS) and the true-peak ceiling. *Encoding*: the MP3 and Opus bitrates. **Hear a sample** makes 30 seconds from the playhead with
   the settings, to listen to before the whole sermon is made (cuts, pauses and fades are not applied). A recording starts with

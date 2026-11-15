@@ -80,6 +80,7 @@ export async function editorView(view, slug, config) {
     if (ed.proposed && !ed.restoring) ed.adopt();
     if (!ed.restoring) ed.recordSoon();
     ed.showDefaults();
+    ed.showQuietWarning();
     ed.check();
     ed.saveSoon();
   }
@@ -137,7 +138,7 @@ export async function editorView(view, slug, config) {
     () => ['title', 'artist', 'album'].map((k) => tags[k]).filter(Boolean).join(' · ') || t('No tags'));
   const processingStep = foldable(step('step-processing', t('Processing'), processing.processingEl),
     () => [opts.stereo ? t('Stereo') : t('Mono'), processing.defaultsNote.textContent].filter(Boolean).join(' · '),
-    () => !processing.channelWarning.hidden);
+    () => !processing.channelWarning.hidden || !processing.quietWarning.hidden);
   foldable(clips.clipsSection, () => [...clips.clipsSection.querySelectorAll('select')]
     .map((sel) => sel.getAttribute('aria-label') + ': ' + (sel.selectedOptions[0]?.textContent || '')).join(' · '));
   const deleteStep = can('recording.delete') ? foldable(step('step-delete', t('Danger zone'), inputFile.deletePanel), () => '') : '';

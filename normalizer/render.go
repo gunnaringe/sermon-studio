@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+// QuietGain is the gain (dB) above which a sermon was recorded too quietly: its hiss and the coarseness
+// of a quiet 16-bit recording are raised as much, and heard.
+const QuietGain = 30
+
 // renderMaster makes dst, the sermon with the processing of Opt, in three steps: the cut and the noise
 // and levels (the slow part) into a temporary file; the loudness of that, measured, to find the gain that
 // brings it to the target (with the compressor in between, if it is on); and the gain, the limiter and
@@ -47,6 +51,10 @@ func (p *Pipeline) renderMaster(ctx context.Context, dst string, length float64,
 	}
 	gain := math.Min(p.Opt.TargetLUFS-m.LUFS, 70)
 	p.logf("Level after noise reduction and leveling: %.1f LUFS; gain %+.1f dB to reach %g.", m.LUFS, gain, p.Opt.TargetLUFS)
+	if gain > QuietGain {
+		p.warnf("the sermon was recorded very quietly (%.0f LUFS), so it was raised %.0f dB, and its hiss with it: "+
+			"raise the recording level at the mixer", m.LUFS, gain)
+	}
 	if comp := compressionFilters[p.Opt.CompressionName()]; comp != "" {
 		squeezed := tidyName(dst, "2")
 		p.cleanup = append(p.cleanup, squeezed)
