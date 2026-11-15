@@ -17,7 +17,7 @@
 | Low cut | off | Hz below which the sound is cut (`highpass`, 12 dB/octave, or two for 24), 20–300; before the noise reduction |
 | Remove clicks | off | `adeclick` with a threshold of 1–20 (light 3, normal 2, strong 1; lower finds more) and a window of 10–100 ms (55 when not given) |
 | Noise reduction | Standard, 6 dB | Off, Standard (`afftdn`, 0 dB = off too) or Speech (`arnndn` with the speech model in `normalizer/models/`) |
-| Room sound kept | 0 % | Standard: raises the floor the noise reduction works down to; Speech: mixes that much of the sound before it back in (0 to 100) |
+| Room sound kept | 0 % | Standard: raises the floor the noise reduction works down to; Speech: mixes that much of the sound before it back in (0 to 100; at 100 it takes nothing out, and says so) |
 | Leveling | normal | off, gentle, normal, strong (`dynaudnorm`) |
 | Compression | off | off, light, normal, strong (`acompressor`, after the gain) |
 | Target loudness | -19 LUFS | |

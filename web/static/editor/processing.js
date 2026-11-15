@@ -5,12 +5,41 @@ import { t, tr } from '../i18n.js';
 import { api, q, h, forTenant } from '../util.js';
 import { SOUND_KEYS, DEFAULT_KEYS } from './common.js';
 import { repairControls, REPAIR_KEYS } from '../repair.js';
+import { SPEECH_ROOM_WARN, speechRoomNote } from '../processing.js';
 import { verdict } from './info.js';
+
+// QUIET_DB is how loud (dBFS) the loud parts of a sermon at most are when it was recorded too quietly: below it,
+// it is raised by more than normalizer.QuietGain.
+const QUIET_DB = -30;
+
+/**
+ * loudParts is how loud the loud parts of spans of the recording are, in dBFS: the 95th percentile of the
+ * waveform's peaks (the highest sample of every window), so a few loud moments do not count. null without peaks.
+ * @param {{ window: number, peaks: number[] } | undefined} data
+ * @param {[number, number][] | null} spans seconds; null for the whole recording
+ */
+export function loudParts(data, spans) {
+  if (!data || !data.peaks.length) return null;
+  const bins = new Array(101).fill(0); // the peaks have two decimals
+  let n = 0;
+  for (const [start, end] of spans || [[0, data.peaks.length * data.window]]) {
+    const to = Math.min(data.peaks.length, Math.ceil(end / data.window));
+    for (let i = Math.max(0, Math.floor(start / data.window)); i < to; i++) {
+      bins[Math.min(100, Math.round(data.peaks[i] * 100))]++;
+      n++;
+    }
+  }
+  if (!n) return null;
+  let seen = 0, bin = 0;
+  while (bin < 100 && (seen += bins[bin]) < n * 0.95) bin++;
+  return 20 * Math.log10(Math.max(bin, 0.5) / 100);
+}
 
 /** @param {import('./common.js').Editor} ed */
 export function processingPart(ed) {
   const { view, info, path, config, opts, tags, sections } = ed;
   const channelWarning = h('p', { class: 'notice', role: 'status', hidden: true });
+  const quietWarning = h('p', { class: 'notice', role: 'status', hidden: true });
   // Going back to the church's defaults, or making this processing the default (see useDefaults).
   const sameAsDefaults = () => DEFAULT_KEYS.every((k) => String(opts[k]) === String(config.defaults.start[k]));
   const defaultsNote = h('span', { class: 'muted', role: 'status' });
@@ -106,14 +135,18 @@ export function processingPart(ed) {
     const roomValue = h('output', { class: 'muted' }, `${opts.roomSound}%`);
     const room = field(t('Keep room sound'), h('span', { class: 'range' }, h('input', {
       type: 'range', name: 'roomSound', min: 0, max: 100, step: 5, value: opts.roomSound,
-      oninput: (e) => { opts.roomSound = Number(e.target.value); roomValue.textContent = `${opts.roomSound}%`; ed.changed(); },
+      oninput: (e) => { opts.roomSound = Number(e.target.value); roomValue.textContent = `${opts.roomSound}%`; showNoise(); ed.changed(); },
     }), roomValue));
+    // Speech mixes the room sound kept back in: near 100 % it keeps the noise, at 100 % all of it.
+    const roomNote = h('p', { class: 'notice', role: 'status', hidden: true });
     // The noise method: the dB are only the standard one's, the room sound not off's ('' = standard, kept out of what is saved).
     const strength = num('noiseReduction', t('Noise reduction (dB)'), 1, 0, 40);
-    const showNoise = () => {
+    function showNoise() {
       strength.hidden = opts.noiseMethod === 'speech' || opts.noiseMethod === 'off';
       room.hidden = opts.noiseMethod === 'off';
-    };
+      roomNote.hidden = !(opts.noiseMethod === 'speech' && opts.roomSound >= SPEECH_ROOM_WARN);
+      roomNote.textContent = roomNote.hidden ? '' : speechRoomNote(opts.roomSound);
+    }
     showNoise();
     const method = field(t('Noise reduction'), h('select', { name: 'noiseMethod', onchange: (e) => {
       opts.noiseMethod = e.target.value || undefined;
@@ -159,9 +192,11 @@ export function processingPart(ed) {
         hint(t('The low cut takes out rumble under the voice: traffic, ventilation, a hand on the microphone. Remove clicks takes out short clicks and crackle, as from a loose cable or a wireless microphone; it makes the files slower to make. Listen to a sample.')),
         repair.advanced),
       group(t('Noise'),
+        quietWarning,
         method,
         strength,
         room,
+        roomNote,
         hint(t('Taking out noise also takes out some of the room\'s own sound, such as its reverb. Less reduction, or more room sound kept, sounds more natural; more sounds cleaner.')),
         hint(t('Speech keeps the voice and takes out what is not speech, more than the standard one does. Listen to a sample: it can also take out singing and make the voice sound thin.'))),
       group(t('Levels'),
@@ -215,5 +250,16 @@ export function processingPart(ed) {
     channelWarning.hidden = !warn;
   }
 
-  return { metadataEl: metadataPanel(), processingEl, channelWarning, defaultsNote, redrawProcessing, showDefaults, setStereo, showChannelWarning };
+  // A sermon recorded very quietly is raised a lot, its hiss and coarseness with it (normalizer.QuietGain):
+  // said from the waveform's peaks of its sections (or the whole recording before there are any).
+  function showQuietWarning() {
+    const db = loudParts(ed.peaks, sections.length ? sections.map((x) => [x.region.start, x.region.end]) : null);
+    const warn = db !== null && db <= QUIET_DB;
+    const text = warn ? t('⚠ This sermon was recorded very quietly: its loud parts reach about {db} dB, where -12 to -6 is usual. It is raised to the target loudness, and its hiss with it. Raise the recording level at the mixer; for this recording, Standard noise reduction at 20 to 30 dB helps.', { db: Math.round(db) }) : '';
+    // Only what changed: the folded step redraws on every change in it (editor.js foldable).
+    if (quietWarning.textContent !== text) quietWarning.textContent = text;
+    if (quietWarning.hidden === warn) quietWarning.hidden = !warn;
+  }
+
+  return { metadataEl: metadataPanel(), processingEl, channelWarning, quietWarning, defaultsNote, redrawProcessing, showDefaults, setStereo, showChannelWarning, showQuietWarning };
 }

@@ -1668,6 +1668,34 @@ test('processing: speech noise reduction hides the dB, is kept with the sermon, 
   await expect.poll(() => sound()?.noiseMethod ?? null, { timeout: 15_000 }).toBeNull();
 });
 
+test('processing: a sermon recorded very quietly is warned about, and Speech keeping most of the room sound', async ({ page }) => {
+  await openEditor(page, '2026/2026-10-04');
+  await editor(page, () => window.__editor.addSection(21, 79));
+  const quiet = page.getByText('This sermon was recorded very quietly');
+  await expect(quiet).toBeHidden();
+  // The same recording, ten times (20 dB) quieter: as one recorded with the mixer turned down.
+  await editor(page, () => {
+    const ed = window.__editor;
+    ed.peaks = { ...ed.peaks, peaks: ed.peaks.peaks.map((x) => x / 10) };
+    ed.showQuietWarning();
+  });
+  await expect(quiet).toBeVisible();
+  await expect(quiet).toContainText('about -40 dB');
+
+  const note = page.getByText('of the room sound');
+  await page.locator('select[name=noiseMethod]').selectOption('speech');
+  await page.locator('input[name=roomSound]').fill('50');
+  await expect(note).toBeHidden();
+  await page.locator('input[name=roomSound]').fill('90');
+  await expect(note).toHaveText('With Speech, keeping 90 % of the room sound leaves most of the noise in.');
+  await page.locator('input[name=roomSound]').fill('100');
+  await expect(note).toContainText('takes no noise out');
+  await page.locator('section.step').nth(3).screenshot({ path: path.join(shots, 'edit-quiet-warning.png') });
+  await page.locator('select[name=noiseMethod]').selectOption('');
+  await expect(note).toBeHidden();
+  await page.locator('input[name=roomSound]').fill('0');
+});
+
 test('processing: clean up with a low cut and click removal, presets or exact values, kept with the sermon', async ({ page }) => {
   await openEditor(page, '2026/2026-10-04');
   await editor(page, () => window.__editor.addSection(10, 90));

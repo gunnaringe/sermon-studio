@@ -500,6 +500,43 @@ func TestIntegrationStereoWarnings(t *testing.T) {
 	}
 }
 
+// A sermon recorded very quietly, and Speech keeping all the room sound, are warned about.
+func TestIntegrationLevelWarnings(t *testing.T) {
+	ff := requireFFmpeg(t)
+	for _, c := range []struct {
+		name, level, method string
+		room                int
+		want, not           string
+	}{
+		{"normal", "0.2", "", 0, "", "recorded very quietly"},
+		{"quiet", "0.001", "", 0, "the sermon was recorded very quietly (", ""},
+		{"speech 100 %", "0.2", "speech", 100, "with Speech, keeping 100 % of the room sound takes no noise out", "recorded very quietly"},
+		{"speech 90 %", "0.2", "speech", 90, "", "takes no noise out"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			dir := dateFolder(t)
+			expr := c.level + "*sin(2*PI*220*t)*(0.6+0.4*sin(2*PI*3*t))"
+			if _, err := ff.Run(context.Background(), "-y", "-f", "lavfi", "-i",
+				"aevalsrc=exprs='"+expr+"':s=48000:d=20", "-c:a", "flac", filepath.Join(dir, date+"_raw.flac")); err != nil {
+				t.Fatal(err)
+			}
+			opt := DefaultOptions()
+			opt.End = 20
+			opt.NoiseMethod, opt.RoomSound = c.method, c.room
+			opt.Outputs = Outputs{Flac: true}
+			paths, _ := NewPaths(dir)
+			var out bytes.Buffer
+			if err := (&Pipeline{P: paths, Opt: opt, FF: ff, Out: &out}).Run(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			if c.want != "" && !strings.Contains(out.String(), "WARNING: "+c.want) ||
+				c.not != "" && strings.Contains(out.String(), c.not) {
+				t.Errorf("output:\n%s", out.String())
+			}
+		})
+	}
+}
+
 // The tags are written into all three outputs; with the sermon's own tags
 // cleared, an empty field removes the tag.
 func TestIntegrationTags(t *testing.T) {

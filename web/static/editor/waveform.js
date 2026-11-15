@@ -64,6 +64,8 @@ export function waveformPart(ed) {
 
   function buildWaveform(data, previewURL) {
     ed.duration = data.duration;
+    ed.peaks = data;
+    ed.showQuietWarning();
     silenceEdges = data.silences.flatMap((s) => [s.start, s.end]);
     const phone = matchMedia('(max-width: 640px)').matches; // less height, so the controls under it are in view
     const minimapEl = h('div', { id: 'minimap' });
@@ -325,7 +327,7 @@ export function waveformPart(ed) {
     cleanups.push(() => document.removeEventListener('keydown', onKey));
 
     const spans = (list) => list.map((x) => ({ start: x.region.start, end: x.region.end }));
-    window.__editor = { ws, regions, get sections() { return spans(sections); }, get cuts() { return spans(cuts); }, addSection: ed.addSection, addCut: ed.addCut, splitHere: ed.splitHere, setFade: ed.setFade, undo: ed.undo, redo: ed.redo, get selected() { return ed.selection(); }, get history() { return ed.history(); }, get fades() { return { fadeIn: opts.fadeIn, fadeOut: opts.fadeOut }; } }; // for tests and the console
+    window.__editor = { ws, regions, get sections() { return spans(sections); }, get cuts() { return spans(cuts); }, addSection: ed.addSection, addCut: ed.addCut, splitHere: ed.splitHere, setFade: ed.setFade, undo: ed.undo, redo: ed.redo, get selected() { return ed.selection(); }, get history() { return ed.history(); }, get peaks() { return ed.peaks; }, set peaks(v) { ed.peaks = v; }, showQuietWarning: () => ed.showQuietWarning(), get fades() { return { fadeIn: opts.fadeIn, fadeOut: opts.fadeOut }; } }; // for tests and the console
     cleanups.push(() => { delete window.__editor; });
   }
 

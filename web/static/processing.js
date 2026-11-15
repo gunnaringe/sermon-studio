@@ -4,6 +4,13 @@ import { api, h } from './util.js';
 import { t } from './i18n.js';
 import { repairControls } from './repair.js';
 
+// Speech mixes the room sound kept back in, so from SPEECH_ROOM_WARN % it keeps most of the noise (80 %: only
+// about 2 dB less), and at 100 % all of it: speechRoomNote says so.
+export const SPEECH_ROOM_WARN = 80;
+export const speechRoomNote = (n) => (n >= 100
+  ? t('With Speech, keeping 100 % of the room sound takes no noise out: lower it, or choose Standard.')
+  : t('With Speech, keeping {n} % of the room sound leaves most of the noise in.', { n }));
+
 export async function processingView(box, saved) {
   const { defaults } = await api('GET', 'api/config');
   const p = structuredClone(defaults.processing);
@@ -30,10 +37,14 @@ export async function processingView(box, saved) {
   // The noise method: the dB are only the standard one's, the room sound not off's ('' = standard, kept out of what is saved).
   const strength = row(t('Noise reduction (dB)'), num(p, 'noiseReduction', 1, 0, 40, t('Noise reduction (dB)')));
   const room = row(t('Keep room sound') + ' (%)', num(p, 'roomSound', 5, 0, 100, t('Keep room sound')));
-  const showNoise = () => {
+  room.addEventListener('input', () => showNoise());
+  const roomNote = h('p', { class: 'notice', role: 'status', hidden: true });
+  function showNoise() {
     strength.hidden = p.noiseMethod === 'speech' || p.noiseMethod === 'off';
     room.hidden = p.noiseMethod === 'off';
-  };
+    roomNote.hidden = !(p.noiseMethod === 'speech' && p.roomSound >= SPEECH_ROOM_WARN);
+    roomNote.textContent = roomNote.hidden ? '' : speechRoomNote(p.roomSound);
+  }
   showNoise();
   const method = row(t('Noise reduction'), h('select', { name: 'noiseMethod', onchange: (e) => {
     p.noiseMethod = e.target.value || undefined;
@@ -69,6 +80,7 @@ export async function processingView(box, saved) {
       method,
       strength,
       room,
+      roomNote,
       choice('leveling', t('Leveling'), strengths(['gentle', t('Gentle')])),
       choice('compression', t('Compression'), strengths(['light', t('compression|Light')])),
       pair(t('Target loudness (LUFS)'), (o, label) => num(o, 'targetLufs', 0.5, -70, -5, label)),

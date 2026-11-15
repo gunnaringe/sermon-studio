@@ -242,6 +242,7 @@ export function sectionsPart(ed) {
     const pauses = ed.activePauses();
     const what = [parts, cuts.length ? tn(cuts.length, '{n} cut', '{n} cuts') : '', pauses.length ? tn(pauses.length, '{n} pause', '{n} pauses') : ''].filter(Boolean).join(' ' + t('and') + ' ');
     lengthOut.textContent = sections.length ? t('Length {time}', { time: formatTime(ed.keptLength() + pauses.reduce((n, p) => n + p.seconds, 0), 1) }) + (what ? ` (${what})` : '') : '';
+    ed.showQuietWarning();
   }
 
   // ---- the first section: a recording not cut yet opens with the sermon set to all of it but the

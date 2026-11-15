@@ -35,6 +35,7 @@ export const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.
  * @property {import('../vendor/wavesurfer/wavesurfer.esm.js').default} ws the waveform, once it is there
  * @property {import('../vendor/wavesurfer/plugins/regions.esm.js').default} regions the waveform's regions: sections, cuts, silences, pauses
  * @property {number} duration the recording's length, in seconds, once the waveform is there
+ * @property {{ window: number, peaks: number[] }} [peaks] the waveform's peaks (api/peaks), once it is there
  * @property {Span[]} sections the parts of the recording that are the sermon, in time order
  * @property {Span[]} cuts the parts cut out of the sections, in time order
  * @property {{ saved: any, adjusted: any, savedAt?: string }} sermon the kept versions of the edit (sermon.json)
@@ -108,6 +109,7 @@ export const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.
  * @property {() => void} renderOutputs
  * @property {() => Promise<void>} refreshInfo read the folder again
  * @property {() => void} showChannelWarning
+ * @property {() => void} showQuietWarning say when the sermon was recorded too quietly
  * @property {() => void} redrawProcessing show the processing choices again, after they were set from outside
  * @property {() => void} showDefaults
  * @property {() => Record<string, string>} clipChoices
