@@ -8,8 +8,8 @@ type Options struct {
 	TargetLUFS     float64 // mono: -19, stereo: -16
 	TruePeak       float64
 	NoiseReduction int // afftdn nr in dB; 0 = off (with the standard method)
-	// NoiseMethod is how noise is taken out: one of NoiseMethods ("" = standard). "speech" is always
-	// on, and NoiseReduction does not apply to it.
+	// NoiseMethod is how noise is taken out: one of NoiseMethods ("" = standard). With "off" and
+	// "speech", NoiseReduction does not apply; with "off", RoomSound neither.
 	NoiseMethod string
 	// RoomSound is how much of the room's own sound (reverb, ambience) is kept when noise is taken
 	// out, 0 to 100: it raises the floor the noise reduction works down to (standard), or mixes that

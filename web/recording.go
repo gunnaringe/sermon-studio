@@ -248,6 +248,10 @@ func (s *Server) lookAt(ctx context.Context, raw string) error {
 // It does not depend on which other outputs a run makes.
 // clips is runClips.key for the main outputs of a run with clips, else "".
 func madeFrom(o normalizer.Options, format, clips string) string {
+	nr, room := o.NoiseReduction, o.RoomSound
+	if o.NoiseMethodName() == "off" { // they do nothing then
+		nr, room = 0, 0
+	}
 	v := struct {
 		Start, End, FadeIn, FadeOut float64
 		Cuts                        []normalizer.Span
@@ -261,7 +265,7 @@ func madeFrom(o normalizer.Options, format, clips string) string {
 		Tags                        normalizer.Tags
 		Format, Bitrate             string
 		Clips                       string `json:",omitempty"` // omitted without clips: older fingerprints stay as they were
-	}{o.Start, o.End, o.FadeIn, o.FadeOut, o.Cuts, o.Pauses, o.Stereo, o.NoiseReduction, noiseMethodKey(o), o.RoomSound, o.LevelingName(), o.CompressionName(), o.TargetLUFS, o.TruePeak, o.Tags, format, bitrateFor(o, format), clips}
+	}{o.Start, o.End, o.FadeIn, o.FadeOut, o.Cuts, o.Pauses, o.Stereo, nr, noiseMethodKey(o), room, o.LevelingName(), o.CompressionName(), o.TargetLUFS, o.TruePeak, o.Tags, format, bitrateFor(o, format), clips}
 	data, _ := json.Marshal(v)
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:8])

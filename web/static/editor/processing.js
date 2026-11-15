@@ -106,15 +106,19 @@ export function processingPart(ed) {
       type: 'range', name: 'roomSound', min: 0, max: 100, step: 5, value: opts.roomSound,
       oninput: (e) => { opts.roomSound = Number(e.target.value); roomValue.textContent = `${opts.roomSound}%`; ed.changed(); },
     }), roomValue));
-    // The noise method: the dB are only the standard one's ('' = standard, kept out of what is saved).
+    // The noise method: the dB are only the standard one's, the room sound not off's ('' = standard, kept out of what is saved).
     const strength = num('noiseReduction', t('Noise reduction (dB)'), 1, 0, 40);
-    strength.hidden = opts.noiseMethod === 'speech';
+    const showNoise = () => {
+      strength.hidden = opts.noiseMethod === 'speech' || opts.noiseMethod === 'off';
+      room.hidden = opts.noiseMethod === 'off';
+    };
+    showNoise();
     const method = field(t('Noise reduction'), h('select', { name: 'noiseMethod', onchange: (e) => {
       opts.noiseMethod = e.target.value || undefined;
-      strength.hidden = e.target.value === 'speech';
+      showNoise();
       ed.changed();
-    } }, h('option', { value: '', selected: opts.noiseMethod !== 'speech' }, t('noise|Standard')),
-    h('option', { value: 'speech', selected: opts.noiseMethod === 'speech' }, t('noise|Speech'))));
+    } }, [['off', t('noise|Off')], ['', t('noise|Standard')], ['speech', t('noise|Speech')]].map(([value, label]) =>
+      h('option', { value, selected: (opts.noiseMethod || '') === value }, label))));
     const strengths = (off, a, b, c) => [['off', off], ['gentle', a], ['normal', b], ['strong', c]];
 
     const sample = h('audio', { class: 'player', controls: true, hidden: true, 'aria-label': t('The sample') });

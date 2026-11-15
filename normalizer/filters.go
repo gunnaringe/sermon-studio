@@ -70,13 +70,15 @@ func (p *Pipeline) tidyFilter() (string, error) {
 	// of the chain works on the channels that get published. A mono recording
 	// made stereo is the same signal on both sides.
 	f := []string{"aformat=channel_layouts=" + p.Opt.Channels()}
-	if p.Opt.NoiseMethodName() == "speech" {
+	switch {
+	case p.Opt.NoiseMethodName() == "off":
+	case p.Opt.NoiseMethodName() == "speech":
 		speech, err := p.speechFilter()
 		if err != nil {
 			return "", err
 		}
 		f = append(f, speech)
-	} else if p.Opt.NoiseReduction > 0 {
+	case p.Opt.NoiseReduction > 0:
 		nr := fmt.Sprintf("afftdn=nr=%d", p.Opt.NoiseReduction)
 		if p.Opt.RoomSound > 0 {
 			nr += fmt.Sprintf(":rf=%.1f", -38+0.18*float64(p.Opt.RoomSound)) // the default floor is -38 dB
