@@ -1,10 +1,8 @@
 package web
 
 import (
-	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -92,7 +90,7 @@ func (w *inboxWatcher) scan() {
 // ingest moves a recording from the inbox into its date folder as
 // <date>_raw.<ext> and starts the FLAC conversion and the waveform there. The
 // date is guessed (see suggestDate). If the date already has a raw recording
-// the folder becomes "<date> 2", "<date> 3"... until a named sermon renames it.
+// the folder becomes "<date> 2", "<date> 3"... (see freeRawFolder) until it is given a name.
 // The inbox may be on another disk: MoveFile then copies, verifies and
 // deletes, so keep them on one if recordings are long.
 func (s *Server) ingest(name string) error {
@@ -115,19 +113,9 @@ func (s *Server) ingest(name string) error {
 	}
 	s.wait(name, 0, true)
 	date, _ := s.suggestDate(s.ctx, src, info.ModTime())
-	var folder string
-	for n := 1; ; n++ {
-		suffix := ""
-		if n > 1 {
-			suffix = strconv.Itoa(n)
-		}
-		var status int
-		if folder, status, err = s.newRawFolder(date, suffix); err == nil {
-			break
-		}
-		if status != http.StatusConflict || n >= 20 {
-			return err
-		}
+	folder, _, err := s.freeRawFolder(date)
+	if err != nil {
+		return err
 	}
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		return err

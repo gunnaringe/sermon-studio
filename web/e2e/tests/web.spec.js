@@ -656,10 +656,6 @@ test('upload straight into a new date folder, in chunks', async ({ page }) => {
   await page.screenshot({ path: path.join(shots, 'folders-new.png') });
   await page.reload();
   await expect(recent.locator('tr', { hasText: '2026-09-27' })).toBeVisible();
-  // The date now has a recording: a second upload to it is refused.
-  await page.locator('input[type=file]').setInputFiles({ name: 'again 2026-09-27.flac', mimeType: 'audio/flac', buffer: Buffer.from('x') });
-  await page.getByRole('button', { name: 'Upload' }).click();
-  await expect(page.getByText('already has a raw recording')).toBeVisible();
 });
 
 test('inbox: a recording lands in its date folder by itself', async ({ page }) => {
@@ -758,7 +754,7 @@ test('settings: default tags are saved and used on the sermon page', async ({ pa
   await expect(page.locator('input[name=artist]')).toHaveValue('Norkirken Melhus');
 });
 
-test('two sermons the same day: upload with a name, then rename', async ({ page }) => {
+test('two sermons the same day: the second gets 2, then a name', async ({ page }) => {
   await page.goto('c/first-church/');
   await page.screenshot({ path: path.join(shots, 'folders-upload.png') });
   await page.locator('input[type=file]').setInputFiles(path.join(DATA, 'upload.flac'));
@@ -770,12 +766,9 @@ test('two sermons the same day: upload with a name, then rename', async ({ page 
   await page.goto('c/first-church/');
   await page.locator('input[type=file]').setInputFiles(path.join(DATA, 'upload.flac'));
   await page.locator('input[name=date]').fill('2026-11-01');
-  await page.getByRole('button', { name: 'Upload' }).click();
-  await expect(page.getByText('give this one a name')).toBeVisible();
-  await page.locator('input[aria-label=Name]').fill('Kveld');
-  await page.getByRole('button', { name: 'Upload' }).click();
-  await expect(page).toHaveURL(/\/c\/first-church\/recordings\/2026-11-01-kveld\/edit$/);
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('2026-11-01 Kveld');
+  await page.getByRole('button', { name: 'Upload' }).click(); // no name: the date has one, so it is 2026-11-01 2
+  await expect(page).toHaveURL(/\/c\/first-church\/recordings\/2026-11-01-2\/edit$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('2026-11-01 2');
 
   await expect(page.locator('#waveform')).toBeVisible({ timeout: 30_000 }); // prepared: it can be renamed
   await page.getByRole('button', { name: 'Rename…' }).click();

@@ -19,16 +19,20 @@ import (
 // (Cloudflare's is 100 MB) and lets a broken upload continue where it was.
 const MaxChunk = 64 << 20
 
-// uploadStale is how long an unfinished upload blocks a new one to the
-// same date.
+// uploadStale is how long an unfinished upload keeps its folder: a new
+// recording without a name takes the next one of the date meanwhile.
 const uploadStale = 2 * time.Minute
 
 // handleUpload receives one chunk of a recording uploaded straight into its
-// date folder (no inbox needed; "sermon" names a second sermon of the day):
+// date folder (no inbox needed; "sermon" names the recording):
 //
 //	POST api/upload?date=2026-10-04[&sermon=Evening]&name=x.wav&size=<total>&offset=<n>&modified=<ms>
 //
-// with the bytes from offset n as the body. Chunks are appended to a hidden
+// with the bytes from offset n as the body. Without a name, an empty first
+// chunk claims the first free folder of the date (<date>, <date> 2...: see
+// freeRawFolder); every answer says which as "sermon", and the client sends
+// the file with that name. (A claim asked again, its answer lost, gets the
+// same folder: an empty upload is not one coming in.) Chunks are appended to a hidden
 // file in the date folder; a chunk at the wrong offset gets 409 with the
 // offset to continue from. The last chunk renames it to <folder>_raw.<ext>
 // and starts the FLAC conversion (for a WAV) and the waveform right away,
@@ -52,7 +56,13 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	folder, status, err := s.newRawFolder(date, sermon)
+	var folder string
+	var status int
+	if sermon == "" && offset == 0 && r.ContentLength == 0 {
+		folder, status, err = s.freeRawFolder(date)
+	} else {
+		folder, status, err = s.newRawFolder(date, sermon)
+	}
 	if err != nil {
 		writeError(w, status, err)
 		return
@@ -64,17 +74,18 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	ext := strings.ToLower(filepath.Ext(name))
 	base := filepath.Base(folder) // <date> or <date> <name>
 	final := filepath.Join(folder, base+"_raw"+ext)
-	tmp := filepath.Join(folder, "."+base+"_raw.upload") // one per sermon, whatever the format
+	tmp := uploadTmp(folder)
+	sermon = strings.TrimPrefix(strings.TrimPrefix(base, date), " ") // "" or the name, maybe one freeRawFolder gave
 
 	conflict := func(msg string, at int64) {
-		writeJSON(w, http.StatusConflict, map[string]any{"error": msg, "offset": at})
+		writeJSON(w, http.StatusConflict, map[string]any{"error": msg, "offset": at, "sermon": sermon})
 	}
 	st, statErr := os.Stat(tmp)
 	flag := os.O_WRONLY | os.O_APPEND
 	switch {
 	case offset == 0:
-		if statErr == nil && st.Size() > 0 && time.Since(st.ModTime()) < uploadStale {
-			conflict("another upload to "+date+" is in progress", st.Size())
+		if statErr == nil && uploadComing(folder) {
+			conflict("another upload to "+base+" is in progress", st.Size())
 			return
 		}
 		flag |= os.O_CREATE | os.O_TRUNC
@@ -116,7 +127,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if offset+n < size {
-		writeJSON(w, http.StatusOK, map[string]any{"offset": offset + n})
+		writeJSON(w, http.StatusOK, map[string]any{"offset": offset + n, "sermon": sermon})
 		return
 	}
 
@@ -140,5 +151,5 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	s.markImported(folder, name)
 	s.cfg.Logger.Printf("upload: received %s as %s", name, s.relPath(final))
 	s.analyses.state(final, true)
-	writeJSON(w, http.StatusCreated, map[string]any{"offset": size, "path": s.relPath(folder), "slug": slugOf(filepath.Base(folder))})
+	writeJSON(w, http.StatusCreated, map[string]any{"offset": size, "path": s.relPath(folder), "slug": slugOf(base), "sermon": sermon})
 }

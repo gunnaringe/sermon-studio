@@ -292,7 +292,7 @@ func chunkNamed(t *testing.T, ts *testServer, date, sermon, file, data string) *
 func TestUploadInChunks(t *testing.T) {
 	ts := newTestServer(t, normalizer.FFmpeg{})
 	recorded := time.Date(2026, 10, 4, 11, 30, 0, 0, time.Local)
-	if rec := chunk(t, ts, "2026-10-04", "ZOOM0001.WAV", 8, 0, "abc", recorded); rec.Code != http.StatusOK || decode[map[string]int64](t, rec)["offset"] != 3 {
+	if rec := chunk(t, ts, "2026-10-04", "ZOOM0001.WAV", 8, 0, "abc", recorded); rec.Code != http.StatusOK || decode[map[string]any](t, rec)["offset"] != 3.0 {
 		t.Fatalf("first chunk: %d %s", rec.Code, rec.Body)
 	}
 	// A chunk at the wrong offset is told where to continue; a second
@@ -339,6 +339,50 @@ func TestUploadInChunks(t *testing.T) {
 	chunk(t, ts, "2026-10-06", "b.flac", 6, 0, "abc", time.Time{})
 	if rec := chunk(t, ts, "2026-10-06", "b.flac", 6, 3, "def", time.Time{}); rec.Code != http.StatusCreated {
 		t.Errorf("resume: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// upload sends one chunk of a recording with a name ("" for none); an empty data claims a folder.
+func upload(t *testing.T, ts *testServer, sermon, name string, size, offset int64, data string) (int, map[string]any) {
+	t.Helper()
+	u := fmt.Sprintf("/api/upload?date=2026-10-04&sermon=%s&name=%s&size=%d&offset=%d", url.QueryEscape(sermon), name, size, offset)
+	rec := httptest.NewRecorder()
+	ts.h.ServeHTTP(rec, httptest.NewRequest("POST", u, strings.NewReader(data)))
+	return rec.Code, decode[map[string]any](t, rec)
+}
+
+func TestUploadSameDayWithoutName(t *testing.T) {
+	ts := newTestServer(t, normalizer.FFmpeg{})
+	ts.file(t, "2026/2026-10-04/2026-10-04_raw.flac", "x")
+	// An empty first chunk claims the next free folder; asked again (the answer lost), it gets the same.
+	for range 2 {
+		if c, got := upload(t, ts, "", "a.wav", 6, 0, ""); c != http.StatusOK || got["sermon"] != "2" || got["offset"] != 0.0 {
+			t.Fatalf("claim: %d %v", c, got)
+		}
+	}
+	if c, got := upload(t, ts, "2", "a.wav", 6, 0, "abc"); c != http.StatusOK || got["offset"] != 3.0 {
+		t.Fatalf("first chunk: %d %v", c, got)
+	}
+	// Its answer lost, the chunk sent again is told where to continue, as before.
+	if c, got := upload(t, ts, "2", "a.wav", 6, 0, "abc"); c != http.StatusConflict || got["offset"] != 3.0 {
+		t.Errorf("first chunk again: %d %v", c, got)
+	}
+	// Another one meanwhile goes past 2, which has an upload coming in.
+	if c, got := upload(t, ts, "", "b.flac", 2, 0, ""); c != http.StatusOK || got["sermon"] != "3" {
+		t.Fatalf("second claim: %d %v", c, got)
+	}
+	if c, got := upload(t, ts, "3", "b.flac", 2, 0, "bb"); c != http.StatusCreated || got["path"] != "2026/2026-10-04 3" || got["slug"] != "2026-10-04-3" {
+		t.Errorf("the third of the day: %d %v", c, got)
+	}
+	if c, got := upload(t, ts, "2", "a.wav", 6, 3, "def"); c != http.StatusCreated || got["path"] != "2026/2026-10-04 2" {
+		t.Errorf("the rest of the second: %d %v", c, got)
+	}
+	if b, _ := os.ReadFile(filepath.Join(ts.root, "2026", "2026-10-04 2", "2026-10-04 2_raw.wav")); string(b) != "abcdef" {
+		t.Errorf("the second is %q", b)
+	}
+	// A whole file at once without a claim (as an older page sends it) is refused, as before.
+	if c, _ := upload(t, ts, "", "c.flac", 1, 0, "c"); c != http.StatusConflict {
+		t.Errorf("unnamed, no claim: %d", c)
 	}
 }
 

@@ -166,10 +166,10 @@ Each can have a label, which shows on the waveform.
   Uploads are sent in chunks, so they pass proxies that limit request size (Cloudflare: 100 MB)
   and continue after a dropped connection. No inbox needed.
 - **Names:** a recording can have a name (upload form, optional), e.g. for two sermons a day. Its folder is
-  `<year>/<date> <name>` and its files `<date> <name>_raw.flac`, `<date> <name>.mp3`... Without a name
-  a date can hold one sermon. The pencil beside the title of a sermon's page (**Rename…**) changes its date or name (the folder and
-  the files named after it, also in `original/`; files already made keep their tags). A recording
-  from the inbox that finds its date taken lands in `<date> 2`; rename it.
+  `<year>/<date> <name>` and its files `<date> <name>_raw.flac`, `<date> <name>.mp3`... A recording without
+  a name, uploaded or from the inbox, on a date that has one already gets the next number: `<date> 2`,
+  `<date> 3`... (up to 20 a day). The pencil beside the title of a sermon's page (**Rename…**) changes its date or name (the folder and
+  the files named after it, also in `original/`; files already made keep their tags).
 - **Delete and the trash:** **Danger zone** at the end of a recording's edit page. *Delete recording…* (after a confirmation) moves
   its whole folder, with its files and the original, into the church's trash; nothing is removed yet. **Settings → Trash** lists what is there, how long it has
   left (30 days, `--trash-days`), and has *Restore* (back where it was, unless that date has a recording again) and
