@@ -87,6 +87,7 @@ const (
 type mirror struct {
 	blob   Blob
 	root   string // the data dir, as an absolute, real path
+	alias  string // the data dir as given (absolute), when that is another path for it
 	local  []string
 	logger *log.Logger
 	ctx    context.Context
@@ -124,19 +125,34 @@ func mirrorFor(path string) *mirror {
 	mirrorsMu.RLock()
 	defer mirrorsMu.RUnlock()
 	for _, m := range mirrors {
-		if path == m.root || strings.HasPrefix(path, m.root+string(filepath.Separator)) {
+		if under(m.norm(path), m.root) {
 			return m
 		}
 	}
 	return nil
 }
 
+// under tells whether path is dir or in it.
+func under(path, dir string) bool {
+	return path == dir || strings.HasPrefix(path, dir+string(filepath.Separator))
+}
+
+// norm is path with the data dir as the mirror has it: the app names it both as given and resolved (the
+// servers' roots; on Windows a temporary folder's short name becomes the long one, elsewhere a symlink).
+func (m *mirror) norm(path string) string {
+	if m.alias != "" && under(path, m.alias) {
+		return m.root + path[len(m.alias):]
+	}
+	return path
+}
+
 // startMirror takes the bucket's lease, goes on with what the journal has left, and starts the sweep. local are
 // folders under the data dir that stay on this machine (the cache, the models).
 func startMirror(b Blob, dataDir string, local []string, logger *log.Logger, lost func(error)) (*mirror, error) {
-	root, err := filepath.Abs(dataDir)
+	abs, err := filepath.Abs(dataDir)
+	root := abs
 	if err == nil {
-		root, err = filepath.EvalSymlinks(root)
+		root, err = filepath.EvalSymlinks(abs)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("data dir: %w", err)
@@ -144,7 +160,7 @@ func startMirror(b Blob, dataDir string, local []string, logger *log.Logger, los
 	if err := os.MkdirAll(filepath.Join(root, mirrorDir), 0o700); err != nil {
 		return nil, err
 	}
-	m := &mirror{blob: b, root: root, logger: logger, drafts: map[string]time.Time{}, kick: make(chan struct{}, 1),
+	m := &mirror{blob: b, root: root, alias: abs, logger: logger, drafts: map[string]time.Time{}, kick: make(chan struct{}, 1),
 		swept: make(chan struct{})}
 	for _, l := range local {
 		if abs, err := filepath.Abs(l); err == nil {
@@ -153,6 +169,9 @@ func startMirror(b Blob, dataDir string, local []string, logger *log.Logger, los
 			}
 			m.local = append(m.local, abs)
 		}
+	}
+	if m.alias == m.root {
+		m.alias = ""
 	}
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 	if m.lease, err = takeLease(m.ctx, b, root, logger, lost); err != nil {
@@ -189,12 +208,13 @@ func (m *mirror) close() {
 
 // key is the bucket's key of a path, and whether the path goes to the bucket at all.
 func (m *mirror) key(path string) (string, bool) {
+	path = m.norm(path)
 	rel, err := filepath.Rel(m.root, path)
 	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
 		return "", false
 	}
 	for _, l := range m.local {
-		if path == l || strings.HasPrefix(path, l+string(filepath.Separator)) {
+		if under(path, l) {
 			return "", false
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"iter"
 	"log"
 	"net/url"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -414,3 +415,35 @@ func TestNoMirror(t *testing.T) {
 }
 
 func newTestLogger(t *testing.T) *log.Logger { return log.New(testLog{t}, "", 0) }
+
+// The data dir by another name (a symlink here; on Windows a temporary folder's short name): the app names its
+// files both ways, and both reach the bucket.
+func TestMirrorDataDirAlias(t *testing.T) {
+	b := newFakeBlob()
+	real := t.TempDir()
+	os.MkdirAll(filepath.Join(real, "kirke", "Taler"), 0o755)
+	data := filepath.Join(t.TempDir(), "data")
+	if err := os.Symlink(real, data); err != nil {
+		t.Skip(err)
+	}
+	a, err := NewApp(AppConfig{Base: Config{CacheDir: t.TempDir(), Logger: newTestLogger(t)}, DataDir: data, Blob: b,
+		Share: &ShareOptions{URL: "https://up.example/"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if w := do(a.Handler(), "POST", "/api/shares", `{"label":"Sound desk","allTypes":true}`); w.Code != http.StatusCreated {
+		t.Fatalf("share: %d %s", w.Code, w.Body)
+	}
+	if !strings.Contains(b.text("kirke/shares.json"), "Sound desk") {
+		t.Errorf("shares.json not in the bucket: %v", b.keys())
+	}
+	file := filepath.Join(real, "kirke", "Taler", "2026-10-18", "2026-10-18.mp3")
+	os.MkdirAll(filepath.Dir(file), 0o755)
+	os.WriteFile(file+".partial", []byte("mp3"), 0o644)
+	normalizer.Rename(file+".partial", file)
+	settleMirror(t, a)
+	if b.text("kirke/Taler/2026-10-18/2026-10-18.mp3") != "mp3" {
+		t.Errorf("the file made by its real path: %v", b.keys())
+	}
+}
