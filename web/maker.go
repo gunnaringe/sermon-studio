@@ -56,7 +56,7 @@ func (m *maker) add(o makeOrder) {
 	} else {
 		m.queue = append(m.queue, o)
 	}
-	if !m.running {
+	if !m.running && m.s.ctx.Err() == nil {
 		m.running = true
 		m.s.background(m.work)
 	}
@@ -249,6 +249,9 @@ func (s *Server) scanToMake() {
 	}
 	s.cfg.Logger.Printf("%d recordings have files to make: queued", len(found))
 	for _, f := range found {
+		if s.ctx.Err() != nil {
+			return // closing
+		}
 		s.maker.add(makeOrder{folder: f})
 	}
 }

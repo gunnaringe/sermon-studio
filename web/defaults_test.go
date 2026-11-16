@@ -60,13 +60,19 @@ func fingerprintsOf(t *testing.T, ts *testServer, folder string, q runRequest) m
 
 // changeDefaults changes every church default a sermon could take.
 func changeDefaults(ts *testServer) {
-	ts.clips.lib.Intro = "ba9876543210"
 	pause := 2.0
+	ts.clips.mu.Lock()
+	ts.clips.lib.Intro = "ba9876543210"
 	ts.clips.lib.Pause = &pause
+	ts.clips.mu.Unlock()
+	ts.meta.mu.Lock()
 	ts.meta.meta = Meta{Title: "Preken {dd}.{mm}.", Artist: "Andre"}
+	ts.meta.mu.Unlock()
 	p := builtinProcessing()
 	p.NoiseReduction = 17
+	ts.proc.mu.Lock()
 	ts.proc.proc = &p
+	ts.proc.mu.Unlock()
 }
 
 // Save keeps the church's defaults with the sermon: the clips they are, the tags, the pause and the sound.

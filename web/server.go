@@ -158,7 +158,13 @@ func New(cfg Config) (*Server, error) {
 	s.transcriptsFailed = map[string]*transcriptFailed{}
 	s.jobs = newJobs(s)
 	s.maker = newMaker(s)
-	s.background(s.scanToMake) // what a restart stopped, or a Save before the files were made by themselves
+	// What a restart stopped, or a Save before the files were made by themselves. Only reading: not busy
+	// (the runs it queues are); Close waits for it.
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.scanToMake()
+	}()
 	s.analyses = newAnalyses(s)
 	if cfg.Inbox != "" {
 		s.inbox = newInboxWatcher(s)
