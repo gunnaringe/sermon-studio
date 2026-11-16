@@ -14,7 +14,8 @@ import (
 
 // Keeping the disk to what is used (#86): with object storage, a recording's file not used for DiskOptions.KeepFor
 // is taken off the disk and kept only in the bucket (evict, fetch.go), and with DiskOptions.Size the disk holds
-// at most that much of the recordings' files: the ones used longest ago go first. Used is when the file was last
+// at most that much of the recordings' files (not their JSON, which always stays): the ones used longest ago go
+// first. Used is when the file was last
 // made, fetched, or read by the studio (a run, an analysis, a sample, a transcript, a download from the disk);
 // listening to or downloading one only in the bucket does not fetch it (bucketLink). The times are kept in
 // .blob/used.json, by key; a file not there counts from its own time.
@@ -156,7 +157,7 @@ func (a *App) keepDiskOnce(now time.Time, opt DiskOptions) {
 		for _, e := range s.allRecordings() {
 			folder := filepath.Join(s.root, filepath.FromSlash(e.Path))
 			for rel, r := range readState(folder).Files {
-				if r.Bucket {
+				if r.Bucket || strings.HasSuffix(rel, ".json") { // a JSON file stays, and does not count
 					continue
 				}
 				key, ok := m.key(filepath.Join(folder, filepath.FromSlash(rel)))

@@ -45,12 +45,12 @@ the file comes from the bucket, the studio does not see the download going on. A
 before, as the page reads it with `fetch`.
 
 A file leaves the disk only once the record has it as it is now and the bucket has it as uploaded after its last
-change, with nothing for it waiting in the journal and no work going on in its recording. The JSON files, drafts and
-the cache always stay on the disk; so far so do the churches' clips and logos, which have no files record yet.
+change, with nothing for it waiting in the journal and no work going on in its recording. Every JSON file (a
+transcript's too), drafts and the cache always stay on the disk; so far so do the churches' clips and logos, which have no files record yet.
 
 **When a file leaves the disk:** when it has not been used for `--blob-keep-days` (30 by default; 0 keeps them), and,
-with `--blob-cache-size`, while the recordings' files on the disk take more than that, the ones used longest ago
-first. Used is when it was last made, fetched, or read by the studio: a run, an analysis, a sample, a transcript, a
+with `--blob-cache-size`, while the recordings' files on the disk (not their JSON) take more than that, the ones used
+longest ago first. Used is when it was last made, fetched, or read by the studio: a run, an analysis, a sample, a transcript, a
 download from the disk. A rename is not a use, and listening to or downloading a file only in the bucket does not
 fetch it. The times are kept in `<data-dir>/.blob/used.json`; a file not there counts from its own time. The studio
 looks at start (after its first sweep) and every hour, and logs what it took off. A church's storage and quota count

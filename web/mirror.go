@@ -673,9 +673,13 @@ func (m *mirror) sweep() error {
 	}
 	only := 0
 	for k := range have {
-		if !seen[k] && k != leaseKey && !strings.HasPrefix(k, "_check-") {
-			only++
+		if seen[k] || k == leaseKey || strings.HasPrefix(k, "_check-") {
+			continue
 		}
+		if _, _, _, kept := recorded(m.path(k)); kept {
+			continue // taken off the disk on purpose (evict)
+		}
+		only++
 	}
 	if uploads > 0 || only > 0 {
 		m.logger.Printf("storage: sweep: %d files put in the bucket; %d objects are only in the bucket (kept)", uploads, only)
@@ -764,7 +768,9 @@ func (m *mirror) restoreIfEmpty() error {
 		}
 		states = append(states, key)
 		for rel := range readState(filepath.Dir(m.path(key))).Files {
-			recorded[path.Dir(key)+"/"+rel] = true
+			if !strings.HasSuffix(rel, ".json") { // a JSON file is always on the disk (a transcript's)
+				recorded[path.Dir(key)+"/"+rel] = true
+			}
 		}
 	}
 	var n int
@@ -817,7 +823,7 @@ func (m *mirror) markInBucket(folder, prefix string, objects map[string]BlobInfo
 	}
 	for rel, r := range files {
 		if _, err := os.Lstat(filepath.Join(folder, filepath.FromSlash(rel))); err == nil {
-			continue // fetched (it was not recorded when its record was read)
+			continue // fetched: a JSON file, or one not recorded when its record was read
 		}
 		if o, ok := objects[prefix+"/"+rel]; !ok || o.Size != r.Size {
 			m.logger.Printf("storage: %s/%s is in its record but not in the bucket", prefix, rel)

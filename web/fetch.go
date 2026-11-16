@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 // input, a copy, a rename; fetchFor before the studio serves one), checked against its SHA-256. Removing it
 // (normalizer.Remove, normalizer.Forget) removes it from the bucket and the record. evict is the way a file
 // leaves the disk; it is never removed with normalizer.Remove, which would remove it from the bucket too.
-// Only a recording's files are kept so; a recording.json, a draft, the church's files and the cache never.
+// Only a recording's files are kept so, and never a JSON file (a transcript), a draft, the church's files or the cache.
 
 func init() {
 	normalizer.Elsewhere = elsewhereFiles
@@ -275,7 +276,7 @@ func (s *Server) evict(ctx context.Context, folder, rel string) error {
 		return fmt.Errorf("%w: no bucket", errNotEvicted)
 	}
 	key, ok := m.key(p)
-	if !ok {
+	if !ok || strings.HasSuffix(rel, ".json") { // a JSON file (a transcript) is read as it is, always on the disk
 		return fmt.Errorf("%w: %s stays on the disk", errNotEvicted, rel)
 	}
 	r, ok := readState(folder).Files[rel]

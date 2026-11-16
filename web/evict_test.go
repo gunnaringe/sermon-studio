@@ -42,6 +42,8 @@ func (ft *fetchTest) onDisk(rel string) bool {
 func TestKeepDisk(t *testing.T) {
 	ft := newFetchTest(t)
 	now := time.Now()
+	ft.put("2026-10-18.transcript.json", `{"segments":[]}`) // a JSON file stays on the disk, however old
+	ft.srv.syncFiles(ft.folder)
 	ft.made(now.Add(-60 * testDay))
 	ft.usedAt("original/2026-10-18_raw.flac", now.Add(-40*testDay))
 	ft.usedAt("2026-10-18.mp3", now.Add(-2*testDay))
@@ -49,6 +51,9 @@ func TestKeepDisk(t *testing.T) {
 	before, _ := ft.srv.storageNow()
 
 	ft.app.keepDiskOnce(now, DiskOptions{KeepFor: 30 * testDay})
+	if !ft.onDisk("2026-10-18.transcript.json") {
+		t.Error("the transcript's JSON taken off the disk")
+	}
 	if ft.onDisk("original/2026-10-18_raw.flac") || !ft.onDisk("2026-10-18.mp3") {
 		t.Errorf("after 30 days: original %v, mp3 %v", ft.onDisk("original/2026-10-18_raw.flac"), ft.onDisk("2026-10-18.mp3"))
 	}
@@ -153,7 +158,8 @@ func TestKeepDiskRuns(t *testing.T) {
 func TestRestore(t *testing.T) {
 	b := newFakeBlob()
 	modified := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
-	files := map[string]string{"original/2026-10-18_raw.flac": "the original", "2026-10-18.mp3": "ID3 mp3"}
+	files := map[string]string{"original/2026-10-18_raw.flac": "the original", "2026-10-18.mp3": "ID3 mp3",
+		"2026-10-18.transcript.json": `{"segments":[]}`}
 	record := map[string]fileRecord{"2026-10-18.opus": {Size: 4, Modified: modified, SHA256: sha("lost")}}
 	for rel, data := range files {
 		b.store("kirke/Taler/2026/2026-10-18/"+rel, []byte(data), nil)
@@ -176,8 +182,9 @@ func TestRestore(t *testing.T) {
 	a := open(data)
 	folder := filepath.Join(data, "kirke", "Taler", "2026", "2026-10-18")
 	for rel := range files {
-		if _, err := os.Stat(filepath.Join(folder, filepath.FromSlash(rel))); err == nil {
-			t.Errorf("%s fetched", rel)
+		_, err := os.Stat(filepath.Join(folder, filepath.FromSlash(rel)))
+		if json := filepath.Ext(rel) == ".json"; json != (err == nil) {
+			t.Errorf("%s: on the disk %v", rel, err == nil) // only the JSON is fetched
 		}
 	}
 	st := readState(folder)
