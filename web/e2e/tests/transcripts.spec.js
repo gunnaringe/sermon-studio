@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { editPage, recordingPage } from './pages.js';
+import { editPage, recordingPage, saveAndMake } from './pages.js';
 
 const DATA = process.env.DATA;
 const shots = path.join(import.meta.dirname, '..', 'screenshots');
@@ -22,14 +22,7 @@ test.beforeAll(async ({ request }) => {
   fs.mkdirSync(dir, { recursive: true });
   fs.copyFileSync(path.join(DATA, 'upload.flac'), path.join(dir, date + '_raw.flac'));
   const settings = { sections: [{ start: 3, end: 25 }], cuts: [], fadeIn: 0, fadeOut: 0 };
-  expect((await request.put('api/sermon' + q, { data: settings })).ok()).toBe(true);
-  expect((await request.post('api/sermon/save' + q)).ok()).toBe(true);
-  const run = await request.post('api/run' + q, {
-    data: { ...settings, flac: false, mp3: false, opus: true, stereo: false, noiseReduction: 0, targetLufs: -16, truePeak: -1.5, mp3Bitrate: '128k', opusBitrate: '64k', force: false },
-  });
-  expect(run.ok(), await run.text()).toBe(true);
-  const { id } = await run.json();
-  await expect.poll(async () => (await (await request.get('api/jobs/' + id)).json()).state, { timeout: 90_000 }).toBe('done');
+  await saveAndMake(request, expect, folder, settings, { flac: false, mp3: false, opus: true });
 
   // The models folder, as `sermon-studio models pull` leaves it.
   fs.mkdirSync(models, { recursive: true });
@@ -175,11 +168,10 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
     await route.fulfill({ response: res, json: info });
   };
   await page.route(/api\/(folder|transcript)\?/, running);
-  const asked = page.waitForRequest((r) => r.method() === 'POST' && /api\/(run|transcript)\?/.test(r.url()));
+  // Save asks the server for it: made after the files, or now when they are up to date.
+  const asked = page.waitForRequest((r) => r.method() === 'POST' && /api\/sermon\/save\?/.test(r.url()));
   await page.locator('.save-bar button.primary').click();
-  const req = await asked;
-  if (req.url().includes('api/run?')) expect(req.postDataJSON().transcript).toEqual({ language: 'nb', model: NB });
-  else expect(req.url()).toContain('language=nb&model=' + encodeURIComponent(NB));
+  expect((await asked).postDataJSON().transcript).toEqual({ language: 'nb', model: NB });
   const bar = box.locator('.transcript-progress');
   // Waiting, with how many are made before it (across the churches).
   await expect(bar).toContainText('Waiting for its turn… (2 ahead)', { timeout: 60_000 }); // after the run, when there is one

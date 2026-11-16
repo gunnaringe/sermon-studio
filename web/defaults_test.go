@@ -143,10 +143,12 @@ func TestKeepDefaultsOnStart(t *testing.T) {
 	q.cutting, q.FadeOut, q.Intro, q.Outro = old.cutting, old.FadeOut, old.Intro, old.Outro
 	before := fingerprintsOf(t, ts, folder, q)
 
+	ts.file(t, "2026-10-04/2026-10-04.mp3", "x") // the files it has are the formats it keeps
 	ts.keepDefaults()
 	saved := readState(folder).Saved
-	if saved.Intro != "0123456789ab" || saved.Outro != "" || saved.Tags == nil || saved.Sound == nil || saved.ClipPause == nil {
-		t.Fatalf("kept: %+v", saved)
+	if saved.Intro != "0123456789ab" || saved.Outro != "" || saved.Tags == nil || saved.Sound == nil || saved.ClipPause == nil ||
+		saved.Formats == nil || *saved.Formats != (outputFormats{Mp3: true}) {
+		t.Fatalf("kept: %+v %+v", saved, saved.Formats)
 	}
 	if after := fingerprints(t, ts, folder); !reflect.DeepEqual(after, before) {
 		t.Errorf("keeping the defaults changed the fingerprints: %v, was %v", after, before)

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/gunnaringe/sermon-studio/normalizer"
 )
 
 // The church's defaults (processing, tags, intro and outro, the pause around them) are what a recording starts
@@ -50,6 +52,22 @@ func (t *sermonTags) check() error {
 	return nil
 }
 
+// outputFormats are which files are made of a sermon.
+type outputFormats struct {
+	Flac bool `json:"flac"`
+	Mp3  bool `json:"mp3"`
+	Opus bool `json:"opus"`
+}
+
+var allFormats = outputFormats{Flac: true, Mp3: true, Opus: true}
+
+func (f outputFormats) none() bool { return !f.Flac && !f.Mp3 && !f.Opus }
+
+// has is whether format (flac, mp3 or opus) is one of them.
+func (f outputFormats) has(format string) bool {
+	return map[string]bool{"flac": f.Flac, "mp3": f.Mp3, "opus": f.Opus}[format]
+}
+
 // defaultClip is the id of the church's default intro or outro now, "" for none.
 func (s *Server) defaultClip(which string) string {
 	s.clips.mu.Lock()
@@ -83,7 +101,36 @@ func (s *Server) withDefaults(folder string, c sermonSettings) sermonSettings {
 		s.clips.mu.Unlock()
 		c.ClipPause = &p
 	}
+	if c.Formats == nil {
+		f := s.processing().formats()
+		c.Formats = &f
+	}
 	return c
+}
+
+// formatsThere are the formats a recording has files of; nil for none.
+func formatsThere(folder string) *outputFormats {
+	paths, err := normalizer.NewPaths(folder)
+	if err != nil {
+		return nil
+	}
+	var f outputFormats
+	for _, o := range outputsOf(paths) {
+		if fileExists(o.path) {
+			switch o.format {
+			case "flac":
+				f.Flac = true
+			case "mp3":
+				f.Mp3 = true
+			case "opus":
+				f.Opus = true
+			}
+		}
+	}
+	if f.none() {
+		return nil
+	}
+	return &f
 }
 
 // keepDefaults copies the defaults into the saved version of every recording that still follows the
@@ -100,7 +147,11 @@ func (s *Server) keepDefaults() {
 		if st := readState(path); st.Saved != nil {
 			if _, err := s.updateState(path, func(st *folderState) error { // written only if it changed
 				if st.Saved != nil {
-					kept := s.withDefaults(path, *st.Saved)
+					kept := *st.Saved
+					if kept.Formats == nil { // the files it has are the formats it keeps made
+						kept.Formats = formatsThere(path)
+					}
+					kept = s.withDefaults(path, kept)
 					st.Saved = &kept
 				}
 				return nil

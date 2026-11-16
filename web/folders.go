@@ -261,6 +261,10 @@ type folderInfo struct {
 	OriginalDeleted *time.Time `json:"originalDeleted,omitempty"`
 	// Transcript is the sermon's transcript (transcribe.go); nil when the studio makes none.
 	Transcript *transcriptInfo `json:"transcript,omitempty"`
+	// Making is "waiting" while its files are still to be made (maker.go) and no job of it is there yet;
+	// MakeError why they could not be made the last time.
+	Making    string `json:"making,omitempty"`
+	MakeError string `json:"makeError,omitempty"`
 }
 
 type outputFileInfo struct {
@@ -296,6 +300,10 @@ func (s *Server) folderInfo(abs string) (folderInfo, error) {
 	if s.cfg.transcriber != nil {
 		info.Transcript = s.transcript(paths, st)
 	}
+	if s.maker.waiting(info.Path) {
+		info.Making = "waiting"
+	}
+	info.MakeError = s.maker.failure(info.Path)
 	if j := s.jobs.latest(info.Path); j != nil {
 		snap := j.snapshot()
 		info.Job = &snap
@@ -471,6 +479,7 @@ type runRequest struct {
 	// pause around the clips; nil = the form's tags or the church's defaults, and the church's pause.
 	tags      *sermonTags
 	clipPause *float64
+	kept      outputFormats // the formats it keeps made
 }
 
 // requestFrom is the defaults of a run, without a sermon selected.

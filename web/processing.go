@@ -28,6 +28,8 @@ type processing struct {
 	FadeOut      float64       `json:"fadeOut"`
 	Mono         channelLevels `json:"mono"`
 	StereoLevels channelLevels `json:"stereoLevels"`
+	// Formats are the files a recording makes; nil = all three.
+	Formats *outputFormats `json:"formats,omitempty"`
 }
 
 // channelLevels are the defaults that depend on the channels.
@@ -69,10 +71,23 @@ func (p processing) request(stereo bool) runRequest {
 func (p processing) start() runRequest {
 	q := p.request(p.Stereo)
 	q.Intro, q.Outro = clipDefault, clipDefault
+	f := p.formats()
+	q.Flac, q.Mp3, q.Opus = f.Flac, f.Mp3, f.Opus
 	return q
 }
 
+// formats are the files a recording makes unless it chooses others.
+func (p processing) formats() outputFormats {
+	if p.Formats == nil {
+		return allFormats
+	}
+	return *p.Formats
+}
+
 func (p processing) validate() error {
+	if p.Formats != nil && p.Formats.none() {
+		return errors.New("choose at least one format")
+	}
 	if p.FadeIn > maxDefaultFade || p.FadeOut > maxDefaultFade {
 		return errors.New("a fade can be at most 30 seconds")
 	}

@@ -101,6 +101,7 @@ type Server struct {
 
 	limits   *limits // shared by all churches: AppConfig.ParallelRuns encodes, one decode at a time
 	jobs     *jobs
+	maker    *maker
 	analyses *analyses
 	inbox    *inboxWatcher
 	meta     metaStore
@@ -156,6 +157,8 @@ func New(cfg Config) (*Server, error) {
 	s.transcriptLang, s.transcriptModels, s.transcriptWordsSet = cfg.Transcript, cfg.TranscriptModels, cfg.TranscriptWords
 	s.transcriptsFailed = map[string]*transcriptFailed{}
 	s.jobs = newJobs(s)
+	s.maker = newMaker(s)
+	s.background(s.scanToMake) // what a restart stopped, or a Save before the files were made by themselves
 	s.analyses = newAnalyses(s)
 	if cfg.Inbox != "" {
 		s.inbox = newInboxWatcher(s)

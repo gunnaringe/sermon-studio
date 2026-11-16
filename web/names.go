@@ -174,6 +174,7 @@ func (s *Server) rename(src, dst string) error {
 		return err
 	}
 	moved = true
+	s.maker.moved(s.relPath(src), s.relPath(dst))
 	for _, dir := range []string{dst, filepath.Join(dst, normalizer.OriginalDir)} {
 		des, _ := os.ReadDir(dir)
 		for _, de := range des {
