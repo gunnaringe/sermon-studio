@@ -181,6 +181,11 @@ Each can have a label, which shows on the waveform.
   neither saved nor reverted; *converting*, *preparing*, *processing* (its files are being made) and *waiting* (for
   other runs first) while the server works on it, following it as it goes. The transcript says itself when it is of an
   earlier cut: it does not make the files out of date.
+- **Work going on:** while the server works for the church, a line on top of the recordings page says what it is
+  doing (*Making MP3 and Opus of 2026-11-15*) and how many tasks are going on and waiting; it opens to the list:
+  runs making files (with their step and how far they are), recordings waiting for one, recordings being converted or
+  prepared, and transcripts (with how many are made before them). Each name links to its recording. It is hidden when
+  there is nothing to do.
 - **Newly imported:** a recording that arrived (upload, inbox, share) in the last 7 days is also listed
   on top of the first page, with when it came. It folds open and shut like a year and is shut at first; the import time is kept in its `recording.json`.
 - **Upload** (at the top of the recordings page): drop or pick the recording and its date (suggested from the file name or the file's

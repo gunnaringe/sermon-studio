@@ -270,6 +270,7 @@ func (s *Server) apiMux() *http.ServeMux {
 	handle(mux, "GET /api/folders", s.handleFolders)
 	handle(mux, "GET /api/folder", s.handleFolder)
 	handle(mux, "GET /api/recordings", s.handleRecordings)
+	handle(mux, "GET /api/tasks", s.handleTasks)
 	handle(mux, "GET /api/recording", s.handleRecording)
 	handle(mux, "PUT /api/labels", s.handleLabelsPut)
 	handle(mux, "POST /api/check", s.handleCheck)

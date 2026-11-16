@@ -34,6 +34,7 @@ type analysisState struct {
 	Progress float64 `json:"progress"`
 	Error    string  `json:"error,omitempty"`
 	Key      string  `json:"key,omitempty"` // changes with the recording; for cache-busting URLs
+	raw      string  // the recording it is of (the FLAC once a WAV is converted), for the tasks list
 }
 
 type analyses struct {
@@ -95,7 +96,7 @@ func (a *analyses) state(raw string, start bool) analysisState {
 	if !start {
 		return analysisState{State: "none", Key: key}
 	}
-	st := &analysisState{State: "running", Stage: "analyze", Key: key}
+	st := &analysisState{State: "running", Stage: "analyze", Key: key, raw: raw}
 	if normalizer.ConvertsTo(raw) != "" {
 		st.Stage = "convert"
 	}
@@ -212,7 +213,7 @@ func (a *analyses) run(raw, key string, st *analysisState, keys *[]string) error
 		a.current[newKey] = st
 		delete(a.pending, flac)
 		*keys = append(*keys, newKey)
-		st.Stage, st.Progress, st.Key = "analyze", 0, newKey
+		st.Stage, st.Progress, st.Key, st.raw = "analyze", 0, newKey, flac
 		a.mu.Unlock()
 		raw, key = flac, newKey
 	}

@@ -143,3 +143,36 @@ test('labels added quickly, while the server is slow, are all kept', async ({ pa
   for (const name of ['One', 'Two']) await detail.getByRole('button', { name: `Remove label ${name}` }).click();
   await expect(detail.locator('.chip.own')).toHaveCount(0);
 });
+
+test('the work going on: a line on top with what is being done and how many wait, opening to the list', async ({ page }) => {
+  let tasks = [];
+  await page.route(/api\/tasks(\?|$)/, (route) => route.fulfill({ json: {
+    tasks, running: tasks.filter((x) => x.state === 'running').length, waiting: tasks.filter((x) => x.state !== 'running').length } }));
+  await page.goto('c/first-church/');
+  const panel = page.locator('details.tasks');
+  await expect(rows(page).first()).toBeVisible();
+  await expect(panel).toBeHidden(); // nothing going on
+  tasks = [
+    { kind: 'files', path: '2026/2026-10-04', name: '2026-10-04', slug: '2026-10-04', state: 'running', step: '3. MP3 and Opus, mono', formats: ['mp3', 'opus'], progress: 0.42 },
+    { kind: 'transcript', path: '2026/2026-05-17', name: '2026-05-17', slug: '2026-05-17', state: 'running', progress: 0.1 },
+    { kind: 'files', path: '2025/2025-12-21', name: '2025-12-21', slug: '2025-12-21', state: 'waiting' },
+    { kind: 'transcript', path: '2026/2026-10-04', name: '2026-10-04', slug: '2026-10-04', state: 'waiting', ahead: 2 },
+  ];
+  await expect(panel).toBeVisible({ timeout: 20_000 });
+  await expect(panel.locator('summary')).toContainText('Making MP3 and Opus of 2026-10-04');
+  await expect(panel.locator('summary')).toContainText('2 tasks going on · 2 waiting');
+  await panel.locator('summary').click();
+  const items = panel.locator('.task-list .task');
+  await expect(items).toHaveCount(4);
+  await expect(items.nth(0)).toContainText('MP3 and Opus, mono · 42 %');
+  await expect(items.nth(1)).toContainText('Transcribing 2026-05-17');
+  await expect(items.nth(2)).toContainText('Waiting to make the files of 2025-12-21');
+  await expect(items.nth(3)).toContainText('Waiting to transcribe 2026-10-04');
+  await expect(items.nth(3)).toContainText('2 ahead');
+  await panel.screenshot({ path: path.join(shots, 'recordings-tasks.png') });
+  // Open stays open; the name is a link to the recording.
+  await page.reload();
+  await expect(panel).toHaveAttribute('open', '');
+  await items.nth(2).getByRole('link', { name: '2025-12-21' }).click();
+  await expect(page).toHaveURL(/recordings\/2025-12-21$/);
+});

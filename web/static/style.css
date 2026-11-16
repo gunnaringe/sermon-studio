@@ -788,3 +788,20 @@ h1 > .title-action svg { fill: none; stroke: currentColor; stroke-width: 2; stro
 .model-list .model-name { font-weight: 600; overflow-wrap: anywhere; }
 .model-list .model-name .badge { margin-left: 0.5em; font-weight: normal; }
 .model-list .model-facts { grid-column: 2; font-size: 0.9em; }
+
+/* The work going on, on top of the recordings page (tasks.js): one line, opening to the list. */
+.tasks.panel { padding: 0.6rem 1rem; }
+.tasks summary { list-style: none; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0; color: inherit; }
+.tasks summary::-webkit-details-marker { display: none; }
+.tasks summary::after { content: '▸'; color: var(--muted); }
+.tasks[open] summary::after { content: '▾'; }
+.tasks summary .now { flex: 1; min-width: 12rem; }
+.tasks summary .counts { font-size: 0.9em; }
+.tasks .live-dot { width: 0.6rem; height: 0.6rem; border-radius: 999px; background: var(--muted); flex: none; }
+.tasks .live-dot.running { background: var(--accent); animation: live-dot 1.6s ease-in-out infinite; }
+@keyframes live-dot { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .tasks .live-dot.running { animation: none; } }
+.task-list { list-style: none; margin: 0.6rem 0 0; padding: 0; }
+.task-list .task { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.8rem; padding: 0.45rem 0; border-top: 1px solid var(--line); }
+.task-list .task .detail { font-size: 0.9em; text-align: right; }
+.task-list .task progress { grid-column: 1 / -1; height: 0.4rem; }

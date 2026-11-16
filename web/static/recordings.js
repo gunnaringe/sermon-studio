@@ -2,6 +2,7 @@
 // arrived lately on top ("Newly imported"), then the years, each folded open
 // on its own like the new ones; a search field over names, dates and labels. A row opens the
 // details of the recording (sermons.js) right where it is.
+import { tasksPanel } from './tasks.js';
 import { api, h, debounce, formatDate, formatDateTime } from './util.js';
 import { sermonDetail } from './sermons.js';
 import { t, tn } from './i18n.js';
@@ -185,14 +186,22 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
   // Inbox files that do not fit in the church's quota wait there until there is room.
   const waiting = data.waiting?.length ? h('p', { class: 'cut-warn inbox-full', role: 'status' },
     tn(data.waiting.length, '{names} stays in the inbox: the church\'s storage is full.', '{names} stay in the inbox: the church\'s storage is full.', { names: data.waiting.join(', ') })) : '';
-  view.replaceChildren(h('h1', {}, t('Recordings')), top, waiting, h('div', { class: 'searchbar' }, input), note, list);
+  // While the server works on a recording (a run, one waiting for it, a conversion), its badges follow: the list
+  // is read again every 5 s until nothing is going on, or the page is left. The tasks panel starts it again
+  // when work comes (a recording arriving in the inbox, a Save in another tab).
+  const working = (e) => Boolean(e.job || e.making || e.converting || e.preparing);
+  let following = false, workSeen = 0;
+  const tasks = tasksPanel({ onWork: () => { workSeen = Date.now(); follow(); } });
+  view.replaceChildren(h('h1', {}, t('Recordings')), top, waiting, tasks, h('div', { class: 'searchbar' }, input), note, list);
   render();
 
-  // While the server works on a recording (a run, one waiting for it, a conversion), its badges follow: the list
-  // is read again every 5 s until nothing is going on, or the page is left.
-  const working = (e) => Boolean(e.job || e.making || e.converting || e.preparing);
-  (async () => {
-    while (all.some(working)) {
+  const follow = () => {
+    if (following) return;
+    following = true;
+    run().finally(() => { following = false; });
+  };
+  const run = async () => {
+    while (all.some(working) || Date.now() - workSeen < 10_000) {
       await new Promise((r) => setTimeout(r, 5000));
       if (!list.isConnected) return;
       let fresh;
@@ -207,7 +216,8 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
         if (JSON.stringify(badges(e).map((b) => b.textContent)) !== before) for (const draw of marks.get(e.path) || []) draw();
       }
     }
-  })();
+  };
+  follow();
 
   return {
     // open shows one recording: its year open, its row expanded, scrolled to.
