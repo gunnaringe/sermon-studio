@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -147,11 +148,23 @@ func (p *Pipeline) limiter() string {
 	return fmt.Sprintf("alimiter=limit=%.4f:attack=5:release=50:level=0", math.Pow(10, (p.Opt.TruePeak-0.5)/20))
 }
 
-// tidyName is the hidden temporary file a master is made from (in the folder of dst).
+// tempCodec is how the temporary files of a master are written: float, as the filters work, in RF64 when
+// longer than a WAV can hold.
+var tempCodec = []string{"-c:a", "pcm_f32le", "-rf64", "auto"}
+
+// IsTemporary reports whether name is a temporary file a master is made from (tidyName; .flac before they were WAV).
+func IsTemporary(name string) bool {
+	return strings.HasPrefix(name, ".") && reTemporary.MatchString(name)
+}
+
+var reTemporary = regexp.MustCompile(`\.t[12]\.(wav|flac)$`)
+
+// tidyName is the hidden temporary file a master is made from (in the folder of dst): 32-bit float WAV
+// (tempCodec), so nothing is rounded between the steps and nothing over 0 dBFS is cut off before the limiter.
 func tidyName(dst, stage string) string {
 	// Short, so it fits Windows' paths wherever the outputs do (folderFits in web).
 	name := filepath.Base(dst)
-	return filepath.Join(filepath.Dir(dst), "."+strings.TrimSuffix(name, filepath.Ext(name))+".t"+stage+".flac")
+	return filepath.Join(filepath.Dir(dst), "."+strings.TrimSuffix(name, filepath.Ext(name))+".t"+stage+".wav")
 }
 
 const lossyPeakCeiling = -1.0 // dBTP

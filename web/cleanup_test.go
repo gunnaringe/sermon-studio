@@ -51,3 +51,15 @@ func TestSweepLeftovers(t *testing.T) {
 		}
 	}
 }
+
+// The temporary files a master is made from are leftovers, the FLAC ones of before too; the files kept are not.
+func TestLeftoverTemporary(t *testing.T) {
+	for name, want := range map[string]bool{
+		".2026-11-15.t1.wav": true, ".2026-11-15_sermon.t2.wav": true, ".2026-11-15.t1.flac": true, ".x.tidy.flac": true,
+		"2026-11-15.flac": false, "2026-11-15.t1.wav": false, ".2026-11-15.master.flac": false,
+	} {
+		if leftover(name) != want {
+			t.Errorf("leftover(%q) = %v", name, !want)
+		}
+	}
+}

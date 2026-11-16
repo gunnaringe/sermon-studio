@@ -17,9 +17,9 @@ const leftoverAge = 24 * time.Hour
 
 // leftover says whether a file name is one of the half-written files the app
 // makes: ffmpeg's and the state files' .partial, an upload's hidden .upload,
-// a share upload's .share-<id>.partial, the temporary files a master is made from (.tidy.flac).
+// a share upload's .share-<id>.partial, the temporary files a master is made from (normalizer.IsTemporary).
 func leftover(name string) bool {
-	return strings.Contains(name, ".partial") || (strings.HasPrefix(name, ".") && (strings.HasSuffix(name, ".upload") || strings.HasSuffix(name, ".tidy.flac")))
+	return strings.Contains(name, ".partial") || (strings.HasPrefix(name, ".") && (strings.HasSuffix(name, ".upload") || strings.HasSuffix(name, ".tidy.flac"))) || normalizer.IsTemporary(name)
 }
 
 // sweepLeftovers removes half-written files older than leftoverAge from the
