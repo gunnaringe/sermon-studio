@@ -80,7 +80,9 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   (sessions, inboxes, cache, models, hidden and half-written files; not `.trash`). `web/fetch.go`: a recording's file can be in the bucket only
   (`fileRecord.Bucket`); `normalizer.Elsewhere`/`Need`/`Forget` make the pipeline find it, fetch it before ffmpeg or a copy
   reads it, and remove it there; the web finds it with `fileExists`/`normalizer.Stat` and fetches it with `fetchFor` before
-  serving it (so check existence with those, not `os.Stat`). Only `evict` takes a file off the disk, never `normalizer.Remove`.
+  serving it (so check existence with those, not `os.Stat`); audio only in the bucket is not fetched to be listened
+  to or downloaded: `bucketLink` redirects `api/file` and a share's ticket to a presigned address (the share page's
+  `media-src` has `App.mediaSrc`). Only `evict` takes a file off the disk, never `normalizer.Remove`.
   `SERMON_TEST_EVICT=1 go test ./web/` runs the tests with everything evicted. One studio per bucket: the lease, an id
   in `.blob/id`, given back by `Close`; `StorageLost` makes serve exit. Tests: `mirror_test.go` with `fakeBlob` (in memory);
   `TestBlobServe` against a real bucket.

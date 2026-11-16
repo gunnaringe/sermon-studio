@@ -125,6 +125,7 @@ type App struct {
 	cfg         AppConfig
 	limits      *limits
 	mirror      *mirror      // with object storage
+	mediaSrc    string       // the share page's media-src with the bucket's origin (its player follows a ticket there)
 	transcriber *transcriber // nil = no transcripts
 
 	createMu sync.Mutex // one church is added at a time
@@ -173,6 +174,9 @@ func NewApp(cfg AppConfig) (*App, error) {
 		var err error
 		if a.mirror, err = startMirror(cfg.Blob, cfg.DataDir, local, cfg.Base.Logger, lost); err != nil {
 			return nil, err
+		}
+		if o := bucketOrigin(cfg.Blob); o != "" {
+			a.mediaSrc = "media-src 'self' " + o + "; "
 		}
 	}
 	if cfg.Transcription != nil {

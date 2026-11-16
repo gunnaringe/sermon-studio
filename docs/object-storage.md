@@ -38,6 +38,12 @@ to read it: a run, an analysis, a sample, a transcript, a download, a rename. Ea
 SHA-256 in the record, and keeps the time it had, so it is not taken for changed or put in the bucket again. Removing it
 (deleting the original or a format, the trash) removes it from the bucket and the record.
 
+Listening to or downloading such a file (in the studio, or from a download share) does not fetch it: the browser is sent
+to an address of the bucket for that one file, which works for 6 hours and names the file. The share page's player
+may follow it (its `media-src` has the bucket's origin). A share's ticket still decides what may be had, by format; while
+the file comes from the bucket, the studio does not see the download going on. A transcript is fetched and served as
+before, as the page reads it with `fetch`.
+
 A file leaves the disk only once the record has it as it is now and the bucket has it as uploaded after its last
 change, with nothing for it waiting in the journal and no work going on in its recording. The JSON files, drafts and
 the cache always stay on the disk; so far so do the church's clips and logo, which have no files record yet.

@@ -480,6 +480,18 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errors.New("not an audio file"))
 		return
 	}
+	// Audio kept only in the bucket: the browser gets it there. A transcript is fetched and served (the page
+	// reads it with fetch, which a redirect to another origin would need the bucket's CORS rule for).
+	switch link, ok, err := bucketLink(r.Context(), abs, r.URL.Query().Get("download") == ""); {
+	case ok && !isTranscript(abs):
+		w.Header().Set("Cache-Control", "no-store")
+		http.Redirect(w, r, link, http.StatusFound)
+		return
+	case err != nil:
+		writeError(w, http.StatusServiceUnavailable, errors.New("the file could not be fetched from the storage"))
+		s.cfg.Logger.Printf("%s: %v", s.display(abs), err)
+		return
+	}
 	if err := fetchFor(r.Context(), abs); err != nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("the file could not be fetched from the storage"))
 		s.cfg.Logger.Printf("%s: %v", s.display(abs), err)
