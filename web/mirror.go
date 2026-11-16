@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -97,11 +98,15 @@ type mirror struct {
 
 	mu      sync.Mutex
 	journal []mirrorOp
-	doing   bool                 // journal[0] is being done
-	drafts  map[string]time.Time // draft.json changed (key → since), waiting for draftEvery
-	kick    chan struct{}
-	failing string // the error the journal is stuck on, logged once
-	swept   chan struct{}
+	doing   bool // journal[0] is being done
+
+	useMu    sync.Mutex
+	lastUse  map[string]time.Time // by key: when a file was last made, fetched or read (evict.go)
+	useDirty bool
+	drafts   map[string]time.Time // draft.json changed (key → since), waiting for draftEvery
+	kick     chan struct{}
+	failing  string // the error the journal is stuck on, logged once
+	swept    chan struct{}
 }
 
 // mirrorOp is one thing for the bucket to do, in order.
@@ -186,9 +191,15 @@ func startMirror(b Blob, dataDir string, local []string, logger *log.Logger, los
 		m.cancel()
 		return nil, err
 	}
+	if err := m.restoreIfEmpty(); err != nil {
+		m.lease.release()
+		m.cancel()
+		return nil, err
+	}
 	if data, err := os.ReadFile(m.journalPath()); err == nil {
 		json.Unmarshal(data, &m.journal)
 	}
+	m.loadUse()
 	mirrorsMu.Lock()
 	mirrors = append(mirrors, m)
 	mirrorsMu.Unlock()
@@ -211,6 +222,7 @@ func (m *mirror) close() {
 	m.flushDrafts()
 	m.cancel()
 	m.wg.Wait()
+	m.saveUse()
 	m.lease.release()
 }
 
@@ -317,6 +329,7 @@ func blobChanged(from, to string) {
 	if to == "" {
 		if fok {
 			m.add(mirrorOp{Kind: "delete", Key: fk})
+			m.forgetUse(fk)
 		}
 		return
 	}
@@ -327,6 +340,7 @@ func blobChanged(from, to string) {
 	switch {
 	case fok && tok:
 		m.add(mirrorOp{Kind: "move", Key: fk, To: tk})
+		m.moveUse(fk, tk)
 	case tok && filepath.Base(to) == draftName:
 		m.mu.Lock()
 		if _, ok := m.drafts[tk]; !ok {
@@ -335,8 +349,10 @@ func blobChanged(from, to string) {
 		m.mu.Unlock()
 	case tok: // a file made whole (from its .partial), or one that came in (an upload, the inbox)
 		m.add(mirrorOp{Kind: "upload", Key: tk})
+		m.used(tk)
 	case fok: // out of what goes to the bucket
 		m.add(mirrorOp{Kind: "delete", Key: fk})
+		m.forgetUse(fk)
 	}
 }
 
@@ -689,4 +705,136 @@ func (m *mirror) settle(ctx context.Context) error {
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
+}
+
+// restoreIfEmpty starts a new machine from the bucket: when the data dir has nothing that goes to the bucket
+// (only the cache, the models, .blob) and the bucket has files, what must be on the disk is fetched before the
+// studio starts: the JSON files, the church's files (clips, logo), any file no record has. A recording's files in
+// its files record stay in the bucket, marked so (fetched when needed, fetch.go), if the bucket has them as
+// recorded. A data dir with anything in it starts as it is: the two are never merged; the sweep then puts in the
+// bucket what it lacks. A restore cut short (.blob/restoring) is done again at the next start.
+func (m *mirror) restoreIfEmpty() error {
+	marker := filepath.Join(m.root, mirrorDir, "restoring")
+	if _, err := os.Stat(marker); err != nil {
+		errNotEmpty := errors.New("not empty")
+		if err := m.walk(m.root, func(string, string, fs.FileInfo) error { return errNotEmpty }); err != nil {
+			if errors.Is(err, errNotEmpty) {
+				return nil
+			}
+			return err
+		}
+	}
+	objects := map[string]BlobInfo{}
+	for o, err := range m.blob.List(m.ctx, "") {
+		if err != nil {
+			return fmt.Errorf("storage: listing the bucket: %w", err)
+		}
+		if strings.HasPrefix(o.Key, "_") { // the lease, the check's objects
+			continue
+		}
+		if _, ok := m.key(m.path(o.Key)); !ok {
+			continue // not a file of the data dir (or one that stays local, put there by hand)
+		}
+		objects[o.Key] = o
+	}
+	if len(objects) == 0 {
+		return nil // a new bucket
+	}
+	if err := os.WriteFile(marker, nil, 0o600); err != nil {
+		return err
+	}
+	start := time.Now()
+	get := func(o BlobInfo) error {
+		p := m.path(o.Key)
+		if _, err := m.blob.GetFile(m.ctx, o.Key, p); err != nil {
+			return fmt.Errorf("storage: fetching %s: %w", o.Key, err)
+		}
+		os.Chtimes(p, o.Modified, o.Modified) // not newer than the bucket's: the sweep leaves it
+		return nil
+	}
+	// The recordings' records first: what they have stays in the bucket.
+	recorded := map[string]bool{}
+	var states []string
+	for key, o := range objects {
+		if path.Base(key) != stateName {
+			continue
+		}
+		if err := get(o); err != nil {
+			return err
+		}
+		states = append(states, key)
+		for rel := range readState(filepath.Dir(m.path(key))).Files {
+			recorded[path.Dir(key)+"/"+rel] = true
+		}
+	}
+	var n int
+	var size, left int64
+	for key, o := range objects {
+		switch {
+		case path.Base(key) == stateName:
+		case recorded[key]:
+			left += o.Size
+		default:
+			if err := get(o); err != nil {
+				return err
+			}
+			n, size = n+1, size+o.Size
+		}
+	}
+	missing := 0
+	for _, key := range states {
+		if err := m.markInBucket(filepath.Dir(m.path(key)), path.Dir(key), objects, &missing); err != nil {
+			return err
+		}
+	}
+	for key := range objects { // a church without recordings: the bucket keeps no empty folder
+		if church, rest, ok := strings.Cut(key, "/"); ok && rest != "" && !strings.HasPrefix(church, ".") {
+			os.MkdirAll(filepath.Join(m.root, church, tenantRoot), 0o755)
+		}
+	}
+	os.Remove(marker)
+	m.logger.Printf("storage: the data dir was empty: %d records and %d other files (%s) fetched from the bucket in %s; %s of recordings stay there, fetched when needed%s",
+		len(states), n, sizeText(size), time.Since(start).Round(time.Second), sizeText(left),
+		map[bool]string{true: fmt.Sprintf("; %d files in records are not in the bucket", missing)}[missing > 0])
+	return nil
+}
+
+// markInBucket marks a restored recording's recorded files as kept only in the bucket, and drops from its record
+// those the bucket does not have as recorded. recording.json is written as it was otherwise.
+func (m *mirror) markInBucket(folder, prefix string, objects map[string]BlobInfo, missing *int) error {
+	p := statePath(folder)
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return err
+	}
+	var doc map[string]json.RawMessage
+	if json.Unmarshal(data, &doc) != nil || doc["files"] == nil {
+		return nil
+	}
+	var files map[string]fileRecord
+	if json.Unmarshal(doc["files"], &files) != nil {
+		return nil
+	}
+	for rel, r := range files {
+		if _, err := os.Lstat(filepath.Join(folder, filepath.FromSlash(rel))); err == nil {
+			continue // fetched (it was not recorded when its record was read)
+		}
+		if o, ok := objects[prefix+"/"+rel]; !ok || o.Size != r.Size {
+			m.logger.Printf("storage: %s/%s is in its record but not in the bucket", prefix, rel)
+			delete(files, rel)
+			*missing++
+			continue
+		}
+		r.Bucket = true
+		files[rel] = r
+	}
+	if doc["files"], err = json.Marshal(files); err != nil {
+		return err
+	}
+	out, _ := json.MarshalIndent(doc, "", "  ")
+	tmp := filepath.Join(folder, "."+stateName+".partial")
+	if err := os.WriteFile(tmp, append(out, '\n'), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, p) // not mirrored yet: the sweep puts it, as it is newer
 }

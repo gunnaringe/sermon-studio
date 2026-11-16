@@ -109,7 +109,7 @@ func CopyFile(src, dst string) error {
 // while Windows says the file is in use: a preview being played, a virus scanner looking at a new file.
 // Elsewhere a file in use can be renamed and removed, and they are the os ones.
 func Rename(oldpath, newpath string) error {
-	if err := NeedFile(context.Background(), oldpath); err != nil { // kept elsewhere: renamed on the disk
+	if err := needFile(context.Background(), oldpath, false); err != nil { // kept elsewhere: renamed on the disk
 		return err
 	}
 	err := retry(func() error { return os.Rename(oldpath, newpath) })

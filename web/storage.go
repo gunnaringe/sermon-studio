@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -31,6 +31,38 @@ type storageUse struct {
 }
 
 func (u storageUse) total() int64 { return u.Recordings + u.Files + u.Clips + u.Trash }
+
+func (u *storageUse) add(v storageUse) {
+	u.Recordings, u.Files, u.Clips, u.Trash = u.Recordings+v.Recordings, u.Files+v.Files, u.Clips+v.Clips, u.Trash+v.Trash
+}
+
+// inBucketUse is what a recording keeps only in the bucket: a church's storage is all it keeps, wherever.
+func inBucketUse(folder string) storageUse {
+	var u storageUse
+	for rel, r := range inBucketOf(folder) {
+		switch path.Dir(rel) {
+		case normalizer.OriginalDir:
+			u.Recordings += r.Size
+		case clipsDir:
+			u.Clips += r.Size
+		default:
+			u.Files += r.Size
+		}
+	}
+	return u
+}
+
+// inBucketUnder is what the recordings under dir (the trash) keep only in the bucket.
+func inBucketUnder(dir string) int64 {
+	var n int64
+	filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && d.Name() == stateName {
+			n += inBucketUse(filepath.Dir(p)).total()
+		}
+		return nil
+	})
+	return n
+}
 
 // storage is a church's measured use; Server.storage.
 type storage struct {
@@ -169,7 +201,7 @@ func (s *Server) measureStorage() storageUse {
 		}
 		if d.IsDir() {
 			if path == trash {
-				u.Trash += dirSize(path)
+				u.Trash += dirSize(path) + inBucketUnder(path)
 				return filepath.SkipDir
 			}
 			if path != s.root && strings.HasPrefix(d.Name(), ".") {
@@ -195,6 +227,9 @@ func (s *Server) measureStorage() storageUse {
 			}
 		case strings.HasSuffix(d.Name(), ".json"):
 			u.Recordings += info.Size()
+			if d.Name() == stateName {
+				u.add(inBucketUse(filepath.Dir(path)))
+			}
 		default:
 			u.Files += info.Size()
 		}
@@ -332,7 +367,7 @@ func (s *Server) runNeeds(pl plan) int64 {
 			length = sermon
 		}
 		bytes := int64(perSecond[f] * length)
-		if info, err := os.Stat(x.path); err == nil {
+		if info, err := normalizer.Stat(x.path); err == nil { // also one kept only in the bucket
 			if !pl.opt.Force {
 				continue // kept as it is
 			}

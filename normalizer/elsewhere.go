@@ -19,6 +19,8 @@ var (
 	Need func(ctx context.Context, path string) error
 	// Forget removes a file kept elsewhere: there, and from what tells of it.
 	Forget func(path string) error
+	// Reading is told of every file NeedFile is asked for that is (or is now) on the disk: it is being used.
+	Reading func(path string)
 )
 
 // elsewhere is what Elsewhere tells of path, if it is kept elsewhere.
@@ -49,17 +51,30 @@ func Stat(path string) (fs.FileInfo, error) {
 
 // NeedFile puts path on the disk if it is kept elsewhere; for any other path it does nothing (a missing file
 // fails where it is read, as before).
-func NeedFile(ctx context.Context, path string) error {
+func NeedFile(ctx context.Context, path string) error { return needFile(ctx, path, true) }
+
+// needFile is NeedFile; reading tells Reading of it (not for a rename).
+func needFile(ctx context.Context, path string, reading bool) error {
 	if Need == nil {
 		return nil
 	}
-	if _, err := os.Lstat(path); err == nil || !errors.Is(err, fs.ErrNotExist) {
+	reading = reading && Reading != nil
+	if st, err := os.Lstat(path); err == nil || !errors.Is(err, fs.ErrNotExist) {
+		if err == nil && reading && st.Mode().IsRegular() {
+			Reading(path)
+		}
 		return nil
 	}
 	if _, ok := elsewhere(path); !ok {
 		return nil
 	}
-	return Need(ctx, path)
+	if err := Need(ctx, path); err != nil {
+		return err
+	}
+	if reading {
+		Reading(path)
+	}
+	return nil
 }
 
 // NeedInputs puts the input files of ffmpeg's arguments (-i) on the disk.

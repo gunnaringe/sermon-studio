@@ -60,6 +60,8 @@ type AppConfig struct {
 	// another studio took the bucket: the studio must stop (serve exits).
 	Blob        Blob
 	StorageLost func(error)
+	// Disk is how much of the recordings' files stay on the disk with Blob (evict.go); the zero value keeps all.
+	Disk DiskOptions
 }
 
 // churchConfig is church.json. Everything is optional: a church is a folder
@@ -124,8 +126,10 @@ func (t *tenant) info() TenantInfo {
 type App struct {
 	cfg         AppConfig
 	limits      *limits
-	mirror      *mirror      // with object storage
-	mediaSrc    string       // the share page's media-src with the bucket's origin (its player follows a ticket there)
+	mirror      *mirror       // with object storage
+	mediaSrc    string        // the share page's media-src with the bucket's origin (its player follows a ticket there)
+	diskStop    chan struct{} // closed by Close: keepDisk stops
+	diskWG      sync.WaitGroup
 	transcriber *transcriber // nil = no transcripts
 
 	createMu sync.Mutex // one church is added at a time
@@ -243,7 +247,22 @@ func NewApp(cfg AppConfig) (*App, error) {
 		a.share.wg.Add(1)
 		go a.keepSweeping()
 	}
+	a.diskStop = make(chan struct{})
+	if a.mirror != nil && (cfg.Disk.KeepFor > 0 || cfg.Disk.Size > 0) {
+		a.diskWG.Add(1)
+		go a.keepDisk()
+	}
 	return a, nil
+}
+
+// closing tells whether Close has begun.
+func (a *App) closing() bool {
+	select {
+	case <-a.diskStop:
+		return true
+	default:
+		return false
+	}
 }
 
 // churchFolders lists the folders of dir that are churches: they have a
@@ -374,6 +393,10 @@ func (a *App) Busy() bool {
 
 // Close stops every church's background work.
 func (a *App) Close() {
+	if a.diskStop != nil {
+		close(a.diskStop)
+		a.diskWG.Wait()
+	}
 	if a.share != nil {
 		close(a.share.done)
 		a.share.wg.Wait()

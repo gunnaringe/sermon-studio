@@ -102,8 +102,8 @@ func elsewhereFiles(dir string) map[string]fs.FileInfo {
 		return nil
 	}
 	var out map[string]fs.FileInfo
-	for rel, r := range readState(folder).Files {
-		if !r.Bucket || path.Dir(rel) != relDir {
+	for rel, r := range inBucketOf(folder) {
+		if path.Dir(rel) != relDir {
 			continue
 		}
 		name := path.Base(rel)
@@ -116,6 +116,41 @@ func elsewhereFiles(dir string) map[string]fs.FileInfo {
 		out[name] = inBucket{name, r}
 	}
 	return out
+}
+
+// inBucketCache keeps the files only in the bucket per recording folder, read again when its recording.json
+// changes: the list of recordings asks for each one's files, many times.
+var inBucketCache sync.Map // folder → inBucketEntry
+
+type inBucketEntry struct {
+	size  int64
+	mtime time.Time
+	files map[string]fileRecord
+}
+
+// inBucketOf is the files of a recording kept only in the bucket, by their path in its folder.
+func inBucketOf(folder string) map[string]fileRecord {
+	st, err := os.Stat(statePath(folder))
+	if err != nil {
+		inBucketCache.Delete(folder)
+		return nil
+	}
+	if e, ok := inBucketCache.Load(folder); ok {
+		if e := e.(inBucketEntry); e.size == st.Size() && e.mtime.Equal(st.ModTime()) {
+			return e.files
+		}
+	}
+	var files map[string]fileRecord
+	for rel, r := range readState(folder).Files {
+		if r.Bucket {
+			if files == nil {
+				files = map[string]fileRecord{}
+			}
+			files[rel] = r
+		}
+	}
+	inBucketCache.Store(folder, inBucketEntry{st.Size(), st.ModTime(), files})
+	return files
 }
 
 // recorded is the record of a file kept only in the bucket: its folder, the path in it, the record.
