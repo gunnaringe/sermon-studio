@@ -226,6 +226,7 @@ func (s *Server) storageChanged() {
 		defer s.wg.Done()
 		for {
 			u := s.measureStorage()
+			s.filesChanged() // the files record, on the same occasions (files.go)
 			st.mu.Lock()
 			st.use, st.measured = u, true
 			if !st.dirty || s.ctx.Err() != nil {

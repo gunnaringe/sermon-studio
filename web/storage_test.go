@@ -129,8 +129,13 @@ func TestShareUploadQuota(t *testing.T) {
 	if w := st.call("PUT", "/api/share/uploads/"+id+"?offset=0", code, "1.1.1.1", wav(1200)); w.Code != http.StatusCreated {
 		t.Fatalf("chunk: %d %s", w.Code, w.Body)
 	}
-	if err := srv.fits(1200); err != nil { // in the inbox now: it counts once taken in
-		t.Errorf("after it came: %v", err)
+	// In the inbox now, it holds no room: it counts once taken in (which starts at once, so the room it then
+	// takes is not checked here).
+	srv.storage.mu.Lock()
+	_, held := srv.storage.reserved[shareReservation(id)]
+	srv.storage.mu.Unlock()
+	if held {
+		t.Error("after it came, the upload still holds its room")
 	}
 }
 

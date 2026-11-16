@@ -234,8 +234,10 @@ func TestMakingInfo(t *testing.T) {
 	ts.file(t, "2026-10-04/original/2026-10-04_raw.flac", "x")
 	ts.file(t, "2026-10-11/original/2026-10-11_raw.flac", "x")
 	saveSermon(t, ts, "2026-10-04", 9, `{"flac":true,"mp3":false,"opus":false}`)
-	saveSermon(t, ts, "2026-10-11", 9, `{"flac":false,"mp3":true,"opus":true}`)
+	// Its run first: a Save goes first in the queue, so the second one, saved before the maker took the first,
+	// would be the one running.
 	eventually(t, "a run", func() bool { return ts.jobs.active("2026-10-04") != nil })
+	saveSermon(t, ts, "2026-10-11", 9, `{"flac":false,"mp3":true,"opus":true}`)
 	running := decode[folderInfo](t, ts.do(t, "GET", "/api/folder?path=2026-10-04", nil))
 	if !reflect.DeepEqual(running.MakingFormats, []string{"flac"}) || running.Making != "" || !reflect.DeepEqual(running.Job.Formats, []string{"flac"}) {
 		t.Errorf("running: making %q %v, job %+v", running.Making, running.MakingFormats, running.Job)
