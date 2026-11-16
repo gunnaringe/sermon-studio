@@ -151,8 +151,9 @@ func TestKeepDiskRuns(t *testing.T) {
 	}
 }
 
-// A new machine starts from the bucket with only what must be on the disk: the records and the church's files;
-// the recordings' files stay in the bucket, marked so, and are fetched when needed. A file a record has that the
+// A new machine starts from the bucket with only what must be on the disk: the records (recording.json,
+// church.json) and what no record has; the recorded files stay in the bucket, marked so, and are fetched when
+// needed. A file a record has that the
 // bucket lacks is dropped from the record. A restore cut short is done again; a data dir with files is never
 // filled from the bucket.
 func TestRestore(t *testing.T) {
@@ -167,8 +168,11 @@ func TestRestore(t *testing.T) {
 	}
 	state, _ := json.Marshal(map[string]any{"id": "rec-1", "files": record})
 	b.store("kirke/Taler/2026/2026-10-18/recording.json", state, nil)
-	b.store("kirke/church.json", []byte(`{"name":"Kirka"}`), nil)
+	church, _ := json.Marshal(map[string]any{"name": "Kirka",
+		"files": map[string]fileRecord{"clips/intro.flac": {Size: 6, Modified: modified, SHA256: sha("jingle")}}})
+	b.store("kirke/church.json", church, nil)
 	b.store("kirke/clips/intro.flac", []byte("jingle"), nil)
+	b.store("kirke/clips/outro.flac", []byte("not recorded"), nil)
 	b.store("_check-x", []byte("x"), nil)
 	open := func(data string) *App {
 		a, err := NewApp(AppConfig{Base: Config{CacheDir: t.TempDir(), Logger: newTestLogger(t), RecordFiles: true}, DataDir: data, Blob: b})
@@ -194,10 +198,16 @@ func TestRestore(t *testing.T) {
 	if _, ok := st.Files["2026-10-18.opus"]; ok {
 		t.Error("a file the bucket lacks is still recorded")
 	}
-	for _, f := range []string{"church.json", "clips/intro.flac"} {
-		if _, err := os.Stat(filepath.Join(data, "kirke", filepath.FromSlash(f))); err != nil {
-			t.Errorf("%s not fetched", f)
+	for f, want := range map[string]bool{"church.json": true, "clips/outro.flac": true, "clips/intro.flac": false} {
+		if _, err := os.Stat(filepath.Join(data, "kirke", filepath.FromSlash(f))); (err == nil) != want {
+			t.Errorf("%s: on the disk %v", f, err == nil) // the church's recorded clip stays in the bucket
 		}
+	}
+	if cc, _ := readChurch(filepath.Join(data, "kirke")); !cc.Files["clips/intro.flac"].Bucket || cc.Name != "Kirka" {
+		t.Errorf("church.json: %+v", cc)
+	}
+	if !fileExists(filepath.Join(data, "kirke", "clips", "intro.flac")) {
+		t.Error("the clip in the bucket is not found")
 	}
 	if _, err := os.Stat(filepath.Join(data, "_check-x")); err == nil {
 		t.Error("the check's object fetched")
@@ -234,5 +244,79 @@ func TestRestore(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(data, mirrorDir, "restoring")); err == nil {
 		t.Error("the marker is left")
+	}
+}
+
+// The church's clips and logo are recorded in church.json and can be kept only in the bucket, as a recording's
+// files: still listed and counted, fetched when served, removed from the bucket when deleted.
+func TestChurchFilesInBucket(t *testing.T) {
+	ft := newFetchTest(t)
+	const id = "0123456789ab"
+	clip := filepath.Join(ft.church, "clips", id+".flac")
+	logo := filepath.Join(ft.church, "logo.png")
+	for p, data := range map[string]string{clip: "fLaC jingle", logo: "\x89PNG logo"} {
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		os.WriteFile(p+".partial", []byte(data), 0o644)
+		if err := normalizer.Rename(p+".partial", p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := ft.srv
+	s.clips.mu.Lock()
+	s.clips.lib.Clips = append(s.clips.lib.Clips, clipInfo{ID: id, Name: "Jingle", Version: "1"})
+	s.clips.mu.Unlock()
+	s.syncChurchFiles()
+	settleMirror(t, ft.app)
+	fr, _ := s.churchRecord()
+	if got := fr.files(); got["clips/"+id+".flac"].SHA256 != sha("fLaC jingle") || got["logo.png"].SHA256 != sha("\x89PNG logo") {
+		t.Fatalf("church.json's files: %+v", got)
+	}
+	s.storageChanged()
+	before, _ := s.storageNow()
+	tn := ft.app.tenants[0]
+	version := tn.logoVersion()
+
+	for _, rel := range []string{"clips/" + id + ".flac", "logo.png"} {
+		if err := s.evict(context.Background(), fr, rel); err != nil {
+			t.Fatalf("evict %s: %v", rel, err)
+		}
+	}
+	if _, err := os.Stat(clip); err == nil {
+		t.Fatal("the clip is still on the disk")
+	}
+	if tn.logoFile() != logo || tn.logoVersion() != version {
+		t.Errorf("the logo: %q %q, before %q", tn.logoFile(), tn.logoVersion(), version)
+	}
+	if !fileExists(clip) {
+		t.Error("the clip is not found")
+	}
+	s.storageChanged()
+	if after, _ := s.storageNow(); after.Clips != before.Clips {
+		t.Errorf("the clips' storage %d, before %d", after.Clips, before.Clips)
+	}
+
+	if w := do(ft.studio, "GET", "/api/clips/"+id+"/audio", ""); w.Code != 200 || w.Body.String() != "fLaC jingle" {
+		t.Errorf("the clip's audio: %d %q", w.Code, w.Body)
+	}
+	if w := do(ft.studio, "GET", "/api/logo", ""); w.Code != 200 || w.Body.String() != "\x89PNG logo" {
+		t.Errorf("the logo: %d %q", w.Code, w.Body)
+	}
+	if fr.files()["clips/"+id+".flac"].Bucket || fr.files()["logo.png"].Bucket {
+		t.Errorf("fetched, still marked: %+v", fr.files())
+	}
+
+	// Deleted while only in the bucket: gone from the record and the bucket.
+	if err := s.evict(context.Background(), fr, "clips/"+id+".flac"); err != nil {
+		t.Fatal(err)
+	}
+	if w := do(ft.studio, "POST", "/api/clips/"+id+"/delete", ""); w.Code != 200 {
+		t.Fatalf("delete: %d %s", w.Code, w.Body)
+	}
+	settleMirror(t, ft.app)
+	if _, ok := fr.files()["clips/"+id+".flac"]; ok {
+		t.Error("a deleted clip is still recorded")
+	}
+	if ft.b.text("kirke/clips/"+id+".flac") != "" {
+		t.Error("a deleted clip is still in the bucket")
 	}
 }

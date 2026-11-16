@@ -532,7 +532,13 @@ func (s *Server) handleClipAudio(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errNoClip)
 		return
 	}
-	f, err := os.Open(s.clips.clipFile(id))
+	p := s.clips.clipFile(id)
+	if err := fetchFor(r.Context(), p); err != nil { // kept only in the bucket: fetched first
+		s.cfg.Logger.Printf("%v", err) // the bucket's key and error are not told (the share page shows the logo)
+		writeError(w, http.StatusBadGateway, errors.New("could not get it from the storage; try again"))
+		return
+	}
+	f, err := os.Open(p)
 	if err != nil {
 		writeError(w, http.StatusNotFound, errNoClip)
 		return

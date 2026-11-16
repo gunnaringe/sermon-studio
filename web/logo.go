@@ -47,7 +47,7 @@ func (t *tenant) logoFile() string {
 // logoVersion changes whenever the logo does ("" = no logo): the page puts it
 // in the address so a new logo is not hidden by the browser's cache.
 func (t *tenant) logoVersion() string {
-	if st, err := os.Stat(t.logoFile()); err == nil {
+	if st, err := normalizer.Stat(t.logoFile()); err == nil { // also one kept only in the bucket
 		return strconv.FormatInt(st.ModTime().UnixNano(), 36)
 	}
 	return ""
@@ -67,6 +67,11 @@ func serveLogo(w http.ResponseWriter, r *http.Request, t *tenant) {
 	p := t.logoFile()
 	if p == "" {
 		writeError(w, http.StatusNotFound, errors.New("no logo"))
+		return
+	}
+	if err := fetchFor(r.Context(), p); err != nil { // kept only in the bucket: fetched first
+		t.srv.cfg.Logger.Printf("%v", err) // the bucket's key and error are not told (the share page shows the logo)
+		writeError(w, http.StatusBadGateway, errors.New("could not get it from the storage; try again"))
 		return
 	}
 	f, err := os.Open(p)
@@ -120,6 +125,7 @@ func (a *App) handleLogoPut(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	t.srv.storageChanged() // and its files record
 	writeJSON(w, http.StatusOK, t.info())
 }
 
@@ -130,6 +136,7 @@ func (a *App) handleLogoDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.removeLogos(t)
+	t.srv.storageChanged()
 	writeJSON(w, http.StatusOK, t.info())
 }
 

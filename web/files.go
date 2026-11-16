@@ -3,6 +3,7 @@ package web
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"io/fs"
 	"maps"
@@ -17,13 +18,13 @@ import (
 // its size, when it was last changed and its SHA-256. recording.json keeps them under files, by the path in the
 // folder (original/2026-10-18_raw.flac). With object storage the bucket's key is the folder's path and that, and
 // the hash tells a file fetched back is whole; already now, a file that changed or went missing outside the
-// studio is noticed.
+// studio is noticed. The church's own files (its clips and logo) are recorded so in church.json (churchFilesOf).
 //
-// syncFiles keeps the record: it runs with the measuring of the storage (storageChanged), which comes after
+// syncFiles (syncChurchFiles) keeps the record: it runs with the measuring of the storage (storageChanged), which comes after
 // every request that may write or remove files, when background work ends, and hourly. A file is only read
 // (hashed) when its size or time changed; one renamed keeps both, so a rename reads nothing again.
 
-// fileRecord is one file of a recording.
+// fileRecord is one recorded file.
 type fileRecord struct {
 	Size     int64     `json:"size"`
 	Modified time.Time `json:"modified"`
@@ -90,9 +91,51 @@ func (r fileRecord) same(disk fileRecord) bool {
 // syncFiles brings a recording's files record up to date with its folder; it says what changed, for the log.
 // A file that changes while it is read is left for the next time.
 func (s *Server) syncFiles(folder string) (added, changed, gone int) {
-	s.filesMu.Lock() // one at a time: the disk is what limits it
-	defer s.filesMu.Unlock()
-	old := readState(folder).Files
+	return s.syncRecord(s.record(folder), filesOf)
+}
+
+// syncChurchFiles is syncFiles for the church's own files (churchFilesOf), recorded in church.json.
+func (s *Server) syncChurchFiles() (added, changed, gone int) {
+	if fr, ok := s.churchRecord(); ok {
+		return s.syncRecord(fr, churchFilesOf)
+	}
+	return
+}
+
+// churchFilesOf are the church's own files on the disk, as filesOf: its logo and its clips.
+func churchFilesOf(dir string) map[string]fileRecord {
+	out := map[string]fileRecord{}
+	add := func(rel string) {
+		if info, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(rel))); err == nil && info.Mode().IsRegular() {
+			out[rel] = fileRecord{Size: info.Size(), Modified: info.ModTime().UTC()}
+		}
+	}
+	for _, ext := range logoTypes {
+		add("logo" + ext)
+	}
+	des, _ := os.ReadDir(filepath.Join(dir, clipsDir))
+	for _, de := range des {
+		if name := de.Name(); !strings.HasPrefix(name, ".") && !leftover(name) {
+			add(clipsDir + "/" + name)
+		}
+	}
+	return out
+}
+
+// syncRecord brings a files record up to date with the disk (filesOf its folder).
+func (s *Server) syncRecord(fr filesRecord, filesOf func(string) map[string]fileRecord) (added, changed, gone int) {
+	s.filesMu.Lock() // one at a time (the disk is what limits it), and never while evict takes a file off
+	added, changed, gone, wrote := s.syncRecordLocked(fr, filesOf)
+	s.filesMu.Unlock()
+	if wrote && afterSync != nil {
+		afterSync(s, fr)
+	}
+	return
+}
+
+func (s *Server) syncRecordLocked(fr filesRecord, filesOf func(string) map[string]fileRecord) (added, changed, gone int, wrote bool) {
+	folder := fr.folder
+	old := fr.files()
 	disk := filesOf(folder)
 	next := make(map[string]fileRecord, len(disk))
 	moved := map[string]bool{} // old names of files renamed
@@ -144,23 +187,30 @@ func (s *Server) syncFiles(folder string) (added, changed, gone int) {
 	if _, err := os.Stat(folder); err != nil {
 		return // the folder was renamed or put in the trash meanwhile: its record went with it
 	}
-	if _, err := s.updateState(folder, func(st *folderState) error {
-		st.Files = next
-		if len(next) == 0 {
-			st.Files = nil
+	err := fr.change(func(files map[string]fileRecord) error {
+		if !maps.Equal(files, old) {
+			return errChangedMeanwhile
 		}
+		clear(files)
+		maps.Copy(files, next)
 		return nil
-	}); err != nil {
+	})
+	switch {
+	case errors.Is(err, errChangedMeanwhile): // a fetch, an eviction, a removal: done again with it
+		s.filesChanged()
+		return 0, 0, 0, false
+	case err != nil:
 		s.cfg.Logger.Printf("%s: files: %v", s.display(folder), err)
 	}
-	if afterSync != nil {
-		afterSync(s, folder)
-	}
+	wrote = true
 	return
 }
 
-// afterSync, set only by tests, is called when a recording's files record changed (SERMON_TEST_EVICT).
-var afterSync func(s *Server, folder string)
+// errChangedMeanwhile: the record changed while syncRecord read the disk; it is not written over.
+var errChangedMeanwhile = errors.New("the files record changed meanwhile")
+
+// afterSync, set only by tests, is called when a files record changed (SERMON_TEST_EVICT).
+var afterSync func(s *Server, fr filesRecord)
 
 // renamedFrom is the old name of a file that is not on the disk any more under it but has the size and time of
 // d: the same file, renamed (the studio renames a recording's files with it). Each old name is taken once.
@@ -183,7 +233,7 @@ func renamed(rel string, old, next map[string]fileRecord, moved map[string]bool)
 	return false
 }
 
-// syncAllFiles brings every recording's files record up to date, and logs what changed outside the studio's own
+// syncAllFiles brings every recording's files record, and the church's, up to date, and logs what changed outside the studio's own
 // work only as numbers: what a run made is in the log already.
 func (s *Server) syncAllFiles() {
 	for _, e := range s.allRecordings() {
@@ -194,6 +244,9 @@ func (s *Server) syncAllFiles() {
 		if added, changed, gone := s.syncFiles(folder); gone > 0 {
 			s.cfg.Logger.Printf("%s: files: %d added, %d changed, %d not there any more", s.display(folder), added, changed, gone)
 		}
+	}
+	if added, changed, gone := s.syncChurchFiles(); gone > 0 {
+		s.cfg.Logger.Printf("the church's files: %d added, %d changed, %d not there any more", added, changed, gone)
 	}
 }
 

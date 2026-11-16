@@ -77,16 +77,17 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   files only through them); `draft.json` every `draftEvery`; other files, renames and removals come from
   `normalizer.Changed` (so keep using `normalizer.Rename`/`Remove`/`RemoveAll`) into the journal (`.blob/journal.json`,
   one op at a time, retried). The sweep only uploads and reports, never deletes. `mirror.key` says what stays local
-  (sessions, inboxes, cache, models, hidden and half-written files; not `.trash`). `web/fetch.go`: a recording's file can be in the bucket only
-  (`fileRecord.Bucket`); `normalizer.Elsewhere`/`Need`/`Forget` make the pipeline find it, fetch it before ffmpeg or a copy
+  (sessions, inboxes, cache, models, hidden and half-written files; not `.trash`). `web/fetch.go`: a recorded file can be in the bucket only
+  (`fileRecord.Bucket`; the record is a `filesRecord`: a recording's `recording.json`, or `church.json` for the church's
+  clips and logo, `Config.ChurchDir`/`SaveChurchFiles`, `syncChurchFiles`); `normalizer.Elsewhere`/`Need`/`Forget` make the pipeline find it, fetch it before ffmpeg or a copy
   reads it, and remove it there; the web finds it with `fileExists`/`normalizer.Stat` and fetches it with `fetchFor` before
   serving it (so check existence with those, not `os.Stat`); audio only in the bucket is not fetched to be listened
   to or downloaded: `bucketLink` redirects `api/file` and a share's ticket to a presigned address (the share page's
   `media-src` has `App.mediaSrc`). Only `evict` takes a file off the disk, never `normalizer.Remove`.
   `web/evict.go`: `App.keepDisk` evicts by `AppConfig.Disk` (serve's `--blob-keep-days` 30, `--blob-cache-size`), hourly; last
   use by key in `.blob/used.json` (`normalizer.Reading`, the mirror's hook for makes, moves and removals). An empty data dir
-  is filled from the bucket first (`restoreIfEmpty`: everything but a recording's recorded files, which are marked as in
-  the bucket; `.blob/restoring` while it runs). Storage and quotas count files only in the bucket (`inBucketUse`).
+  is filled from the bucket first (`restoreIfEmpty`: everything but the files in a record, which are marked as in
+  the bucket; `.blob/restoring` while it runs). Storage and quotas count files only in the bucket (`inBucketUse`, `recordUse`).
   `SERMON_TEST_EVICT=1 go test ./web/` runs the tests with everything evicted. One studio per bucket: the lease, an id
   in `.blob/id`, given back by `Close`; `StorageLost` makes serve exit. Tests: `mirror_test.go` with `fakeBlob` (in memory);
   `TestBlobServe` against a real bucket.

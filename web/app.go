@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -76,6 +77,9 @@ type churchConfig struct {
 	EndedSharesDays *int `json:"endedSharesDays,omitempty"`
 	// Clips are the intro and outro clips (clips.go): the list, the defaults, the pause.
 	Clips *clipLibrary `json:"clips,omitempty"`
+	// Files records the church's own files (clips/<id>.flac, logo.<ext>) as files.go does a recording's; with
+	// object storage one can be kept only in the bucket (fetch.go).
+	Files map[string]fileRecord `json:"files,omitempty"`
 	// Transcript is the language of the sermons' transcripts (transcribe.go); "" = none. TranscriptModels are
 	// the models they are made with, by language (models.Model.Key); a language without one gets the first
 	// model for it.
@@ -330,6 +334,26 @@ func (a *App) start(id, dir string, cc churchConfig) (*tenant, error) {
 		cfg.SaveProcessing = func(p *processing) error { return a.update(t, func(c *churchConfig) { c.Processing = p }) }
 		cfg.ClipsDir, cfg.Clips = filepath.Join(dir, clipsDir), cc.Clips
 		cfg.SaveClips = func(l clipLibrary) error { return a.update(t, func(c *churchConfig) { c.Clips = &l }) }
+		cfg.ChurchDir = dir
+		cfg.SaveChurchFiles = func(fn func(map[string]fileRecord) error) error {
+			return a.change(t, func(c *churchConfig) error {
+				files := maps.Clone(c.Files)
+				if files == nil {
+					files = map[string]fileRecord{}
+				}
+				if err := fn(files); err != nil {
+					return err
+				}
+				if len(files) == 0 {
+					files = nil
+				}
+				if maps.Equal(files, c.Files) {
+					return errUnchanged
+				}
+				c.Files = files
+				return nil
+			})
+		}
 		cfg.Transcript, cfg.TranscriptModels, cfg.TranscriptWords = cc.Transcript, cc.TranscriptModels, cc.TranscriptWords
 		cfg.SaveTranscript = func(lang string, models map[string]string, words string) error {
 			return a.update(t, func(c *churchConfig) { c.Transcript, c.TranscriptModels, c.TranscriptWords = lang, models, words })
@@ -359,10 +383,26 @@ func (a *App) start(id, dir string, cc churchConfig) (*tenant, error) {
 // fails they are left as they were. The root church has no folder: its
 // settings stay in memory.
 func (a *App) update(t *tenant, change func(*churchConfig)) error {
+	return a.change(t, func(c *churchConfig) error {
+		change(c)
+		return nil
+	})
+}
+
+// errUnchanged, from a change, leaves church.json as it is, and is no error.
+var errUnchanged = errors.New("unchanged")
+
+// change is update with a change that can fail: then nothing is saved, and its error is returned.
+func (a *App) change(t *tenant, change func(*churchConfig) error) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	next := t.cfg
-	change(&next)
+	if err := change(&next); err != nil {
+		if errors.Is(err, errUnchanged) {
+			return nil
+		}
+		return err
+	}
 	if t.dir != "" {
 		if err := writeChurch(t.dir, next); err != nil {
 			return err

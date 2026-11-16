@@ -38,8 +38,13 @@ func (u *storageUse) add(v storageUse) {
 
 // inBucketUse is what a recording keeps only in the bucket: a church's storage is all it keeps, wherever.
 func inBucketUse(folder string) storageUse {
+	return recordUse(recordOf(folder))
+}
+
+// recordUse is what a record (a recording's, the church's) has kept only in the bucket.
+func recordUse(fr filesRecord) storageUse {
 	var u storageUse
-	for rel, r := range inBucketOf(folder) {
+	for rel, r := range inBucketOf(fr) {
 		switch path.Dir(rel) {
 		case normalizer.OriginalDir:
 			u.Recordings += r.Size
@@ -237,6 +242,10 @@ func (s *Server) measureStorage() storageUse {
 	})
 	if s.cfg.ClipsDir != "" {
 		u.Clips += dirSize(s.cfg.ClipsDir)
+	}
+	if fr, ok := s.churchRecord(); ok {
+		c := recordUse(fr) // the clips; a logo, as the one on the disk, is not counted
+		u.Clips += c.Clips
 	}
 	return u
 }

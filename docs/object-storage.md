@@ -32,11 +32,12 @@ file**: an empty or wrong disk cannot empty the bucket.
 
 ## Files only in the bucket
 
-A recording's file can be kept in the bucket alone. Its files record says so (`"bucket": true` under `files` in
-`recording.json`), and the studio still lists it, shows it and plans runs with it. It is fetched when something needs
-to read it: a run, an analysis, a sample, a transcript, a download, a rename. Each fetched file is checked against its
+A recording's file can be kept in the bucket alone, and so can a church's intro and outro clips and its logo. The files
+record says so (`"bucket": true` under `files` in the recording's `recording.json`, or the church's `church.json`), and
+the studio still lists it, shows it and plans runs with it. It is fetched when something needs to read it: a run, an
+analysis, a sample, a transcript, a download, a rename, listening to a clip in Settings, the logo. Each fetched file is checked against its
 SHA-256 in the record, and keeps the time it had, so it is not taken for changed or put in the bucket again. Removing it
-(deleting the original or a format, the trash) removes it from the bucket and the record.
+(deleting the original or a format, the trash, a clip, the logo) removes it from the bucket and the record.
 
 Listening to or downloading such a file (in the studio, or from a download share) does not fetch it: the browser is sent
 to an address of the bucket for that one file, which works for 6 hours and names the file. The share page's player
@@ -45,11 +46,12 @@ the file comes from the bucket, the studio does not see the download going on. A
 before, as the page reads it with `fetch`.
 
 A file leaves the disk only once the record has it as it is now and the bucket has it as uploaded after its last
-change, with nothing for it waiting in the journal and no work going on in its recording. Every JSON file (a
-transcript's too), drafts and the cache always stay on the disk; so far so do the churches' clips and logos, which have no files record yet.
+change, with nothing for it waiting in the journal and no work going on in its recording (for a clip or the logo: in
+the church, nor a clip being taken in). Every JSON file (a transcript's too), drafts and the cache always stay on the
+disk.
 
 **When a file leaves the disk:** when it has not been used for `--blob-keep-days` (30 by default; 0 keeps them), and,
-with `--blob-cache-size`, while the recordings' files on the disk (not their JSON) take more than that, the ones used
+with `--blob-cache-size`, while the recorded files on the disk (not the JSON) take more than that, the ones used
 longest ago first. Used is when it was last made, fetched, or read by the studio: a run, an analysis, a sample, a transcript, a
 download from the disk. A rename is not a use, and listening to or downloading a file only in the bucket does not
 fetch it. The times are kept in `<data-dir>/.blob/used.json`; a file not there counts from its own time. The studio
@@ -60,8 +62,8 @@ its files wherever they are.
 
 Started on an empty data dir (no file in it that goes to the bucket: empty folders, the cache and the models do not
 count) with a bucket that has files, the studio first takes the lease, then fetches what must be on the disk before it
-serves anything: the JSON files, the churches' clips and logos, and any file no record has. A recording's files in its
-files record stay in the bucket, marked so, and are fetched when needed; one the record has and the bucket lacks is
+serves anything: the JSON files and any file no record has. The files in a record (a recording's, or a church's clips
+and logo) stay in the bucket, marked so, and are fetched when needed; one the record has and the bucket lacks is
 dropped from the record, and logged. A restore cut short (`.blob/restoring` is still there) is done again at the next
 start. A data dir with files in it starts as it is: the two are never merged.
 
