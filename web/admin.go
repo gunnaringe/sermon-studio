@@ -77,7 +77,7 @@ func (a *App) addChurch(id, name string) (*tenant, error) {
 	cc := churchConfig{Name: name}
 	t, err := a.start(id, dir, cc) // makes the folders
 	if err == nil {
-		err = writeChurch(dir, cc)
+		err = a.update(t, func(*churchConfig) {}) // writes church.json, after a change its server made meanwhile
 	}
 	if err != nil {
 		return nil, err
