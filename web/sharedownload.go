@@ -465,6 +465,17 @@ func (a *App) handleShareDownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	paths, err := normalizer.NewPaths(abs)
+	if err == nil {
+		// Kept only in the bucket: the browser gets it there, by format still (the address names only that file).
+		// A download going on is then not seen (sending, Resumable).
+		switch link, ok, lerr := bucketLink(r.Context(), downloadPath(paths, sh, tk.Format), tk.Listen); {
+		case ok:
+			http.Redirect(w, r, link, http.StatusFound)
+			return
+		case lerr != nil:
+			a.cfg.Base.Logger.Printf("share %s: %v", sh.ID, lerr)
+		}
+	}
 	var f *os.File
 	if err == nil {
 		if err = fetchFor(r.Context(), downloadPath(paths, sh, tk.Format)); err == nil {

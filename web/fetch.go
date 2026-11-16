@@ -295,3 +295,43 @@ func (s *Server) evict(ctx context.Context, folder, rel string) error {
 	}
 	return os.Remove(aside)
 }
+
+// linkFor is how long an address of the bucket for one file works: a sermon to a slow phone, a download that is
+// continued.
+const linkFor = 6 * time.Hour
+
+// bucketLink is an address of the bucket for a file kept only there, which the browser gets it from instead of
+// the studio (nothing is fetched onto the disk for it); ok is false for a file on the disk, or without a bucket.
+func bucketLink(ctx context.Context, p string, inline bool) (link string, ok bool, err error) {
+	m := mirrorFor(p)
+	if m == nil {
+		return "", false, nil
+	}
+	if _, err := os.Lstat(p); err == nil {
+		return "", false, nil
+	}
+	if _, kept := normalizer.Stat(p); kept != nil {
+		return "", false, nil
+	}
+	key, mirrored := m.key(p)
+	if !mirrored {
+		return "", false, nil
+	}
+	u, err := m.blob.Presign(ctx, key, linkFor, filepath.Base(p), inline)
+	if err != nil {
+		return "", false, fmt.Errorf("storage: an address for %s: %w", key, err)
+	}
+	return u.String(), true, nil
+}
+
+// bucketOrigin is the origin of the bucket's addresses (scheme and host), for a page's Content-Security-Policy;
+// "" when it cannot be told.
+func bucketOrigin(b Blob) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	u, err := b.Presign(ctx, "_origin", time.Minute, "x", true)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
+}

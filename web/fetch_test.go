@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -63,7 +65,7 @@ func (ft *fetchTest) record(rel string) (fileRecord, bool) {
 }
 
 // A file only in the bucket is still there for the studio: the recording is found, its MP3 is listed, and the
-// MP3 is fetched (whole, with its time) when it is downloaded; the bucket keeps its copy.
+// MP3 is fetched (whole, with its time) when something reads it; the bucket keeps its copy.
 func TestFetchOnDemand(t *testing.T) {
 	ft := newFetchTest(t)
 	mp3 := filepath.Join(ft.folder, "2026-10-18.mp3")
@@ -104,9 +106,11 @@ func TestFetchOnDemand(t *testing.T) {
 		t.Errorf("the record lost the file in the bucket: %+v", r)
 	}
 
-	w := do(ft.studio, "GET", "/api/file?path="+url.QueryEscape("2026-10-18/2026-10-18.mp3"), "")
-	if w.Code != http.StatusOK || w.Body.String() != "ID3 mp3" {
-		t.Fatalf("download: %d %q", w.Code, w.Body)
+	if err := fetchFor(context.Background(), mp3); err != nil { // as before a run reads it
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(mp3); string(got) != "ID3 mp3" {
+		t.Fatalf("fetched: %q", got)
 	}
 	if st, err := os.Stat(mp3); err != nil || !st.ModTime().Equal(before.ModTime()) {
 		t.Errorf("fetched: %v %v", st, err)
@@ -128,8 +132,8 @@ func TestFetchChecked(t *testing.T) {
 	ft := newFetchTest(t)
 	ft.evict("2026-10-18.mp3")
 	ft.b.store("kirke/Taler/2026-10-18/2026-10-18.mp3", []byte("ID3 MP3"), nil) // the same size, other bytes
-	if w := do(ft.studio, "GET", "/api/file?path="+url.QueryEscape("2026-10-18/2026-10-18.mp3"), ""); w.Code != http.StatusServiceUnavailable {
-		t.Errorf("a wrong file served: %d %q", w.Code, w.Body)
+	if err := fetchFor(context.Background(), filepath.Join(ft.folder, "2026-10-18.mp3")); err == nil {
+		t.Error("a wrong file fetched")
 	}
 	if _, err := os.Stat(filepath.Join(ft.folder, "2026-10-18.mp3")); err == nil {
 		t.Error("the wrong file is left on the disk")
@@ -279,5 +283,56 @@ func evictAll(t *testing.T, cfg *Config) {
 				}
 			}
 		}
+	}
+}
+
+// Audio kept only in the bucket is got there by the browser: the studio's file and a share's download and
+// player are sent to an address of the bucket, and nothing is fetched onto the disk for them; the share page lets
+// its player follow it. A file on the disk, and a transcript, are served as before.
+func TestBucketLinks(t *testing.T) {
+	ft := newFetchTest(t)
+	ft.put("2026-10-18.txt", "Hei.")
+	ft.srv.syncFiles(ft.folder)
+	settleMirror(t, ft.app)
+	ft.save(ft.folder)
+	code, _ := ft.makeShare(`{"kind":"download","recording":"2026-10-18","formats":["mp3"],"label":"Lytt"}`)
+
+	file := func(rel string, download bool) *httptest.ResponseRecorder {
+		q := "/api/file?path=" + url.QueryEscape(rel)
+		if download {
+			q += "&download=1"
+		}
+		return do(ft.studio, "GET", q, "")
+	}
+	if w := file("2026-10-18/2026-10-18.mp3", false); w.Code != http.StatusOK {
+		t.Errorf("on the disk: %d", w.Code)
+	}
+	ft.evict("2026-10-18.mp3")
+	ft.evict("2026-10-18.txt")
+	want := "https://bucket.example/kirke/Taler/2026-10-18/2026-10-18.mp3"
+	for _, download := range []bool{false, true} {
+		if w := file("2026-10-18/2026-10-18.mp3", download); w.Code != http.StatusFound || !strings.HasPrefix(w.Header().Get("Location"), want) {
+			t.Errorf("download %v: %d %v", download, w.Code, w.Header())
+		}
+	}
+	if _, err := os.Stat(filepath.Join(ft.folder, "2026-10-18.mp3")); err == nil {
+		t.Error("fetched onto the disk for a link")
+	}
+	if w := file("2026-10-18/2026-10-18.txt", false); w.Code != http.StatusOK || w.Body.String() != "Hei." {
+		t.Errorf("the transcript: %d %q", w.Code, w.Body)
+	}
+
+	for _, listen := range []bool{false, true} {
+		b, _ := json.Marshal(map[string]any{"format": "mp3", "listen": listen})
+		w := ft.call("POST", "/api/share/downloads", code, "1.1.1.1", b)
+		var out struct{ URL string }
+		json.Unmarshal(w.Body.Bytes(), &out)
+		resp := ft.fetch(out.URL, "")
+		if resp.StatusCode != http.StatusFound || !strings.HasPrefix(resp.Header.Get("Location"), want) {
+			t.Errorf("share (listen %v): %d %v", listen, resp.StatusCode, resp.Header)
+		}
+	}
+	if csp := ft.fetch("share", "").Header.Get("Content-Security-Policy"); !strings.Contains(csp, "media-src 'self' https://bucket.example;") {
+		t.Errorf("the share page's CSP: %s", csp)
 	}
 }

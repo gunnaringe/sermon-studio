@@ -64,7 +64,7 @@ func (a *App) ShareHandler() http.Handler {
 func (a *App) shareGuard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
-		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' blob:; "+a.mediaSrc+"frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("X-Frame-Options", "DENY")
