@@ -14,8 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/gunnaringe/sermon-studio/normalizer"
 )
 
 // A church is a folder in the data dir:
@@ -58,6 +56,10 @@ type AppConfig struct {
 	ParallelRuns int
 	// Transcription turns on transcripts (transcribe.go); nil = off.
 	Transcription *TranscriptionConfig
+	// Blob keeps a copy of DataDir in a bucket (mirror.go, #86); nil = only the disk. StorageLost is told when
+	// another studio took the bucket: the studio must stop (serve exits).
+	Blob        Blob
+	StorageLost func(error)
 }
 
 // churchConfig is church.json. Everything is optional: a church is a folder
@@ -122,6 +124,7 @@ func (t *tenant) info() TenantInfo {
 type App struct {
 	cfg         AppConfig
 	limits      *limits
+	mirror      *mirror      // with object storage
 	transcriber *transcriber // nil = no transcripts
 
 	createMu sync.Mutex // one church is added at a time
@@ -155,24 +158,41 @@ func NewApp(cfg AppConfig) (*App, error) {
 		a.share = &shareState{limits: newLimiter(cfg.Share.Limits), busy: map[string]bool{}, sending: map[string]int{}, done: make(chan struct{})}
 	}
 	fail := func(err error) (*App, error) { a.Close(); return nil, err }
+	if cfg.Blob != nil {
+		if cfg.DataDir == "" {
+			return nil, errors.New("object storage needs --data-dir")
+		}
+		lost := cfg.StorageLost
+		if lost == nil {
+			lost = func(err error) { cfg.Base.Logger.Print(err) }
+		}
+		local := []string{cfg.Base.CacheDir}
+		if cfg.Transcription != nil {
+			local = append(local, cfg.Transcription.ModelsDir)
+		}
+		var err error
+		if a.mirror, err = startMirror(cfg.Blob, cfg.DataDir, local, cfg.Base.Logger, lost); err != nil {
+			return nil, err
+		}
+	}
 	if cfg.Transcription != nil {
 		var err error
 		if a.transcriber, err = newTranscriber(*cfg.Transcription); err != nil {
-			return nil, err
+			return fail(err)
 		}
 	}
 	if cfg.VisitorRole != "" {
 		if cfg.OIDC != nil {
-			return nil, errors.New("a visitor role is for the studio without the login")
+			return fail(errors.New("a visitor role is for the studio without the login"))
 		}
 		if _, ok := roleActions[cfg.VisitorRole]; !ok {
-			return nil, fmt.Errorf("no role %q: the roles are %s, %s and %s", cfg.VisitorRole, RoleAdmin, RoleMember, RoleDemo)
+			return fail(fmt.Errorf("no role %q: the roles are %s, %s and %s", cfg.VisitorRole, RoleAdmin, RoleMember, RoleDemo))
 		}
 	}
 	if cfg.OIDC != nil {
 		var err error
 		if a.auth, err = newAuth(*cfg.OIDC, cfg.DataDir, cfg.Base.Logger); err != nil {
-			return nil, err
+			return fail(err)
 		}
 	}
 	if cfg.ChurchHost != "" {
@@ -181,7 +201,7 @@ func NewApp(cfg AppConfig) (*App, error) {
 			err = checkHosts(h, cfg.OIDC)
 		}
 		if err != nil {
-			return nil, err
+			return fail(err)
 		}
 		a.hosts, a.auth.hosts = h, h
 	}
@@ -213,7 +233,7 @@ func NewApp(cfg AppConfig) (*App, error) {
 		return fail(err)
 	}
 	if len(a.tenants) == 0 {
-		return nil, errors.New("no churches: set --root, or --data-dir with a folder per church (<id>/Taler)")
+		return fail(errors.New("no churches: set --root, or --data-dir with a folder per church (<id>/Taler)"))
 	}
 	if a.share != nil {
 		a.share.wg.Add(1)
@@ -266,12 +286,7 @@ func writeChurch(dir string, cc churchConfig) error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(dir, churchFile)
-	tmp := path + ".partial"
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o644); err != nil {
-		return err
-	}
-	return normalizer.Rename(tmp, path)
+	return writeFileAtomic(filepath.Join(dir, churchFile), append(b, '\n'))
 }
 
 // start brings up the Server of one church and adds it to the list.
@@ -367,6 +382,7 @@ func (a *App) Close() {
 	if a.transcriber != nil {
 		a.transcriber.Close()
 	}
+	a.mirror.close() // after the churches: what they wrote last goes in the journal
 }
 
 // tenantFor picks the church a request is for: the one it names, else the

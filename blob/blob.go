@@ -329,3 +329,13 @@ func (s *Store) SetCORS(ctx context.Context, origins []string) error {
 		MaxAgeSeconds: 3600,
 	}})))
 }
+
+// MakeBucket makes the Store's bucket if it is not there: for tests against a server of one's own (RustFS,
+// MinIO); a provider's bucket is made in its panel.
+func MakeBucket(ctx context.Context, s *Store) error {
+	ok, err := s.client.BucketExists(ctx, s.bucket)
+	if err != nil || ok {
+		return err
+	}
+	return s.client.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{Region: s.region})
+}

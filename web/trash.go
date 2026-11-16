@@ -100,7 +100,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	note, _ := json.Marshal(trashRecord{From: rel, At: now})
-	if err := os.WriteFile(filepath.Join(dst, trashNote), note, 0o644); err != nil {
+	if err := writeFileAtomic(filepath.Join(dst, trashNote), note); err != nil {
 		s.cfg.Logger.Printf("trash: no note in %s: %v", dst, err)
 	}
 	if parent := filepath.Dir(abs); parent != s.root {

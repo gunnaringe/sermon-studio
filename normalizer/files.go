@@ -100,10 +100,25 @@ func CopyFile(src, dst string) error {
 // while Windows says the file is in use: a preview being played, a virus scanner looking at a new file.
 // Elsewhere a file in use can be renamed and removed, and they are the os ones.
 func Rename(oldpath, newpath string) error {
-	return retry(func() error { return os.Rename(oldpath, newpath) })
+	err := retry(func() error { return os.Rename(oldpath, newpath) })
+	if err == nil && Changed != nil {
+		Changed(oldpath, newpath)
+	}
+	return err
 }
 
-func Remove(path string) error { return retry(func() error { return os.Remove(path) }) }
+func Remove(path string) error {
+	err := retry(func() error { return os.Remove(path) })
+	if err == nil && Changed != nil {
+		Changed(path, "")
+	}
+	return err
+}
+
+// Changed, when set, is told of every Rename (from, to) and Remove or RemoveAll (from, "") that succeeded: how
+// object storage follows the studio's files (web/mirror.go). It is set once, before any file is touched, and
+// must return quickly.
+var Changed func(from, to string)
 
 // ReadFile is os.ReadFile, tried again while Windows says the file is in use: it is while another goroutine
 // renames a new version over it (writeFileAtomic), where Linux and macOS give the old one or the new.
@@ -116,7 +131,13 @@ func ReadFile(path string) ([]byte, error) {
 	return data, err
 }
 
-func RemoveAll(path string) error { return retry(func() error { return os.RemoveAll(path) }) }
+func RemoveAll(path string) error {
+	err := retry(func() error { return os.RemoveAll(path) })
+	if err == nil && Changed != nil {
+		Changed(path, "")
+	}
+	return err
+}
 
 func retry(op func() error) error {
 	err := op()

@@ -15,7 +15,7 @@
 #   scripts/test.sh site [args] the website in site/ (Playwright, served as files): pages, languages, links
 #   scripts/test.sh site-shots [shots|video]  the website's pictures and video (use scripts/site-shots.sh)
 #   scripts/test.sh image      the Docker image (vet + all tests inside)
-#   scripts/test.sh blob       the object storage (package blob) against an S3 server (RustFS) in a container
+#   scripts/test.sh blob       the object storage (package blob, and the studio with it) against an S3 server (RustFS) in a container
 #   scripts/test.sh changed    the checks for what this branch changes (since it left origin/main, uncommitted too),
 #                              cheapest first, stopping at the first that fails; prints which it runs
 #                              (PLAN_ONLY=1: only that)
@@ -99,7 +99,7 @@ blob)
 	done
 	env="BLOB_TEST_ENDPOINT=http://127.0.0.1:$port BLOB_TEST_ACCESS_KEY=testkey BLOB_TEST_SECRET_KEY=testsecret BLOB_TEST_REQUIRED=1"
 	command -v go >/dev/null || { echo "needs Go on the host (mise install)" >&2; exit 1; }
-	env $env go test -count=1 "$@" ./blob/
+	env $env go test -count=1 "$@" ./blob/ && env $env go test -count=1 -run Blob "$@" ./cmd/sermon-studio/
 	;;
 changed)
 	base=$(git merge-base origin/main HEAD)
