@@ -177,7 +177,8 @@ func TestScanToMake(t *testing.T) {
 
 // A format made with Make is kept made from then on.
 func TestMakeKeepsFormat(t *testing.T) {
-	ts, _ := makerServer(t)
+	ts, release := makerServer(t)
+	defer release()
 	ts.file(t, "2026-10-04/original/2026-10-04_raw.flac", "x")
 	folder := filepath.Join(ts.root, "2026-10-04")
 	only := outputFormats{Flac: true}
@@ -188,6 +189,18 @@ func TestMakeKeepsFormat(t *testing.T) {
 	}
 	if f := readState(folder).Saved.Formats; *f != (outputFormats{Flac: true, Mp3: true}) {
 		t.Errorf("kept formats: %+v", f)
+	}
+	// Removed by hand, a format is no longer kept: the start does not make it again.
+	release()
+	ts.settle(t)
+	if rec := ts.do(t, "POST", "/api/outputs/remove?path=2026-10-04&format=flac&format=mp3", nil); rec.Code != http.StatusOK {
+		t.Fatalf("remove: %d %s", rec.Code, rec.Body)
+	}
+	if f := readState(folder).Saved.Formats; *f != (outputFormats{}) {
+		t.Errorf("kept formats after removing: %+v", f)
+	}
+	if got := ts.toMakeFolders(); len(got) != 0 {
+		t.Errorf("to make after removing: %q", got)
 	}
 }
 

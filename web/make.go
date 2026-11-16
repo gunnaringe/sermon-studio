@@ -45,18 +45,16 @@ func (s *Server) handleMake(w http.ResponseWriter, r *http.Request) {
 
 // keepFormat adds a format to those the saved version keeps made (one made by hand stays).
 func (s *Server) keepFormat(abs, format string) {
+	s.keepFormats(abs, func(f *outputFormats) { f.set(format, true) })
+}
+
+// keepFormats changes the formats the saved version keeps made.
+func (s *Server) keepFormats(abs string, change func(*outputFormats)) {
 	if _, err := s.updateState(abs, func(st *folderState) error {
 		if st.Saved != nil {
 			kept := s.withDefaults(abs, *st.Saved)
 			f := *kept.Formats
-			switch format {
-			case "flac":
-				f.Flac = true
-			case "mp3":
-				f.Mp3 = true
-			case "opus":
-				f.Opus = true
-			}
+			change(&f)
 			kept.Formats = &f
 			st.Saved = &kept
 		}
@@ -100,6 +98,11 @@ func (s *Server) handleRemoveOutputs(w http.ResponseWriter, r *http.Request) {
 		writeStatusError(w, err)
 		return
 	}
+	s.keepFormats(abs, func(f *outputFormats) { // removed by hand: not made again by the start's scan
+		for _, x := range formats {
+			f.set(x, false)
+		}
+	})
 	info, err := s.folderInfo(abs)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)

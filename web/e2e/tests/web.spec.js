@@ -604,6 +604,20 @@ test('a run can be cancelled', async ({ page }) => {
   expect(left).toEqual([]);
 });
 
+test('Save during a run starts it again from the new version, and the page follows the new run', async ({ page }) => {
+  await openEditor(page, '2026/2026-10-04');
+  await editor(page, () => window.__editor.addSection(5, 95));
+  await setFade(page, 'fadeIn', 3);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('section.job .background-note')).toContainText('background job');
+  await setFade(page, 'fadeIn', 4);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Done' })).toBeVisible({ timeout: 90_000 });
+  await expect(pill(page, 'MP3')).toContainText('up to date');
+  await expect(page.getByText('Saved, and everything chosen is up to date.')).toBeVisible();
+  expect(sermonOf('2026/2026-10-04').saved.fadeIn).toBe(4);
+});
+
 test('a format that is not chosen any more is deleted by Save, after asking', async ({ page }) => {
   await openEditor(page, '2026/2026-10-04', { keep: true });
   // The sermon's files decide what is chosen, not the choice in another folder.

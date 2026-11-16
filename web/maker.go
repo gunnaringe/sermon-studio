@@ -152,10 +152,7 @@ func (m *maker) make(o makeOrder) {
 		return
 	}
 	q.Flac, q.Mp3, q.Opus, q.Force = todo.Flac, todo.Mp3, todo.Opus, todo.again
-	q.Transcript = o.ask
-	if q.Transcript == nil && !o.saved {
-		q.Transcript = s.churchTranscript(abs)
-	}
+	q.Transcript = o.ask // none from the scan: a transcript is made only when asked for (afterRun)
 	pl := s.check(abs, q)
 	if pl.Error != "" {
 		m.setFailure(o.folder, pl.Error)
@@ -226,25 +223,6 @@ func (s *Server) toMake(abs string) (runRequest, *makeTodo) {
 		return q, nil
 	}
 	return q, &todo
-}
-
-// churchTranscript is the transcript a run from the scan makes after the files: the church's, when it makes
-// them and the recording has none; nil otherwise.
-func (s *Server) churchTranscript(abs string) *transcriptAsk {
-	lang := s.transcriptLanguage()
-	if lang == "" {
-		return nil
-	}
-	if p, err := normalizer.NewPaths(abs); err != nil {
-		return nil
-	} else if _, _, data := transcriptPaths(p); fileExists(data) {
-		return nil
-	}
-	ask := transcriptAsk{Language: lang, Model: s.defaultModel(lang)}
-	if s.checkTranscript(ask) != nil {
-		return nil
-	}
-	return &ask
 }
 
 // dropUnkept deletes the files of the formats the saved version does not keep, and their records.

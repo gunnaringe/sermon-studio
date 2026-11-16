@@ -185,8 +185,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   filled in at Save from the church's `processing.formats`, all three when nil; for one saved before, `keepDefaults` takes the
   formats it has) that are missing or stale (`toMake`; a file with no record is fine). Only Save (`handleSermonSave`: first in
   the queue, stops a run of the recording, deletes the formats it no longer keeps when the user may delete, `allowed`, and
-  takes the transcript in its body) and the start's scan (`scanToMake`, newest first; after its run the church's transcript
-  when there is none) queue one; never again by itself, so a failure (`makeError` in the folder info) waits for the next
+  takes the transcript in its body) and the start's scan (`scanToMake`, newest first; it makes no transcript) queue one; never again by itself, so a failure (`makeError` in the folder info) waits for the next
   Save. One worker per church, only while there is work (`Busy`); it plans a run as it starts it, so a waiting recording
   is not busy (`making: "waiting"`). A rename moves its order (`maker.moved`). `api/make` adds its format to those kept.
 - `web/analysis.go`: conversion on arrival (`normalizer.ConvertsTo`: WAV/AIFF→FLAC, video→`.mka`), then waveform peaks + normalized MP3

@@ -155,20 +155,24 @@ export function outputPart(ed) {
   // followServer shows what the server does with the files after Save: the run once it starts (it may wait for
   // others first), or why they could not be made.
   async function followServer() {
+    if (events) { events.close(); events = null; } // a run of the version before is stopped
+    let waited = false;
     for (;;) {
       await ed.refreshInfo();
       if (!ed.alive) return;
-      if (info.job && info.job.state !== 'done' && info.job.state !== 'failed' && info.job.state !== 'cancelled') {
+      // Waiting first: until the new run starts, the job there may be the one this Save stopped.
+      if (info.making !== 'waiting' && info.job && (info.job.state === 'queued' || info.job.state === 'running')) {
         job = info.job;
         showJob(job);
         follow(job.id);
         return;
       }
       if (info.making !== 'waiting') break;
+      waited = true;
       jobPanel.replaceChildren(h('div', { class: 'panel' }, h('h2', {}, t('Waiting for another run to finish…')), backgroundNote()));
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    jobPanel.replaceChildren();
+    if (waited) jobPanel.replaceChildren();
     if (info.makeError) showCheck({ ...lastCheck, error: t('Saved, but the files were not made: {error}', { error: tr(info.makeError) }) });
     check();
   }
@@ -182,7 +186,9 @@ export function outputPart(ed) {
       if (!busy()) {
         events.close();
         events = null;
-        ed.refreshInfo().then(check).catch(() => {}); // the outputs changed
+        // Stopped by a Save during it: the run of the new version follows.
+        if (job.state === 'cancelled') followServer().catch(() => {});
+        else ed.refreshInfo().then(check).catch(() => {}); // the outputs changed
       }
     };
   }

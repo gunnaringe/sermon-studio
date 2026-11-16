@@ -63,6 +63,18 @@ var allFormats = outputFormats{Flac: true, Mp3: true, Opus: true}
 
 func (f outputFormats) none() bool { return !f.Flac && !f.Mp3 && !f.Opus }
 
+// set turns format (flac, mp3 or opus) on or off.
+func (f *outputFormats) set(format string, on bool) {
+	switch format {
+	case "flac":
+		f.Flac = on
+	case "mp3":
+		f.Mp3 = on
+	case "opus":
+		f.Opus = on
+	}
+}
+
 // has is whether format (flac, mp3 or opus) is one of them.
 func (f outputFormats) has(format string) bool {
 	return map[string]bool{"flac": f.Flac, "mp3": f.Mp3, "opus": f.Opus}[format]
