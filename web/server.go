@@ -58,6 +58,10 @@ type Config struct {
 	ClipsDir  string
 	Clips     *clipLibrary
 	SaveClips func(clipLibrary) error
+	// ChurchDir is the church's folder (its logo, ClipsDir in it), whose files church.json records with
+	// RecordFiles; SaveChurchFiles changes that record as one step (fn's error: not saved). "" and nil for --root.
+	ChurchDir       string
+	SaveChurchFiles func(fn func(map[string]fileRecord) error) error
 	// Transcript is the language of the church's transcripts ("" = none; transcribe.go), TranscriptModels
 	// the models' keys by language (none = the first for it), TranscriptWords the church's names and words for
 	// whisper's prompt; SaveTranscript stores a change (nil = kept in memory only).
@@ -84,11 +88,13 @@ const DefaultLayout = "2006/2006-01-02"
 
 // Server serves the API and the embedded front end.
 type Server struct {
-	cfg    Config
-	root   string // Root, absolute with symlinks resolved
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup // background work: analyses and jobs
+	cfg  Config
+	root string // Root, absolute with symlinks resolved
+	// churchDir is ChurchDir, absolute with symlinks resolved ("" = none)
+	churchDir string
+	ctx       context.Context
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup // background work: analyses and jobs
 	// working counts the background work started by background (analyses, conversions, imports, runs), for
 	// Busy; lastChunk is when the last upload chunk arrived (Unix nanoseconds).
 	working   atomic.Int32
@@ -147,6 +153,12 @@ func New(cfg Config) (*Server, error) {
 		cfg.limits = newLimits(1)
 	}
 	s := &Server{cfg: cfg, root: root, ctx: ctx, cancel: cancel, limits: cfg.limits, tagDates: map[string]string{}}
+	if cfg.ChurchDir != "" {
+		if s.churchDir, err = realDir(cfg.ChurchDir); err != nil {
+			cancel()
+			return nil, fmt.Errorf("church folder: %w", err)
+		}
+	}
 	s.meta = metaStore{meta: DefaultMeta, save: cfg.SaveMeta}
 	if cfg.Meta != nil {
 		s.meta.meta = *cfg.Meta

@@ -108,12 +108,13 @@ func (m *mirror) lastUsed(key string, r fileRecord) time.Time {
 	return r.Modified
 }
 
-// onDisk is a recording's file on the disk that may be kept only in the bucket.
+// onDisk is a recorded file on the disk that may be kept only in the bucket.
 type onDisk struct {
-	s           *Server
-	folder, rel string
-	size        int64
-	used        time.Time
+	s    *Server
+	fr   filesRecord
+	rel  string
+	size int64
+	used time.Time
 }
 
 // keepDisk takes files off the disk by DiskOptions, at start (after the first sweep) and every keepDiskEvery,
@@ -154,17 +155,23 @@ func (a *App) keepDiskOnce(now time.Time, opt DiskOptions) {
 		if s == nil || !s.cfg.RecordFiles {
 			continue
 		}
+		var records []filesRecord
 		for _, e := range s.allRecordings() {
-			folder := filepath.Join(s.root, filepath.FromSlash(e.Path))
-			for rel, r := range readState(folder).Files {
+			records = append(records, recordOf(filepath.Join(s.root, filepath.FromSlash(e.Path))))
+		}
+		if fr, ok := s.churchRecord(); ok {
+			records = append(records, fr)
+		}
+		for _, fr := range records {
+			for rel, r := range fr.files() {
 				if r.Bucket || strings.HasSuffix(rel, ".json") { // a JSON file stays, and does not count
 					continue
 				}
-				key, ok := m.key(filepath.Join(folder, filepath.FromSlash(rel)))
+				key, ok := m.key(filepath.Join(fr.folder, filepath.FromSlash(rel)))
 				if !ok {
 					continue
 				}
-				files = append(files, onDisk{s, folder, rel, r.Size, m.lastUsed(key, r)})
+				files = append(files, onDisk{s, fr, rel, r.Size, m.lastUsed(key, r)})
 				total += r.Size
 			}
 		}
@@ -183,13 +190,13 @@ func (a *App) keepDiskOnce(now time.Time, opt DiskOptions) {
 		if a.closing() {
 			return
 		}
-		if err := f.s.evict(ctx, f.folder, f.rel); err != nil {
+		if err := f.s.evict(ctx, f.fr, f.rel); err != nil {
 			continue
 		}
 		n, freed, total = n+1, freed+f.size, total-f.size
 	}
 	if n > 0 {
-		a.cfg.Base.Logger.Printf("storage: %d files (%s) taken off the disk, kept in the bucket; %s of recordings on the disk",
+		a.cfg.Base.Logger.Printf("storage: %d files (%s) taken off the disk, kept in the bucket; %s of recorded files on the disk",
 			n, sizeText(freed), sizeText(total))
 	}
 }

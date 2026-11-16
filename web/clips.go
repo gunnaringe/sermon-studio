@@ -532,7 +532,12 @@ func (s *Server) handleClipAudio(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errNoClip)
 		return
 	}
-	f, err := os.Open(s.clips.clipFile(id))
+	p := s.clips.clipFile(id)
+	if err := fetchFor(r.Context(), p); err != nil { // kept only in the bucket: fetched first
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	f, err := os.Open(p)
 	if err != nil {
 		writeError(w, http.StatusNotFound, errNoClip)
 		return

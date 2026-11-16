@@ -713,8 +713,8 @@ func (m *mirror) settle(ctx context.Context) error {
 
 // restoreIfEmpty starts a new machine from the bucket: when the data dir has nothing that goes to the bucket
 // (only the cache, the models, .blob) and the bucket has files, what must be on the disk is fetched before the
-// studio starts: the JSON files, the church's files (clips, logo), any file no record has. A recording's files in
-// its files record stay in the bucket, marked so (fetched when needed, fetch.go), if the bucket has them as
+// studio starts: the JSON files, any file no record has. The files in a record (a recording's, a church's: its
+// clips and logo) stay in the bucket, marked so (fetched when needed, fetch.go), if the bucket has them as
 // recorded. A data dir with anything in it starts as it is: the two are never merged; the sweep then puts in the
 // bucket what it lacks. A restore cut short (.blob/restoring) is done again at the next start.
 func (m *mirror) restoreIfEmpty() error {
@@ -756,18 +756,18 @@ func (m *mirror) restoreIfEmpty() error {
 		os.Chtimes(p, o.Modified, o.Modified) // not newer than the bucket's: the sweep leaves it
 		return nil
 	}
-	// The recordings' records first: what they have stays in the bucket.
+	// The records first, the recordings' and the churches' (clips, logo): what they have stays in the bucket.
 	recorded := map[string]bool{}
 	var states []string
 	for key, o := range objects {
-		if path.Base(key) != stateName {
+		if !isRecord(key) {
 			continue
 		}
 		if err := get(o); err != nil {
 			return err
 		}
 		states = append(states, key)
-		for rel := range readState(filepath.Dir(m.path(key))).Files {
+		for rel := range recordFiles(m.path(key)) {
 			if !strings.HasSuffix(rel, ".json") { // a JSON file is always on the disk (a transcript's)
 				recorded[path.Dir(key)+"/"+rel] = true
 			}
@@ -777,7 +777,7 @@ func (m *mirror) restoreIfEmpty() error {
 	var size, left int64
 	for key, o := range objects {
 		switch {
-		case path.Base(key) == stateName:
+		case isRecord(key):
 		case recorded[key]:
 			left += o.Size
 		default:
@@ -789,7 +789,7 @@ func (m *mirror) restoreIfEmpty() error {
 	}
 	missing := 0
 	for _, key := range states {
-		if err := m.markInBucket(filepath.Dir(m.path(key)), path.Dir(key), objects, &missing); err != nil {
+		if err := m.markInBucket(m.path(key), path.Dir(key), objects, &missing); err != nil {
 			return err
 		}
 	}
@@ -799,16 +799,32 @@ func (m *mirror) restoreIfEmpty() error {
 		}
 	}
 	os.Remove(marker)
-	m.logger.Printf("storage: the data dir was empty: %d records and %d other files (%s) fetched from the bucket in %s; %s of recordings stay there, fetched when needed%s",
+	m.logger.Printf("storage: the data dir was empty: %d records and %d other files (%s) fetched from the bucket in %s; %s of recorded files stay there, fetched when needed%s",
 		len(states), n, sizeText(size), time.Since(start).Round(time.Second), sizeText(left),
 		map[bool]string{true: fmt.Sprintf("; %d files in records are not in the bucket", missing)}[missing > 0])
 	return nil
 }
 
-// markInBucket marks a restored recording's recorded files as kept only in the bucket, and drops from its record
-// those the bucket does not have as recorded. recording.json is written as it was otherwise.
-func (m *mirror) markInBucket(folder, prefix string, objects map[string]BlobInfo, missing *int) error {
-	p := statePath(folder)
+// isRecord tells whether the object of key is a files record: a recording's recording.json, a church's
+// church.json (<church>/church.json).
+func isRecord(key string) bool {
+	return path.Base(key) == stateName || (path.Base(key) == churchFile && path.Dir(key) != "." && !strings.Contains(path.Dir(key), "/"))
+}
+
+// recordFiles is the files of the record in the JSON file p.
+func recordFiles(p string) map[string]fileRecord {
+	var doc struct {
+		Files map[string]fileRecord `json:"files"`
+	}
+	data, _ := os.ReadFile(p)
+	json.Unmarshal(data, &doc)
+	return doc.Files
+}
+
+// markInBucket marks a restored record's files (the JSON file p's) as kept only in the bucket, and drops from it
+// those the bucket does not have as recorded. The file is written as it was otherwise.
+func (m *mirror) markInBucket(p, prefix string, objects map[string]BlobInfo, missing *int) error {
+	folder := filepath.Dir(p)
 	data, err := os.ReadFile(p)
 	if err != nil {
 		return err
@@ -838,7 +854,7 @@ func (m *mirror) markInBucket(folder, prefix string, objects map[string]BlobInfo
 		return err
 	}
 	out, _ := json.MarshalIndent(doc, "", "  ")
-	tmp := filepath.Join(folder, "."+stateName+".partial")
+	tmp := filepath.Join(folder, "."+filepath.Base(p)+".partial")
 	if err := os.WriteFile(tmp, append(out, '\n'), 0o644); err != nil {
 		return err
 	}
