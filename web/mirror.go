@@ -139,9 +139,16 @@ func under(path, dir string) bool {
 
 // norm is path with the data dir as the mirror has it: the app names it both as given and resolved (the
 // servers' roots; on Windows a temporary folder's short name becomes the long one, elsewhere a symlink).
+// Any other name of it (another symlink, a short name) is resolved.
 func (m *mirror) norm(path string) string {
-	if m.alias != "" && under(path, m.alias) {
+	switch {
+	case under(path, m.root):
+		return path
+	case m.alias != "" && under(path, m.alias):
 		return m.root + path[len(m.alias):]
+	}
+	if real, err := realPath(path); err == nil {
+		return real
 	}
 	return path
 }
