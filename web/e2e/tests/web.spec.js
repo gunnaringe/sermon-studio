@@ -572,12 +572,14 @@ test('Save makes the chosen formats, and only what is missing or out of date', a
   await pick(page, 'Opus').click();
   await expect(page.getByText('Save keeps the edit, makes: MP3, Opus.')).toBeVisible();
   await page.locator('section.step').last().screenshot({ path: path.join(shots, 'edit-output-stale.png') });
-  // Back as it was made: up to date again.
+  // Back as it was made: up to date again. The formats are part of the edit: Opus too goes back.
   await setFade(page, 'fadeIn', 1);
   await expect(pill(page, 'MP3')).toContainText('up to date');
+  await expect.poll(() => sermonOf('2026/2026-10-04').adjusted).not.toBeNull();
+  await pick(page, 'Opus').click();
   await expect.poll(() => sermonOf('2026/2026-10-04').adjusted).toBeNull(); // kept: the same as saved, so no draft
 
-  // After a reload the recording's files decide what is chosen; the fade and the finished run stay.
+  // After a reload the formats kept with it are chosen; the fade and the finished run stay.
   await page.reload();
   await expect(pick(page, 'FLAC')).toHaveAttribute('aria-pressed', 'false');
   await expect(fadeKnob(page, 'fadeIn')).toHaveAttribute('aria-valuenow', '1');
@@ -600,6 +602,20 @@ test('a run can be cancelled', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Cancelled' })).toBeVisible({ timeout: 30_000 });
   const left = fs.readdirSync(path.join(DATA, 'root/2026/2026-10-04')).filter((f) => f.includes('.partial') || f.startsWith('.'));
   expect(left).toEqual([]);
+});
+
+test('Save during a run starts it again from the new version, and the page follows the new run', async ({ page }) => {
+  await openEditor(page, '2026/2026-10-04');
+  await editor(page, () => window.__editor.addSection(5, 95));
+  await setFade(page, 'fadeIn', 3);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('section.job .background-note')).toContainText('background job');
+  await setFade(page, 'fadeIn', 4);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Done' })).toBeVisible({ timeout: 90_000 });
+  await expect(pill(page, 'MP3')).toContainText('up to date');
+  await expect(page.getByText('Saved, and everything chosen is up to date.')).toBeVisible();
+  expect(sermonOf('2026/2026-10-04').saved.fadeIn).toBe(4);
 });
 
 test('a format that is not chosen any more is deleted by Save, after asking', async ({ page }) => {
@@ -1583,12 +1599,20 @@ test('processing: the church\'s defaults in Settings; a recording goes back to t
     await settings.locator('input[name=fadeIn]').fill('2');
     await settings.getByLabel('Opus bitrate Stereo').fill('80k');
     await settings.locator('select[name=lowCutChoice]').selectOption('80');
+    // The formats a recording makes: all three until changed, one at least.
+    await expect(settings.locator('input[name=format-mp3]')).toBeChecked();
+    await settings.locator('input[name=format-flac]').uncheck();
+    await settings.locator('input[name=format-opus]').uncheck();
+    await settings.locator('input[name=format-mp3]').click(); // the last one stays
+    await expect(settings.locator('input[name=format-mp3]')).toBeChecked();
     await settings.getByRole('button', { name: 'Save' }).click();
     await expect(settings.getByText('Saved.')).toBeVisible();
     await page.getByRole('heading', { name: 'Processing' }).scrollIntoViewIfNeeded();
     await settings.screenshot({ path: path.join(shots, 'settings-processing.png') });
     const defaults = async () => (await (await page.request.get('api/config')).json()).defaults;
-    expect((await defaults()).processing).toMatchObject({ compression: 'strong', fadeIn: 2, lowCut: 80, declick: 0, stereoLevels: { opusBitrate: '80k' } });
+    expect((await defaults()).processing).toMatchObject({ compression: 'strong', fadeIn: 2, lowCut: 80, declick: 0, stereoLevels: { opusBitrate: '80k' },
+      formats: { flac: false, mp3: true, opus: false } });
+    expect((await defaults()).start).toMatchObject({ flac: false, mp3: true, opus: false }); // a new recording starts with them
 
     // A recording without its own processing starts with them.
     await openEditor(page, '2026/2026-10-04');

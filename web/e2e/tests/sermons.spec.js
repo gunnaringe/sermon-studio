@@ -3,6 +3,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { saveAndMake } from './pages.js';
 
 const DATA = process.env.DATA;
 const shots = path.join(import.meta.dirname, '..', 'screenshots');
@@ -16,14 +17,13 @@ test.beforeAll(async ({ request }) => {
   const p = 'api/';
   const q = '?path=' + encodeURIComponent(folder);
   const settings = { sections: [{ start: 3, end: 25 }], cuts: [{ start: 10, end: 12 }], fadeIn: 0, fadeOut: 0 };
-  expect((await request.put(p + 'sermon' + q, { data: settings })).ok()).toBe(true);
-  expect((await request.post(p + 'sermon/save' + q)).ok()).toBe(true);
-  const run = await request.post(p + 'run' + q, {
-    data: { ...settings, flac: true, mp3: false, opus: true, stereo: false, noiseReduction: 0, targetLufs: -16, truePeak: -1.5, mp3Bitrate: '128k', opusBitrate: '64k', force: false },
-  });
-  expect(run.ok(), await run.text()).toBe(true);
-  const { id } = await run.json();
-  await expect.poll(async () => (await (await request.get(p + 'jobs/' + id)).json()).state, { timeout: 90_000 }).toBe('done');
+  await saveAndMake(request, expect, folder, settings, { flac: true, mp3: false, opus: true });
+  // As if made with another sound than the saved version: out of date (the server remakes those only at Save
+  // or at its start).
+  const state = path.join(dir, 'recording.json');
+  const st = JSON.parse(fs.readFileSync(state, 'utf8'));
+  for (const f of ['flac', 'opus']) st.outputs[f].from = 'another sound';
+  fs.writeFileSync(state, JSON.stringify(st));
 });
 
 test('a sermon opens its details in the list: play, download, make a missing format', async ({ page }) => {

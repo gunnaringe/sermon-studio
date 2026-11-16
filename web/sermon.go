@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"reflect"
@@ -30,6 +31,8 @@ type sermonSettings struct {
 	// ClipPause is the pause between the clips and the sermon (seconds), filled in by Save when it has a
 	// clip; nil = the church's.
 	ClipPause *float64 `json:"clipPause,omitempty"`
+	// Formats are the files kept made of it (maker.go); nil = the church's, filled in by Save.
+	Formats *outputFormats `json:"formats,omitempty"`
 }
 
 // soundSettings are the processing of a sermon: channels, noise, levels, loudness and bitrates.
@@ -127,7 +130,8 @@ func readSermon(folder string) *sermonFile {
 }
 
 // changeSermon changes the sermon in the folder (recording.json and draft.json) and returns it.
-func (s *Server) changeSermon(w http.ResponseWriter, r *http.Request, fn func(abs string, f *sermonFile) error) {
+// then, if given, runs once it is kept, before the answer.
+func (s *Server) changeSermon(w http.ResponseWriter, r *http.Request, fn func(abs string, f *sermonFile) error, then ...func(abs string)) {
 	abs, ok := s.pathParam(w, r)
 	if !ok {
 		return
@@ -154,6 +158,9 @@ func (s *Server) changeSermon(w http.ResponseWriter, r *http.Request, fn func(ab
 	case err != nil:
 		writeError(w, http.StatusBadRequest, err)
 	default:
+		for _, fn := range then {
+			fn(abs)
+		}
 		writeJSON(w, http.StatusOK, f)
 	}
 }
@@ -175,6 +182,9 @@ func (s *Server) handleSermonPut(w http.ResponseWriter, r *http.Request) {
 		if f.Saved != nil && c.ClipPause == nil {
 			c.ClipPause = f.Saved.ClipPause // the editor does not set it: the saved version's
 		}
+		if f.Saved != nil && c.Formats == nil {
+			c.Formats = f.Saved.Formats
+		}
 		// The same as the saved version, with what each takes from the church as it would be saved now.
 		if f.Saved != nil && reflect.DeepEqual(s.withDefaults(abs, *f.Saved), s.withDefaults(abs, c)) {
 			f.Adjusted = nil
@@ -186,8 +196,27 @@ func (s *Server) handleSermonPut(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST api/sermon/save makes the adjustments the saved version, with the church's defaults it takes filled
-// in as they are now (withDefaults): it keeps them.
+// in as they are now (withDefaults): it keeps them. Then the files are brought up to date in the background
+// (maker.go): the formats it keeps made, the others deleted (by one who may delete files), and the transcript
+// in the body ({"transcript": {...}}, optional) made after them. Saved again, it only does that.
 func (s *Server) handleSermonSave(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Transcript *transcriptAsk `json:"transcript"`
+	}
+	if err := decodeRequest(r, &body); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if body.Transcript != nil {
+		if !allowed(r, actTranscribe) {
+			writeError(w, http.StatusForbidden, refusal(actTranscribe))
+			return
+		}
+		if err := s.checkTranscript(*body.Transcript); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+	}
 	s.changeSermon(w, r, func(abs string, f *sermonFile) error {
 		if f.Adjusted == nil {
 			if f.Saved == nil {
@@ -199,6 +228,11 @@ func (s *Server) handleSermonSave(w http.ResponseWriter, r *http.Request) {
 		kept := s.withDefaults(abs, *f.Adjusted)
 		f.Saved, f.SavedAt, f.Adjusted = &kept, &now, nil
 		return nil
+	}, func(abs string) {
+		if j := s.jobs.active(s.relPath(abs)); j != nil {
+			j.cancel() // made from the version before
+		}
+		s.maker.add(makeOrder{folder: s.relPath(abs), ask: body.Transcript, saved: true, clean: allowed(r, actDelete)})
 	})
 }
 

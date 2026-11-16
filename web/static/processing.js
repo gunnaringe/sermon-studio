@@ -55,6 +55,18 @@ export async function processingView(box, saved) {
 
   const repair = repairControls(p, touched, (label, el) => row(label, el));
 
+  // The files a recording makes (none set = all three); one at least.
+  p.formats = p.formats || { flac: true, mp3: true, opus: true };
+  const formats = row(t('Formats'), ...[['flac', 'FLAC'], ['mp3', 'MP3'], ['opus', 'Opus']].map(([key, label]) => {
+    const box = h('input', { type: 'checkbox', name: 'format-' + key, checked: p.formats[key], onchange: () => {
+      if (!box.checked && Object.values(p.formats).filter(Boolean).length === 1) { box.checked = true; return; }
+      p.formats[key] = box.checked;
+      touched();
+    } });
+    box.setAttribute('aria-label', label);
+    return h('span', {}, box, ' ', label, ' ');
+  }));
+
   const save = h('button', { class: 'primary', name: 'save-processing', onclick: async () => {
     try {
       await api('PUT', 'api/processing', { processing: p });
@@ -89,5 +101,6 @@ export async function processingView(box, saved) {
       pair(t('Opus bitrate'), (o, label) => text(o, 'opusBitrate', label)),
       row(t('Fade in (s)'), num(p, 'fadeIn', 0.1, 0, 30, t('Fade in (s)'))),
       row(t('Fade out (s)'), num(p, 'fadeOut', 0.1, 0, 30, t('Fade out (s)'))),
+      formats,
       h('div', {}, save, ' ', builtin, ' ', status)));
 }

@@ -88,7 +88,11 @@ export function outputPart(ed) {
       return h('div', { 'data-format': format, class: 'pill' + (file ? ' exists' : '') + (chosen ? ' chosen' : '') + (stale ? ' stale' : '') },
         h('button', {
           class: 'pick', 'aria-pressed': String(chosen), title: chosen ? t('Leave {format} out', { format: label }) : t('Make {format} too', { format: label }),
-          onclick: () => { opts[format] = !opts[format]; renderOutputs(); },
+          onclick: () => {
+            opts[format] = !opts[format];
+            renderOutputs();
+            ed.saveSoon(); // the formats are part of the edit
+          },
         }, h('span', { class: 'box', 'aria-hidden': 'true' }, chosen ? '☑' : '☐'), ' ', label, file ? ' ✓' : ''),
         h('span', { class: 'state' + (file && !chosen ? ' delete' : chosen && (stale || !file) ? ' will' : '') }, note));
     }));
@@ -101,21 +105,20 @@ export function outputPart(ed) {
         ? t('Save {what}.', { what: [keep ? t('keeps the edit') : '', make.length ? t('makes: {formats}', { formats: labels(make) }) : '', del.length ? t('deletes: {formats}', { formats: labels(del) }) : '']
           .filter(Boolean).join(', ') })
         : t('Saved, and everything chosen is up to date.');
-    saveButton.disabled = blocked || busy() || !(make.length || del.length || keep);
+    // During a run only a changed edit: the run starts again from it.
+    saveButton.disabled = blocked || (busy() ? !keep : !(make.length || del.length || keep));
   }
 
   // unsaved: the edit on the page is not the saved version.
   const unsaved = () => Boolean(ed.sermon.adjusted) || (!ed.sermon.saved && sections.length > 0);
 
-  // save makes the edit the saved version, then deletes the files of the
-  // formats not chosen (after asking) and makes the chosen ones that are
-  // missing or out of date. The edit is saved even when the files cannot be
-  // made now: the recordings page shows them as out of date.
+  // save makes the edit the saved version; the server then deletes the files of the formats not chosen (asked
+  // here first), makes the chosen ones that are missing or out of date, and the transcript after them. The
+  // page follows that run. The edit is saved even when the files cannot be made now.
   async function save() {
     if (ed.proposed) ed.adopt(); // the start the page made has not been kept yet
     await ed.persistAdjusted();
-    const make = toMake(), del = toDelete(), tx = transcriptToDo();
-    const replaced = make.map(outputState).filter((x) => x.file).map((x) => x.file.name);
+    const del = toDelete(), tx = transcriptToDo();
     const deleted = [...del.map((f) => outputState(f).file.name), ...(tx === 'delete' ? [t('The transcript (text and captions)')] : [])];
     if (deleted.length) {
       const ok = await confirmDialog({
@@ -129,8 +132,9 @@ export function outputPart(ed) {
     }
     saveButton.disabled = true;
     try {
-      if (unsaved()) {
-        ed.sermon = await api('POST', 'api/sermon/save?path=' + q(path));
+      const was = unsaved();
+      ed.sermon = await api('POST', 'api/sermon/save?path=' + q(path), tx === 'make' ? { transcript: ed.transcriptAsk() } : {});
+      if (was) {
         ed.keepSaved();
         ed.setSaveNote(t('Saved.'));
         ed.renderVersion();
@@ -141,27 +145,36 @@ export function outputPart(ed) {
       return;
     }
     try {
-      if (del.length) {
-        const inf = await api('POST', 'api/outputs/remove?path=' + q(path) + del.map((f) => '&format=' + f).join(''));
-        info.outputs = inf.outputs;
-        renderOutputs();
-        check();
-      }
       if (tx === 'delete') await ed.removeTranscript();
-      // The transcript is made from the files: after the run that makes them, else now.
-      if (!make.length) {
-        if (tx === 'make') await ed.makeTranscript();
-        return;
-      }
-      const req = request(replaced.length > 0);
-      for (const [f] of FORMATS) req[f] = make.includes(f);
-      if (tx === 'make') req.transcript = ed.transcriptAsk();
-      job = await api('POST', 'api/run?path=' + q(path), req);
-      showJob(job);
-      follow(job.id);
+      await followServer();
     } catch (e) {
       showCheck({ ...lastCheck, error: t('Saved, but the files were not made: {error}', { error: e.message }) });
     }
+  }
+
+  // followServer shows what the server does with the files after Save: the run once it starts (it may wait for
+  // others first), or why they could not be made.
+  async function followServer() {
+    if (events) { events.close(); events = null; } // a run of the version before is stopped
+    let waited = false;
+    for (;;) {
+      await ed.refreshInfo();
+      if (!ed.alive) return;
+      // Waiting first: until the new run starts, the job there may be the one this Save stopped.
+      if (info.making !== 'waiting' && info.job && (info.job.state === 'queued' || info.job.state === 'running')) {
+        job = info.job;
+        showJob(job);
+        follow(job.id);
+        return;
+      }
+      if (info.making !== 'waiting') break;
+      waited = true;
+      jobPanel.replaceChildren(h('div', { class: 'panel' }, h('h2', {}, t('Waiting for another run to finish…')), backgroundNote()));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    if (waited) jobPanel.replaceChildren();
+    if (info.makeError) showCheck({ ...lastCheck, error: t('Saved, but the files were not made: {error}', { error: tr(info.makeError) }) });
+    check();
   }
 
   function follow(id) {
@@ -173,7 +186,9 @@ export function outputPart(ed) {
       if (!busy()) {
         events.close();
         events = null;
-        ed.refreshInfo().then(check).catch(() => {}); // the outputs changed
+        // Stopped by a Save during it: the run of the new version follows.
+        if (job.state === 'cancelled') followServer().catch(() => {});
+        else ed.refreshInfo().then(check).catch(() => {}); // the outputs changed
       }
     };
   }

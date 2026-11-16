@@ -4,7 +4,7 @@
 import { confirmDialog } from '../dialog.js';
 import { t, tn } from '../i18n.js';
 import { api, q, h, formatTime, typing, debounce, currentTenant, formatDateTime } from '../util.js';
-import { SOUND_KEYS, CLIP_KEYS, spanOf } from './common.js';
+import { SOUND_KEYS, CLIP_KEYS, FORMAT_KEYS, spanOf } from './common.js';
 
 /** @param {import('./common.js').Editor} ed */
 export function historyPart(ed) {
@@ -28,7 +28,8 @@ export function historyPart(ed) {
     if ([opts.noiseReduction, opts.roomSound, opts.targetLufs, opts.truePeak].some(Number.isNaN)) return null;
     // The tags only once they are the sermon's own (kept, or typed): else Save takes the church's.
     const tags = ed.ownTags ? { tags: { title: ed.tags.title, artist: ed.tags.artist, album: ed.tags.album } } : {};
-    return { sections: secs, cuts: list, fadeIn: opts.fadeIn, fadeOut: opts.fadeOut, sound: Object.fromEntries(SOUND_KEYS.map((k) => [k, opts[k]])), ...ed.clipChoices(), ...tags };
+    const formats = Object.fromEntries(FORMAT_KEYS.map((k) => [k, Boolean(opts[k])]));
+    return { sections: secs, cuts: list, fadeIn: opts.fadeIn, fadeOut: opts.fadeOut, sound: Object.fromEntries(SOUND_KEYS.map((k) => [k, opts[k]])), ...ed.clipChoices(), ...tags, formats };
   }
 
   // persistAdjusted keeps what is on the page as the adjustments.
@@ -59,6 +60,7 @@ export function historyPart(ed) {
       for (const key of ['fadeIn', 'fadeOut']) opts[key] = set[key];
       for (const key of CLIP_KEYS) opts[key] = set[key] || '';
       ed.drawClips();
+      if (set.formats) for (const key of FORMAT_KEYS) opts[key] = Boolean(set.formats[key]);
       if (set.sound) {
         Object.assign(opts, set.sound);
         ed.redrawProcessing();
@@ -229,6 +231,7 @@ export function historyPart(ed) {
     const saved = ed.sermon && ed.sermon.saved;
     if (!saved) return;
     for (const key of CLIP_KEYS) opts[key] = saved[key] || '';
+    if (saved.formats) for (const key of FORMAT_KEYS) opts[key] = Boolean(saved.formats[key]);
     ed.drawClips();
     ed.setTags(saved.tags || null);
     present = snapshot();

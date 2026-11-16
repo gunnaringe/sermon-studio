@@ -161,12 +161,17 @@ Each can have a label, which shows on the waveform.
 - **Output:** a pill per format (FLAC, MP3, Opus), one under the other: click to choose it,
   green when the file is there (play and download it from the recordings list). `recording.json` keeps what each file was made from (sections, cuts,
   fades, sound, tags, bitrate), so a file made from other settings than the page shows says
-  *out of date*; files made from the recordings list count too. The choice is the recording's own (not
-  carried over): it starts with the formats it has, or with all three when it has none (MP3 and Opus are made from the FLAC, so they add little to a run, and a share can give any of them); a file whose format is no longer chosen says *will be deleted*.
-  **Save** saves the edit, then makes the chosen formats that are missing or out of date and
-  deletes the files of those not chosen (never the recording), asking first when it deletes a
-  file. The edit is saved even if the files cannot be made right then. The run is followed live and
-  keeps going if the browser is closed. Cancelling leaves nothing half-written.
+  *out of date*; files made from the recordings list count too. The choice is the recording's own, kept with
+  the saved version: it starts with the church's formats (**Settings → Processing → Formats**, all three unless changed;
+  MP3 and Opus are made from the FLAC, so they add little to a run, and a share can give any of them), or with those it has
+  for a recording saved before; a file whose format is no longer chosen says *will be deleted*.
+  **Save** saves the edit, and the server then keeps the files up to date by itself: it makes the chosen formats that
+  are missing or out of date and deletes the files of those not chosen (never the recording), asking first when it
+  deletes a file. The edit is saved even if the files cannot be made right then. The run is followed live and keeps
+  going if the browser is closed; with other runs going on it waits for them. Saving again during the run starts it
+  again from the new version. Cancelling leaves nothing half-written; a run that fails says why and is tried again on
+  the next Save. When the studio starts, it makes the files of every saved recording that are missing or out of date
+  (also those a restart stopped), newest first.
 - **Status** on the recordings page, worked out from what is there: *to do* (not cut yet), *done*
   (a saved version, or files made), and next to it *no files* or *files out of date* (made from
   another cut than the saved one) when Save has more to do, and *not saved* when the editor has changes that were

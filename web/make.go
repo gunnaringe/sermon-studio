@@ -39,7 +39,29 @@ func (s *Server) handleMake(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, err)
 		return
 	}
+	s.keepFormat(abs, format)
 	writeJSON(w, http.StatusAccepted, j.snapshot())
+}
+
+// keepFormat adds a format to those the saved version keeps made (one made by hand stays).
+func (s *Server) keepFormat(abs, format string) {
+	s.keepFormats(abs, func(f *outputFormats) { f.set(format, true) })
+}
+
+// keepFormats changes the formats the saved version keeps made.
+func (s *Server) keepFormats(abs string, change func(*outputFormats)) {
+	if _, err := s.updateState(abs, func(st *folderState) error {
+		if st.Saved != nil {
+			kept := s.withDefaults(abs, *st.Saved)
+			f := *kept.Formats
+			change(&f)
+			kept.Formats = &f
+			st.Saved = &kept
+		}
+		return nil
+	}); err != nil {
+		s.cfg.Logger.Printf("%s: %v", s.display(abs), err)
+	}
 }
 
 // savedRequest is a run of the sermon's saved version, with no format on.
@@ -54,7 +76,7 @@ func (s *Server) savedRequest(abs string) (runRequest, error) {
 	q.FadeIn, q.FadeOut = saved.FadeIn, saved.FadeOut
 	q.Intro, q.Outro = saved.Intro, saved.Outro
 	saved.Sound.applyTo(&q)
-	q.tags, q.clipPause = saved.Tags, saved.ClipPause
+	q.tags, q.clipPause, q.kept = saved.Tags, saved.ClipPause, *saved.Formats
 	q.Flac, q.Mp3, q.Opus = false, false, false
 	return q, nil
 }
@@ -72,10 +94,29 @@ func (s *Server) handleRemoveOutputs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("which format?"))
 		return
 	}
-	paths, err := normalizer.NewPaths(abs)
+	if err := s.removeOutputs(abs, formats); err != nil {
+		writeStatusError(w, err)
+		return
+	}
+	s.keepFormats(abs, func(f *outputFormats) { // removed by hand: not made again by the start's scan
+		for _, x := range formats {
+			f.set(x, false)
+		}
+	})
+	info, err := s.folderInfo(abs)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
+	}
+	writeJSON(w, http.StatusOK, info)
+}
+
+// removeOutputs deletes the outputs of the formats (with the sermon-only ones) and forgets how they were made;
+// not while a run of the recording is going on.
+func (s *Server) removeOutputs(abs string, formats []string) error {
+	paths, err := normalizer.NewPaths(abs)
+	if err != nil {
+		return statusError{http.StatusBadRequest, err}
 	}
 	byFormat, sermonOnly := map[string]string{}, map[string]string{}
 	for _, o := range outputsOf(paths) {
@@ -86,38 +127,27 @@ func (s *Server) handleRemoveOutputs(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, f := range formats {
 		if byFormat[f] == "" {
-			writeError(w, http.StatusBadRequest, errors.New("format must be flac, mp3 or opus"))
-			return
+			return statusError{http.StatusBadRequest, errors.New("format must be flac, mp3 or opus")}
 		}
 	}
 	if s.jobs.active(s.relPath(abs)) != nil {
-		writeError(w, http.StatusConflict, errBusy)
-		return
+		return statusError{http.StatusConflict, errBusy}
 	}
 	for _, f := range formats {
 		for _, p := range []string{byFormat[f], sermonOnly[f]} { // with the intro and outro, and the sermon only
 			if err := normalizer.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
-				writeError(w, http.StatusInternalServerError, errors.New("could not delete "+filepath.Base(p)))
-				return
+				return errors.New("could not delete " + filepath.Base(p))
 			} else if err == nil {
 				s.cfg.Logger.Printf("deleted %s", s.display(p))
 			}
 		}
 	}
-	if _, err := s.updateState(abs, func(st *folderState) error {
+	_, err = s.updateState(abs, func(st *folderState) error {
 		for _, f := range formats {
 			delete(st.Outputs, f)
 			delete(st.Outputs, f+normalizer.SermonOnly)
 		}
 		return nil
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	info, err := s.folderInfo(abs)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, info)
+	})
+	return err
 }

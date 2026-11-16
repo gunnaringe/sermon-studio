@@ -60,13 +60,19 @@ func fingerprintsOf(t *testing.T, ts *testServer, folder string, q runRequest) m
 
 // changeDefaults changes every church default a sermon could take.
 func changeDefaults(ts *testServer) {
-	ts.clips.lib.Intro = "ba9876543210"
 	pause := 2.0
+	ts.clips.mu.Lock()
+	ts.clips.lib.Intro = "ba9876543210"
 	ts.clips.lib.Pause = &pause
+	ts.clips.mu.Unlock()
+	ts.meta.mu.Lock()
 	ts.meta.meta = Meta{Title: "Preken {dd}.{mm}.", Artist: "Andre"}
+	ts.meta.mu.Unlock()
 	p := builtinProcessing()
 	p.NoiseReduction = 17
+	ts.proc.mu.Lock()
 	ts.proc.proc = &p
+	ts.proc.mu.Unlock()
 }
 
 // Save keeps the church's defaults with the sermon: the clips they are, the tags, the pause and the sound.
@@ -143,10 +149,12 @@ func TestKeepDefaultsOnStart(t *testing.T) {
 	q.cutting, q.FadeOut, q.Intro, q.Outro = old.cutting, old.FadeOut, old.Intro, old.Outro
 	before := fingerprintsOf(t, ts, folder, q)
 
+	ts.file(t, "2026-10-04/2026-10-04.mp3", "x") // the files it has are the formats it keeps
 	ts.keepDefaults()
 	saved := readState(folder).Saved
-	if saved.Intro != "0123456789ab" || saved.Outro != "" || saved.Tags == nil || saved.Sound == nil || saved.ClipPause == nil {
-		t.Fatalf("kept: %+v", saved)
+	if saved.Intro != "0123456789ab" || saved.Outro != "" || saved.Tags == nil || saved.Sound == nil || saved.ClipPause == nil ||
+		saved.Formats == nil || *saved.Formats != (outputFormats{Mp3: true}) {
+		t.Fatalf("kept: %+v %+v", saved, saved.Formats)
 	}
 	if after := fingerprints(t, ts, folder); !reflect.DeepEqual(after, before) {
 		t.Errorf("keeping the defaults changed the fingerprints: %v, was %v", after, before)

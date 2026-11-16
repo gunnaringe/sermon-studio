@@ -153,6 +153,7 @@ func TestSermonSavedAndAdjusted(t *testing.T) {
 
 	// A rename takes it along; a damaged file is ignored.
 	call("PUT", "", sermonB)
+	ts.settle(t) // Save made the files (here it fails): not renamed during the run
 	rec := ts.do(t, "POST", "/api/rename?path="+url.QueryEscape(folder), json.RawMessage(`{"date":"2026-10-11","name":"Kveld"}`))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("rename: %d %s", rec.Code, rec.Body)

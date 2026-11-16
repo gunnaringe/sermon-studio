@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"slices"
@@ -191,14 +192,25 @@ func (a *App) permit(next http.Handler) http.Handler {
 			}
 		default:
 			if t, found := a.tenantFor(r); found {
-				if role := a.roleOf(a.userOf(r), t); !can(role, act) {
+				role := a.roleOf(a.userOf(r), t)
+				if !can(role, act) {
 					writeError(w, http.StatusForbidden, refusal(act))
 					return
 				}
+				r = r.WithContext(context.WithValue(r.Context(), roleKey{}, role))
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+type roleKey struct{}
+
+// allowed is whether the user of a request may also take act (a handler doing more than its own action);
+// a request that did not pass permit (a church's Server on its own, in tests) may.
+func allowed(r *http.Request, act action) bool {
+	role, ok := r.Context().Value(roleKey{}).(string)
+	return !ok || can(role, act)
 }
 
 // refusal says why a request is refused: what only admins may do, or what the user's role does not allow.

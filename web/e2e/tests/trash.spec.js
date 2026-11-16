@@ -1,6 +1,6 @@
 // Deleting a recording moves it to the trash, from where it can be restored or removed for good.
 import { test, expect } from '@playwright/test';
-import { editPage, recordingPage } from './pages.js';
+import { editPage, recordingPage, saveAndMake } from './pages.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -76,14 +76,7 @@ test('delete the original: the files stay, the sermon can no longer be edited', 
   fs.copyFileSync(path.join(DATA, 'upload.flac'), path.join(dir, '2027-03-14_raw.flac'));
   const q = '?path=' + encodeURIComponent(folder);
   const settings = { sections: [{ start: 3, end: 25 }], cuts: [], fadeIn: 0, fadeOut: 0 };
-  expect((await request.put('api/sermon' + q, { data: settings })).ok()).toBe(true);
-  expect((await request.post('api/sermon/save' + q)).ok()).toBe(true);
-  const run = await request.post('api/run' + q, {
-    data: { ...settings, flac: false, mp3: true, opus: false, stereo: false, noiseReduction: 0, targetLufs: -16, truePeak: -1.5, mp3Bitrate: '128k', opusBitrate: '64k', force: false },
-  });
-  expect(run.ok(), await run.text()).toBe(true);
-  const { id } = await run.json();
-  await expect.poll(async () => (await (await request.get('api/jobs/' + id)).json()).state, { timeout: 90_000 }).toBe('done');
+  await saveAndMake(request, expect, folder, settings, { flac: false, mp3: true, opus: false });
   const original = path.join(dir, 'original', '2027-03-14_raw.flac');
   expect(fs.existsSync(original)).toBe(true);
 

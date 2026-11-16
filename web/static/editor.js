@@ -34,9 +34,10 @@ export async function editorView(view, slug, config) {
   // The intro and outro: a new sermon starts with the church's defaults, one kept from before without them has none.
   const kept = info.sermon && (info.sermon.adjusted || info.sermon.saved);
   if (kept) for (const which of CLIP_KEYS) opts[which] = kept[which] || '';
-  // The formats are this recording's own: those it has, or the defaults when it
-  // has none. Choosing here changes nothing elsewhere.
-  if (info.outputs.length) for (const f of FORMAT_KEYS) opts[f] = info.outputs.some((o) => o.format === f);
+  // The formats are this recording's own: those it keeps made, else those it has, else the church's. The server
+  // keeps the files of the saved version made in them.
+  if (kept && kept.formats) for (const f of FORMAT_KEYS) opts[f] = Boolean(kept.formats[f]);
+  else if (info.outputs.length) for (const f of FORMAT_KEYS) opts[f] = info.outputs.some((o) => o.format === f);
   // Tags are per sermon: those kept with it, else the church's defaults for this folder (Save keeps those).
   const tags = { title: '', artist: '', album: '', ...((kept && kept.tags) || info.tags || {}) };
   const sections = [], cuts = [];

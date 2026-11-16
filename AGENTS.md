@@ -181,6 +181,13 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `Options.MasterFresh`: MP3/Opus are made from an existing FLAC only while it is of the run, also with Force.
   `POST api/outputs/remove?path&format=…`: deletes outputs (only those) and their records; not during a run.
 - `web/jobs.go`: runs on the server context, `--parallel-runs` at a time (never two of one recording), SSE events.
+- `web/maker.go`: keeps a saved recording's files made, in the background: the formats it keeps (`sermonSettings.Formats`,
+  filled in at Save from the church's `processing.formats`, all three when nil; for one saved before, `keepDefaults` takes the
+  formats it has) that are missing or stale (`toMake`; a file with no record is fine). Only Save (`handleSermonSave`: first in
+  the queue, stops a run of the recording, deletes the formats it no longer keeps when the user may delete, `allowed`, and
+  takes the transcript in its body) and the start's scan (`scanToMake`, newest first; it makes no transcript) queue one; never again by itself, so a failure (`makeError` in the folder info) waits for the next
+  Save. One worker per church, only while there is work (`Busy`); it plans a run as it starts it, so a waiting recording
+  is not busy (`making: "waiting"`). A rename moves its order (`maker.moved`). `api/make` adds its format to those kept.
 - `web/analysis.go`: conversion on arrival (`normalizer.ConvertsTo`: WAV/AIFF→FLAC, video→`.mka`), then waveform peaks + normalized MP3
   preview, cached by path+size+mtime; `carry` moves the cache on import.
 - `web/upload.go`: chunked upload straight to a date folder (the form is on top of the recordings page, `uploadBox` in `app.js`).
@@ -260,7 +267,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 ## Rules that matter
 
 - Outputs go through `FFmpeg.RunTo` (`.partial`, renamed on success); existing
-  outputs are skipped by a run; the editor's Save (Force in the API) redoes the stale ones it turns on. Save keeps the edit first, then runs.
+  outputs are skipped by a run; the maker (Force) redoes the stale ones. Save keeps the edit; the server then runs (`maker.go`), and the editor follows it.
 - Delete a source only after its copy is verified identical (`FFmpeg.Convert`: `SameAudio` for
   WAV/AIFF→FLAC, the same packets for a video's sound; byte MD5 for copies). An upload or an inbox recording goes
   straight into `<date>/original/` as it is (any of `normalizer.InputTypes`), named as it arrived (`web.rawFile`, `normalizer.RawName`: `<date>_raw.<ext>` for none or a name of the studio's own files, `normalizer.Ours`), so nothing moves it during a run. One put in the date folder itself (by hand, or older imports) is still found there (`Paths.Source`: the input-type file that is not `Ours`, `<date>_raw.*` first, before `original/`) and moved by the first run; the outputs are cut

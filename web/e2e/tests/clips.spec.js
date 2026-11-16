@@ -1,6 +1,6 @@
 // The church's intro and outro clips, in the settings: upload, defaults, archive, delete with the warning.
 import { test, expect } from '@playwright/test';
-import { editPage } from './pages.js';
+import { editPage, saveAndMake } from './pages.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -165,13 +165,7 @@ test('recordings: made with the intro, the sermon only for download, and a share
   fs.copyFileSync(path.join(DATA, 'upload.flac'), path.join(dir, '2027-07-07_raw.flac'));
   const q = '?path=' + encodeURIComponent(folder);
   const settings = { sections: [{ start: 3, end: 25 }], cuts: [], fadeIn: 0, fadeOut: 0, intro: 'default' };
-  expect((await request.put('api/sermon' + q, { data: settings })).ok()).toBe(true);
-  expect((await request.post('api/sermon/save' + q)).ok()).toBe(true);
-  const run = await request.post('api/run' + q, { data: { ...settings, flac: false, mp3: true, opus: true, stereo: false, noiseReduction: 0,
-    targetLufs: -19, truePeak: -1.5, mp3Bitrate: '96k', opusBitrate: '48k', force: false } });
-  expect(run.ok(), await run.text()).toBe(true);
-  const { id } = await run.json();
-  await expect.poll(async () => (await (await request.get('api/jobs/' + id)).json()).state, { timeout: 90_000 }).toBe('done');
+  await saveAndMake(request, expect, folder, settings, { flac: false, mp3: true, opus: true });
 
   await page.goto('c/first-church/');
   const year = page.locator('button.year-head', { hasText: '2027' });
