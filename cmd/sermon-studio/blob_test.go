@@ -16,7 +16,8 @@ import (
 )
 
 // The studio with a real bucket (BLOB_TEST_ENDPOINT: scripts/test.sh blob, CI): a state file is in the bucket
-// when its request is answered, and the lease is given back at the end.
+// when its request is answered, the lease is given back at the end, and a new machine (an empty data dir) gets it
+// back from the bucket.
 func TestBlobServe(t *testing.T) {
 	endpoint := os.Getenv("BLOB_TEST_ENDPOINT")
 	if endpoint == "" {
@@ -68,5 +69,17 @@ func TestBlobServe(t *testing.T) {
 	app.Close()
 	if _, err := st.Head(ctx, "_lease"); err == nil {
 		t.Error("the lease was not given back")
+	}
+
+	again := t.TempDir()
+	app, err = web.NewApp(web.AppConfig{Base: web.Config{CacheDir: t.TempDir(), Logger: log.New(os.Stderr, "", 0)},
+		DataDir: again, Blob: blobStore{st}, Share: &web.ShareOptions{URL: "https://up.example/"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Close()
+	want, _ := os.ReadFile(filepath.Join(data, "kirke", "shares.json"))
+	if got, err := os.ReadFile(filepath.Join(again, "kirke", "shares.json")); err != nil || string(got) != string(want) {
+		t.Errorf("shares.json fetched back: %v\n%s\nwant\n%s", err, got, want)
 	}
 }

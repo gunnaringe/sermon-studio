@@ -1,15 +1,15 @@
 # Object storage
 
-The studio is getting the option to keep everything in an S3-compatible bucket, with the server's disk only a cache
+The studio can keep everything in an S3-compatible bucket, with the server's disk only a cache
 ([#86](https://github.com/gunnaringe/sermon-studio/issues/86)). Any provider with the S3 API works: Cloudflare R2,
 Contabo, Backblaze B2, Hetzner, AWS, or your own (MinIO, Garage, RustFS).
 
 With the `--blob-*` settings, `serve` keeps a copy of `--data-dir` in the bucket as it works. Without them, nothing
 changes: everything is only in `--data-dir` (the desktop app has no bucket at all).
 
-**Not there yet:** starting a new machine from the bucket, and removing files from the disk that are not used
-(see [Files only in the bucket](#files-only-in-the-bucket)). Until then the bucket is a copy kept up to date, and the
-disk still has everything.
+The disk keeps the JSON files and what is being worked on; a recording's file not used for 30 days is then only in
+the bucket, fetched again when needed ([Files only in the bucket](#files-only-in-the-bucket)). A new machine starts
+from the bucket with only the small files ([A new machine](#a-new-machine)).
 
 ## What goes to the bucket, and when
 
@@ -45,11 +45,25 @@ the file comes from the bucket, the studio does not see the download going on. A
 before, as the page reads it with `fetch`.
 
 A file leaves the disk only once the record has it as it is now and the bucket has it as uploaded after its last
-change, with nothing for it waiting in the journal and no work going on in its recording. The JSON files, drafts and
-the cache always stay on the disk; so far so do the church's clips and logo, which have no files record yet.
+change, with nothing for it waiting in the journal and no work going on in its recording. Every JSON file (a
+transcript's too), drafts and the cache always stay on the disk; so far so do the churches' clips and logos, which have no files record yet.
 
-**Not there yet:** nothing removes files from the disk by itself so far. That comes with the settings for how long an
-unused file stays (30 days by default) and how much the disk may hold.
+**When a file leaves the disk:** when it has not been used for `--blob-keep-days` (30 by default; 0 keeps them), and,
+with `--blob-cache-size`, while the recordings' files on the disk (not their JSON) take more than that, the ones used
+longest ago first. Used is when it was last made, fetched, or read by the studio: a run, an analysis, a sample, a transcript, a
+download from the disk. A rename is not a use, and listening to or downloading a file only in the bucket does not
+fetch it. The times are kept in `<data-dir>/.blob/used.json`; a file not there counts from its own time. The studio
+looks at start (after its first sweep) and every hour, and logs what it took off. A church's storage and quota count
+its files wherever they are.
+
+## A new machine
+
+Started on an empty data dir (no file in it that goes to the bucket: empty folders, the cache and the models do not
+count) with a bucket that has files, the studio first takes the lease, then fetches what must be on the disk before it
+serves anything: the JSON files, the churches' clips and logos, and any file no record has. A recording's files in its
+files record stay in the bucket, marked so, and are fetched when needed; one the record has and the bucket lacks is
+dropped from the record, and logged. A restore cut short (`.blob/restoring` is still there) is done again at the next
+start. A data dir with files in it starts as it is: the two are never merged.
 
 ## One studio per bucket
 
@@ -70,6 +84,8 @@ once (its id is in `<data-dir>/.blob/id`). A studio that finds its lease taken s
 | `--blob-path-style` | Address the bucket as `<endpoint>/<bucket>` (Contabo, MinIO, Garage, RustFS need it) |
 | `--blob-access-key` | The access key's id |
 | `--blob-secret-key-file` | A file with the secret key (never a flag or an environment variable) |
+| `--blob-keep-days` | Days a recording's file not used stays on the disk (30; 0 = always) |
+| `--blob-cache-size` | Optional: the most the recordings' files may take on the disk, e.g. `20GB` |
 
 Like every flag, they can also be `SERMON_STUDIO_BLOB_…` environment variables, except the secret key, which is only
 read from its file.

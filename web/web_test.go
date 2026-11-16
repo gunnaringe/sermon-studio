@@ -291,6 +291,7 @@ func chunkNamed(t *testing.T, ts *testServer, date, sermon, file, data string) *
 }
 
 func TestUploadInChunks(t *testing.T) {
+	skipIfEvicting(t)
 	ts := newTestServer(t, normalizer.FFmpeg{})
 	recorded := time.Date(2026, 10, 4, 11, 30, 0, 0, time.Local)
 	if rec := chunk(t, ts, "2026-10-04", "ZOOM0001.WAV", 8, 0, "abc", recorded); rec.Code != http.StatusOK || decode[map[string]any](t, rec)["offset"] != 3.0 {

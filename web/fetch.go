@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 // input, a copy, a rename; fetchFor before the studio serves one), checked against its SHA-256. Removing it
 // (normalizer.Remove, normalizer.Forget) removes it from the bucket and the record. evict is the way a file
 // leaves the disk; it is never removed with normalizer.Remove, which would remove it from the bucket too.
-// Only a recording's files are kept so; a recording.json, a draft, the church's files and the cache never.
+// Only a recording's files are kept so, and never a JSON file (a transcript), a draft, the church's files or the cache.
 
 func init() {
 	normalizer.Elsewhere = elsewhereFiles
@@ -102,8 +103,8 @@ func elsewhereFiles(dir string) map[string]fs.FileInfo {
 		return nil
 	}
 	var out map[string]fs.FileInfo
-	for rel, r := range readState(folder).Files {
-		if !r.Bucket || path.Dir(rel) != relDir {
+	for rel, r := range inBucketOf(folder) {
+		if path.Dir(rel) != relDir {
 			continue
 		}
 		name := path.Base(rel)
@@ -116,6 +117,41 @@ func elsewhereFiles(dir string) map[string]fs.FileInfo {
 		out[name] = inBucket{name, r}
 	}
 	return out
+}
+
+// inBucketCache keeps the files only in the bucket per recording folder, read again when its recording.json
+// changes: the list of recordings asks for each one's files, many times.
+var inBucketCache sync.Map // folder → inBucketEntry
+
+type inBucketEntry struct {
+	size  int64
+	mtime time.Time
+	files map[string]fileRecord
+}
+
+// inBucketOf is the files of a recording kept only in the bucket, by their path in its folder.
+func inBucketOf(folder string) map[string]fileRecord {
+	st, err := os.Stat(statePath(folder))
+	if err != nil {
+		inBucketCache.Delete(folder)
+		return nil
+	}
+	if e, ok := inBucketCache.Load(folder); ok {
+		if e := e.(inBucketEntry); e.size == st.Size() && e.mtime.Equal(st.ModTime()) {
+			return e.files
+		}
+	}
+	var files map[string]fileRecord
+	for rel, r := range readState(folder).Files {
+		if r.Bucket {
+			if files == nil {
+				files = map[string]fileRecord{}
+			}
+			files[rel] = r
+		}
+	}
+	inBucketCache.Store(folder, inBucketEntry{st.Size(), st.ModTime(), files})
+	return files
 }
 
 // recorded is the record of a file kept only in the bucket: its folder, the path in it, the record.
@@ -240,7 +276,7 @@ func (s *Server) evict(ctx context.Context, folder, rel string) error {
 		return fmt.Errorf("%w: no bucket", errNotEvicted)
 	}
 	key, ok := m.key(p)
-	if !ok {
+	if !ok || strings.HasSuffix(rel, ".json") { // a JSON file (a transcript) is read as it is, always on the disk
 		return fmt.Errorf("%w: %s stays on the disk", errNotEvicted, rel)
 	}
 	r, ok := readState(folder).Files[rel]

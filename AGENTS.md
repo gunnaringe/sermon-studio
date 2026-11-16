@@ -67,8 +67,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - `blob/`: an S3-compatible bucket (#86, docs/object-storage.md): `Store` (put, a file in and out, head, copy, delete,
   list, presigned GET with the file name, `PutNew`/`PutIfMatch` for a lease, `SetCORS`) and `Check`, what a provider
   has. minio-go is used only here; `web` does not import it, so the desktop app stays without it
-  (`go list -deps ./cmd/sermon-studio-desktop | grep minio` prints nothing). Not used by the studio yet: so far only
-  `sermon-studio admin blob check|cors` (`cmd/sermon-studio/blob.go`, the `--blob-*` flags). Its tests need a bucket:
+  (`go list -deps ./cmd/sermon-studio-desktop | grep minio` prints nothing). Used by `serve` with the `--blob-*` flags
+  (`blobStore`, see `web/mirror.go` below) and `sermon-studio admin blob check|cors` (`cmd/sermon-studio/blob.go`). Its tests need a bucket:
   `scripts/test.sh blob` (RustFS in podman, `s3server` in `scripts/lib.sh`, the same in `test.yml`); without
   `BLOB_TEST_ENDPOINT` they are skipped.
 - `web/mirror.go`, `web/lease.go`: with `AppConfig.Blob` (serve's `--blob-*`; `cmd/sermon-studio/blob.go` `blobStore` adapts
@@ -83,6 +83,10 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   serving it (so check existence with those, not `os.Stat`); audio only in the bucket is not fetched to be listened
   to or downloaded: `bucketLink` redirects `api/file` and a share's ticket to a presigned address (the share page's
   `media-src` has `App.mediaSrc`). Only `evict` takes a file off the disk, never `normalizer.Remove`.
+  `web/evict.go`: `App.keepDisk` evicts by `AppConfig.Disk` (serve's `--blob-keep-days` 30, `--blob-cache-size`), hourly; last
+  use by key in `.blob/used.json` (`normalizer.Reading`, the mirror's hook for makes, moves and removals). An empty data dir
+  is filled from the bucket first (`restoreIfEmpty`: everything but a recording's recorded files, which are marked as in
+  the bucket; `.blob/restoring` while it runs). Storage and quotas count files only in the bucket (`inBucketUse`).
   `SERMON_TEST_EVICT=1 go test ./web/` runs the tests with everything evicted. One studio per bucket: the lease, an id
   in `.blob/id`, given back by `Close`; `StorageLost` makes serve exit. Tests: `mirror_test.go` with `fakeBlob` (in memory);
   `TestBlobServe` against a real bucket.

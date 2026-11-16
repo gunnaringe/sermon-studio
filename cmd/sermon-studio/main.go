@@ -43,6 +43,8 @@ type serveCmd struct {
 	Root    string `help:"A single church without a church folder: the folder with its date folders (instead of --data-dir; settings are not saved)."`
 	Inbox   string `help:"With --root: the folder new recordings arrive in (optional)."`
 	blobFlags
+	BlobKeepDays  int    `name:"blob-keep-days" default:"30" group:"Object storage" help:"Days a recording's file not used stays on the disk; after that it is only in the bucket, fetched when needed (0 = no limit)."`
+	BlobCacheSize string `name:"blob-cache-size" group:"Object storage" help:"The most the recordings' files may take on the disk (e.g. 20GB); the ones used longest ago go to the bucket only first. Empty = no limit."`
 
 	// The login must be chosen: the studio's own, or none at all. A missing
 	// or misspelt setting never means open access.
@@ -267,6 +269,7 @@ func (s *serveCmd) Run() error {
 	}
 	// Object storage (#86): only when a bucket is given; the studio then keeps a copy of the data dir in it.
 	var store web.Blob
+	var disk web.DiskOptions
 	lost := make(chan error, 1)
 	if s.BlobEndpoint != "" || s.BlobBucket != "" {
 		if s.DataDir == "" {
@@ -277,14 +280,21 @@ func (s *serveCmd) Run() error {
 			return err
 		}
 		store = blobStore{st}
-		logger.Printf("storage: a copy of the data dir in bucket %s at %s", s.BlobBucket, s.BlobEndpoint)
+		disk.KeepFor = time.Duration(max(s.BlobKeepDays, 0)) * 24 * time.Hour
+		if s.BlobCacheSize != "" {
+			if disk.Size, err = parseSize(s.BlobCacheSize); err != nil {
+				return fmt.Errorf("--blob-cache-size: %w", err)
+			}
+		}
+		logger.Printf("storage: a copy of the data dir in bucket %s at %s; files not used for %d days only there%s",
+			s.BlobBucket, s.BlobEndpoint, s.BlobKeepDays, map[bool]string{true: ", the disk at most " + s.BlobCacheSize}[disk.Size > 0])
 	}
 	srv, err := web.NewApp(web.AppConfig{
 		Base: web.Config{Root: s.Root, Inbox: s.Inbox, CacheDir: s.CacheDir,
 			Layout: s.Layout, TrashDays: s.TrashDays, FFmpeg: ff, Logger: logger, RecordFiles: true},
 		DataDir: s.DataDir, OIDC: oidc, ChurchHost: s.ChurchHost,
 		Share: share, ParallelRuns: s.ParallelRuns, VisitorRole: s.VisitorRole, Transcription: transcription,
-		Blob: store, StorageLost: func(err error) {
+		Blob: store, Disk: disk, StorageLost: func(err error) {
 			select {
 			case lost <- err:
 			default:
