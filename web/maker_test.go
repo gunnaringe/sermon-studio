@@ -20,6 +20,7 @@ import (
 func makerServer(t *testing.T) (ts *testServer, release func()) {
 	t.Helper()
 	ts = newTestServerWith(t, normalizer.FFmpeg{}, func(c *Config) { c.limits = newLimits(1) })
+	<-ts.scanned // its orders would come between the test's
 	ts.jobs.sem <- struct{}{}
 	var once bool
 	release = func() {
