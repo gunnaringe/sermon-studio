@@ -159,6 +159,7 @@ func New(cfg Config) (*Server, error) {
 	if cfg.ClipsDir != "" {
 		s.clips.sweep()
 	}
+	registerServer(s)
 	s.keepDefaults() // recordings saved before Save kept the church's defaults: they keep those they follow now
 	s.transcriptLang, s.transcriptModels, s.transcriptWordsSet = cfg.Transcript, cfg.TranscriptModels, cfg.TranscriptWords
 	s.transcriptsFailed = map[string]*transcriptFailed{}
@@ -214,6 +215,7 @@ func realDir(dir string) (string, error) {
 func (s *Server) Close() {
 	s.cancel()
 	s.wg.Wait()
+	unregisterServer(s)
 	if s.cfg.transcriber != nil {
 		s.cfg.transcriber.unregister(s.cfg.church, s) // waits for its transcript being made to stop
 	}
@@ -452,7 +454,7 @@ type fileInfo struct {
 }
 
 func (s *Server) fileInfo(abs string) *fileInfo {
-	st, err := os.Stat(abs)
+	st, err := normalizer.Stat(abs)
 	if err != nil {
 		return nil
 	}
@@ -476,6 +478,11 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 	}
 	if !known {
 		writeError(w, http.StatusNotFound, errors.New("not an audio file"))
+		return
+	}
+	if err := fetchFor(r.Context(), abs); err != nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("the file could not be fetched from the storage"))
+		s.cfg.Logger.Printf("%s: %v", s.display(abs), err)
 		return
 	}
 	f, err := os.Open(abs)

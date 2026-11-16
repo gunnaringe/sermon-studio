@@ -28,6 +28,8 @@ type fakeBlob struct {
 	n        int
 	failPuts bool // every put fails, as in an outage
 	noCond   bool // conditional puts are not checked, as by a provider without them
+	// hold, when set, keeps a PutFile waiting after it read its file (one in flight); started is told then.
+	hold, started chan struct{}
 }
 
 type fakeObject struct {
@@ -72,6 +74,13 @@ func (b *fakeBlob) PutFile(ctx context.Context, key, path string) (BlobInfo, err
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return BlobInfo{}, err
+	}
+	b.mu.Lock()
+	hold, started := b.hold, b.started
+	b.mu.Unlock()
+	if hold != nil {
+		started <- struct{}{}
+		<-hold
 	}
 	return b.store(key, data, nil)
 }
@@ -445,5 +454,50 @@ func TestMirrorDataDirAlias(t *testing.T) {
 	settleMirror(t, a)
 	if b.text("kirke/Taler/2026-10-18/2026-10-18.mp3") != "mp3" {
 		t.Errorf("the file made by its real path: %v", b.keys())
+	}
+}
+
+// A file replaced while its upload is going on is put again: the upload in flight may have the old one.
+func TestMirrorReplacedWhileUploading(t *testing.T) {
+	b := newFakeBlob()
+	st := mirrorTest(t, b)
+	settleMirror(t, st.app)
+	file := filepath.Join(st.church, "Taler", "2026-10-18", "2026-10-18.mp3")
+	os.MkdirAll(filepath.Dir(file), 0o755)
+	write := func(data string) {
+		os.WriteFile(file+".partial", []byte(data), 0o644)
+		normalizer.Rename(file+".partial", file)
+	}
+	hold, started := make(chan struct{}), make(chan struct{}, 1)
+	b.mu.Lock()
+	b.hold, b.started = hold, started
+	b.mu.Unlock()
+	write("first")
+	<-started // read "first", not yet in the bucket
+	write("second")
+	b.mu.Lock()
+	b.hold = nil
+	b.mu.Unlock()
+	close(hold)
+	settleMirror(t, st.app)
+	if got := b.text("kirke/Taler/2026-10-18/2026-10-18.mp3"); got != "second" {
+		t.Errorf("the bucket has %q", got)
+	}
+}
+
+// A file made again at once with the same size is put again: the journal knows it changed, whatever the
+// bucket's copy looks like.
+func TestMirrorRemadeSameSize(t *testing.T) {
+	b := newFakeBlob()
+	st := mirrorTest(t, b)
+	file := filepath.Join(st.church, "Taler", "2026-10-18", "2026-10-18.mp3")
+	os.MkdirAll(filepath.Dir(file), 0o755)
+	for _, data := range []string{"first", "fiRst"} {
+		os.WriteFile(file+".partial", []byte(data), 0o644)
+		normalizer.Rename(file+".partial", file)
+		settleMirror(t, st.app)
+	}
+	if got := b.text("kirke/Taler/2026-10-18/2026-10-18.mp3"); got != "fiRst" {
+		t.Errorf("the bucket has %q", got)
 	}
 }

@@ -56,7 +56,7 @@ const cacheVersion = 2
 
 // cacheKey identifies a recording by path, size and modification time.
 func cacheKey(path string) (string, error) {
-	st, err := os.Stat(path)
+	st, err := normalizer.Stat(path) // kept only in the bucket: by its record, which has the time it had
 	if err != nil {
 		return "", err
 	}
@@ -135,6 +135,20 @@ func (a *analyses) stage(raw string) string {
 }
 
 // converting reports whether raw is being converted right now.
+// busyIn tells whether a recording of folder is being converted or analysed.
+func (a *analyses) busyIn(folder string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for _, m := range []map[string]*analysisState{a.pending, a.current} {
+		for _, st := range m {
+			if st.State == "running" && folderOfRecording(st.raw) == folder {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (a *analyses) converting(raw string) bool { return a.stage(raw) == "convert" }
 
 // carry moves the finished analysis of a recording along when the file is
@@ -281,6 +295,9 @@ func (a *analyses) lookLater(raw, key string) {
 func analyze(ctx context.Context, ff normalizer.FFmpeg, raw, dir string, progress func(float64)) (normalizer.LevelData, error) {
 	preview := filepath.Join(dir, "preview.mp3")
 	tmp := filepath.Join(dir, "preview.partial.mp3")
+	if err := normalizer.NeedFile(ctx, raw); err != nil {
+		return normalizer.LevelData{}, err
+	}
 	cmd := exec.CommandContext(ctx, ff.Bin, normalizer.GuardInputs([]string{"-nostdin", "-hide_banner", "-v", "error", "-y", "-i", raw,
 		"-map", "0:a:0", "-ac", "1", "-ar", strconv.Itoa(normalizer.LevelRate), "-f", "s16le", "pipe:1",
 		"-map", "0:a:0", "-ac", "1", "-af", normalizer.ListenLevels, "-ar", "44100",

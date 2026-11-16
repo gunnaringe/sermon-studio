@@ -302,7 +302,7 @@ func (a *App) downloadInfo(w http.ResponseWriter, t *tenant, sh *Share) {
 			if sh.SermonOnly {
 				key += normalizer.SermonOnly
 			}
-			st, err := os.Stat(outputPath(paths, f, sh.SermonOnly))
+			st, err := normalizer.Stat(outputPath(paths, f, sh.SermonOnly))
 			switch {
 			case making && (err != nil || stale[key].Stale):
 				preparing = append(preparing, f)
@@ -367,7 +367,7 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	paths, err := normalizer.NewPaths(abs)
 	var st os.FileInfo
 	if err == nil {
-		st, err = os.Stat(downloadPath(paths, sh, q.Format))
+		st, err = normalizer.Stat(downloadPath(paths, sh, q.Format))
 	}
 	if err != nil {
 		writeError(w, http.StatusNotFound, errors.New("this file is not there now; ask the church that gave you the code"))
@@ -467,7 +467,9 @@ func (a *App) handleShareDownloadFile(w http.ResponseWriter, r *http.Request) {
 	paths, err := normalizer.NewPaths(abs)
 	var f *os.File
 	if err == nil {
-		f, err = os.Open(downloadPath(paths, sh, tk.Format))
+		if err = fetchFor(r.Context(), downloadPath(paths, sh, tk.Format)); err == nil {
+			f, err = os.Open(downloadPath(paths, sh, tk.Format))
+		}
 	}
 	if err != nil {
 		writeError(w, http.StatusNotFound, errors.New("this file is not there now; ask the church that gave you the code"))

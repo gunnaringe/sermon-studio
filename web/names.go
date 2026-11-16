@@ -176,7 +176,7 @@ func (s *Server) rename(src, dst string) error {
 	moved = true
 	s.maker.moved(s.relPath(src), s.relPath(dst))
 	for _, dir := range []string{dst, filepath.Join(dst, normalizer.OriginalDir)} {
-		des, _ := os.ReadDir(dir)
+		des := readDir(dir) // a file kept only in the bucket is fetched by its rename
 		for _, de := range des {
 			rest, ok := strings.CutPrefix(de.Name(), oldBase)
 			if !ok || de.IsDir() || rest == "" || (rest[0] != '_' && rest[0] != '.') {

@@ -41,6 +41,7 @@ func newTestServerWith(t *testing.T, ff normalizer.FFmpeg, configure func(*Confi
 	if configure != nil {
 		configure(&cfg)
 	}
+	evictAll(t, &cfg)
 	s, err := New(cfg)
 	if err != nil {
 		t.Fatal(err)

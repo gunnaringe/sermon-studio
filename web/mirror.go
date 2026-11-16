@@ -97,6 +97,7 @@ type mirror struct {
 
 	mu      sync.Mutex
 	journal []mirrorOp
+	doing   bool                 // journal[0] is being done
 	drafts  map[string]time.Time // draft.json changed (key → since), waiting for draftEvery
 	kick    chan struct{}
 	failing string // the error the journal is stuck on, logged once
@@ -342,9 +343,10 @@ func blobChanged(from, to string) {
 // add puts an op in the journal, kept on the disk before it is done.
 func (m *mirror) add(op mirrorOp) {
 	m.mu.Lock()
-	if n := len(m.journal); n > 0 && m.journal[n-1] == op && op.Kind == "upload" {
+	// The same file again before the last was done; not the one being done, which may have read it already.
+	if n := len(m.journal); n > 0 && m.journal[n-1] == op && op.Kind == "upload" && (n > 1 || !m.doing) {
 		m.mu.Unlock()
-		return // the same file again before the last was done
+		return
 	}
 	m.journal = append(m.journal, op)
 	m.saveJournal()
@@ -356,6 +358,20 @@ func (m *mirror) add(op mirrorOp) {
 }
 
 // saveJournal writes the journal; m.mu is held.
+// pending tells whether the journal has something to do for key (or a folder it is in).
+func (m *mirror) pending(key string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, op := range m.journal {
+		for _, k := range []string{op.Key, op.To} {
+			if k != "" && (k == key || strings.HasPrefix(key, k+"/")) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (m *mirror) saveJournal() {
 	data, _ := json.Marshal(m.journal)
 	tmp := m.journalPath() + ".partial"
@@ -376,6 +392,7 @@ func (m *mirror) work() {
 			o := m.journal[0]
 			op = &o
 		}
+		m.doing = op != nil
 		m.mu.Unlock()
 		if op == nil {
 			select {
@@ -410,6 +427,7 @@ func (m *mirror) work() {
 		if len(m.journal) > 0 && m.journal[0] == *op {
 			m.journal = m.journal[1:]
 		}
+		m.doing = false
 		m.saveJournal()
 		m.mu.Unlock()
 	}
@@ -491,21 +509,10 @@ func (m *mirror) uploadFile(key, path string, st fs.FileInfo, known *struct {
 	info BlobInfo
 	ok   bool
 }) error {
-	var info BlobInfo
-	var there bool
-	if known != nil {
-		info, there = known.info, known.ok
-	} else {
-		var err error
-		info, err = m.blob.Head(m.ctx, key)
-		switch {
-		case err == nil:
-			there = true
-		case !errors.Is(err, ErrBlobNotFound):
-			return err
-		}
-	}
-	if there && uploaded(info, st) {
+	// One file the journal has is put as it is: it changed, also when the bucket's copy has the same size and
+	// a time within uploaded's slack (a file made again at once). The ones of a folder are put when they look
+	// changed.
+	if known != nil && known.ok && uploaded(known.info, st) {
 		return nil
 	}
 	if _, err := m.blob.PutFile(m.ctx, key, path); err != nil {

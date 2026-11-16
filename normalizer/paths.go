@@ -2,6 +2,7 @@ package normalizer
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,6 +81,11 @@ func (p Paths) arrival() string {
 // and ones being written are never recordings.
 func bestInput(dir string, ok func(name string) bool) string {
 	des, _ := os.ReadDir(dir)
+	if Elsewhere != nil {
+		for _, info := range Elsewhere(dir) { // only those not on the disk
+			des = append(des, fs.FileInfoToDirEntry(info))
+		}
+	}
 	best, rank := "", len(inputTypes)
 	for _, de := range des {
 		name := de.Name()

@@ -60,6 +60,9 @@ func service(t *testing.T, ff normalizer.FFmpeg, path string) {
 
 func duration(t *testing.T, path string) float64 {
 	t.Helper()
+	if err := fetchFor(context.Background(), path); err != nil { // kept only in the bucket (SERMON_TEST_EVICT)
+		t.Fatal(err)
+	}
 	out, err := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path).Output()
 	if err != nil {
 		t.Fatal(err)
