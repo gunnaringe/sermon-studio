@@ -308,6 +308,9 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `normalizer/models/speech.rnnn` embedded and written to the temporary folder, `speech.go`; a path in a filter option goes
   through `filterPath`). A new choice of the sound is `omitempty` in the JSON and in `madeFrom` at its default, so files made
   before it are not out of date.
+- Speech (`arnndn`) works at a normal level: a sermon quieter than `SpeechLevel` (-30 LUFS, measured through its cuts,
+  `speechLevel`) is raised to it first (`preGain`); not the standard method, which does as well or better at the recording's
+  own level. Quieter pauses (`Expander`, `agate`) runs after the gain, at a threshold under the target (`expanderBelow`).
 - A sermon raised more than `QuietGain` (30 dB) to its target was recorded too quietly: the pipeline warns, and the editor
   warns before from the waveform's peaks (`loudParts`, -30 dBFS or lower in the sections). Speech at 100 % room sound warns
   too (it takes nothing out); the editor and Settings note it from `SPEECH_ROOM_WARN` (80 %).

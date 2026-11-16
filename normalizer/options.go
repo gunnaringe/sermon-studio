@@ -23,7 +23,9 @@ type Options struct {
 	Leveling string
 	// Compression narrows the loudness range further: one of CompressionNames ("" = off).
 	Compression string
-	Force       bool
+	// Expander makes the pauses quieter, so the hiss between words is heard less: one of ExpanderNames ("" = off).
+	Expander string
+	Force    bool
 	// MasterFresh, when set, tells whether the master at a path is of these options, so MP3 and Opus can be made
 	// from it, also with Force; one it says no to is never used. Unset, an existing master is used unless Force.
 	MasterFresh func(path string) bool

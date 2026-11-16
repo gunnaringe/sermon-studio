@@ -72,3 +72,17 @@ func TestMadeFromNoiseMethod(t *testing.T) {
 		t.Error("off: the fingerprint should differ from standard, and not follow the dB or the room sound")
 	}
 }
+
+// Quieter pauses is in the fingerprint only when on, so files made before it was a choice are not out of date.
+func TestMadeFromExpander(t *testing.T) {
+	o := normalizer.DefaultOptions()
+	before := madeFrom(o, "mp3", "")
+	o.Expander = "off"
+	if madeFrom(o, "mp3", "") != before {
+		t.Error("off changed the fingerprint")
+	}
+	o.Expander = "light"
+	if madeFrom(o, "mp3", "") == before {
+		t.Error("light did not change the fingerprint")
+	}
+}

@@ -668,6 +668,34 @@ func TestIntegrationSpeech(t *testing.T) {
 	}
 }
 
+// A sermon recorded very quietly is raised to SpeechLevel before Speech (measured through its cuts), and
+// Quieter pauses runs: the files still reach the target.
+func TestIntegrationQuietSpeech(t *testing.T) {
+	ff := requireFFmpeg(t)
+	dir := dateFolder(t)
+	expr := "0.001*sin(2*PI*220*t)*(0.6+0.4*sin(2*PI*3*t))+0.00005*(random(0)-0.5)" // TestIntegrationSpeech's, 46 dB quieter
+	if _, err := ff.Run(context.Background(), "-y", "-f", "lavfi", "-i",
+		"aevalsrc=exprs='"+expr+"':s=48000:d=40", "-c:a", "flac", filepath.Join(dir, date+"_raw.flac")); err != nil {
+		t.Fatal(err)
+	}
+	opt := DefaultOptions()
+	opt.Start, opt.End, opt.Cuts = 5, 35, []Span{{Start: 15, End: 20}}
+	opt.NoiseMethod, opt.Expander = "speech", "normal"
+	paths, err := NewPaths(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	p := &Pipeline{P: paths, Opt: opt, FF: ff, Out: &out}
+	if err := p.Run(context.Background()); err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "before Speech") || p.preGain < 10 {
+		t.Errorf("not raised before Speech (%.1f dB):\n%s", p.preGain, out.String())
+	}
+	checkOutputsAs(t, ff, dir, 25, 1, opt.TargetLUFS)
+}
+
 // A sample is a few seconds of the recording with the processing, as an MP3 at the target loudness.
 func TestIntegrationSample(t *testing.T) {
 	ff := requireFFmpeg(t)

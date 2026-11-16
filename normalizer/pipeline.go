@@ -28,6 +28,7 @@ type Pipeline struct {
 	master  string   // the master of the sermon only
 	full    string   // the master with the intro and outro (p.master without them)
 	cleanup []string // temporary files to remove when the run ends
+	preGain float64  // dB the sermon is raised before Speech (speechLevel), 0 = none
 	stepN   int      // the number of the last numbered step
 }
 

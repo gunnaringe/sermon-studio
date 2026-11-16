@@ -37,6 +37,8 @@ func (o Options) Validate() error {
 		return fmt.Errorf("leveling must be one of %s", strings.Join(LevelingNames, ", "))
 	case !slices.Contains(CompressionNames, o.CompressionName()):
 		return fmt.Errorf("compression must be one of %s", strings.Join(CompressionNames, ", "))
+	case !slices.Contains(ExpanderNames, o.ExpanderName()):
+		return fmt.Errorf("quieter pauses must be one of %s", strings.Join(ExpanderNames, ", "))
 	case strings.TrimSpace(o.Mp3Bitrate) == "" || strings.TrimSpace(o.OpusBitrate) == "":
 		return errors.New("bitrates cannot be empty")
 	case o.ClipPause < 0 || o.ClipPause > MaxClipPause:

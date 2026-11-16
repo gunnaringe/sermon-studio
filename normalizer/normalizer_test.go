@@ -186,6 +186,15 @@ func TestTidyFilterSpeech(t *testing.T) {
 	if !strings.Contains(f, "arnndn=m="+filterPath(model)+":") {
 		t.Errorf("the model's path is not in %q", f)
 	}
+	// A quiet sermon is raised before Speech, and only before it.
+	p.preGain = 34.6
+	if f := tidy(t, p); !strings.Contains(f, "volume=34.60dB,arnndn=") {
+		t.Errorf("raised before speech: %q", f)
+	}
+	p.Opt.NoiseMethod = "standard"
+	if f := tidy(t, p); strings.Contains(f, "volume=") {
+		t.Errorf("raised without speech: %q", f)
+	}
 	p.Opt.NoiseMethod = "fft"
 	if err := p.Opt.Validate(); err == nil || !strings.Contains(err.Error(), "noise reduction must be one of") {
 		t.Errorf("unknown method: %v", err)
@@ -250,6 +259,15 @@ func TestFinalFilter(t *testing.T) {
 	// a peak limit half a dB under the ceiling: -2 dB is 0.7943
 	if f != "volume=18.50dB,alimiter=limit=0.7943:attack=5:release=50:level=0,aresample=48000" {
 		t.Errorf("filter %q", f)
+	}
+	// Quieter pauses: the expander after the gain, at 21 dB under the target (-19 LUFS: -40 dBFS is 0.01).
+	p.Opt.Expander = "normal"
+	if f := p.finalFilter(18.5, 0); !strings.HasPrefix(f, "volume=18.50dB,agate=threshold=0.01000:ratio=3:range=0.10000:attack=10:release=300,alimiter=") {
+		t.Errorf("expander: %q", f)
+	}
+	p.Opt.Expander = "off"
+	if f := p.finalFilter(18.5, 0); strings.Contains(f, "agate") {
+		t.Errorf("expander off: %q", f)
 	}
 	p.Opt.FadeIn, p.Opt.FadeOut = 2, 3.5
 	if f := p.finalFilter(0, 600); !strings.HasSuffix(f, ",aresample=48000,afade=t=in:d=2,afade=t=out:st=596.500:d=3.5") {
@@ -471,6 +489,7 @@ func TestValidate(t *testing.T) {
 		"room sound":    func(o *Options) { o.RoomSound = 101 },
 		"leveling":      func(o *Options) { o.Leveling = "loud" },
 		"compression":   func(o *Options) { o.Compression = "heavy" },
+		"expander":      func(o *Options) { o.Expander = "gate" },
 		"lufs":          func(o *Options) { o.TargetLUFS = 3 },
 		"peak":          func(o *Options) { o.TruePeak = 1 },
 		"bitrate":       func(o *Options) { o.Mp3Bitrate = " " },

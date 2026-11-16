@@ -20,6 +20,7 @@ const ListenLevels = EvenLevels + ":m=100"
 var (
 	LevelingNames    = []string{"off", "gentle", "normal", "strong"}
 	CompressionNames = []string{"off", "light", "normal", "strong"}
+	ExpanderNames    = []string{"off", "light", "normal", "strong"}
 )
 
 var levelingFilters = map[string]string{
@@ -37,6 +38,35 @@ var compressionFilters = map[string]string{
 	"light":  "acompressor=threshold=0.125:ratio=2:attack=20:release=250",
 	"normal": "acompressor=threshold=0.0631:ratio=2:attack=20:release=250",
 	"strong": "acompressor=threshold=0.0794:ratio=3:attack=20:release=250",
+}
+
+// The expander makes the pauses quieter: below expanderBelow dB under the target loudness the sound is
+// turned down, at most range dB (light, normal, strong), so the hiss between words is heard less. It runs
+// at the target level, so the same threshold fits every recording.
+const expanderBelow = 21
+
+var expanderStrengths = map[string]struct{ ratio, rangeDB float64 }{
+	"light":  {2, 10},
+	"normal": {3, 20},
+	"strong": {4, 30},
+}
+
+// expanderFilter is the expander for the target loudness, "" when it is off.
+func (o Options) expanderFilter() string {
+	e, ok := expanderStrengths[o.ExpanderName()]
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf("agate=threshold=%.5f:ratio=%g:range=%.5f:attack=10:release=300",
+		math.Pow(10, (o.TargetLUFS-expanderBelow)/20), e.ratio, math.Pow(10, -e.rangeDB/20))
+}
+
+// ExpanderName is the expander, "off" when none was chosen.
+func (o Options) ExpanderName() string {
+	if o.Expander == "" {
+		return "off"
+	}
+	return o.Expander
 }
 
 // LevelingName is the leveling, "normal" when none was chosen.
@@ -73,6 +103,9 @@ func (p *Pipeline) tidyFilter() (string, error) {
 	switch {
 	case p.Opt.NoiseMethodName() == "off":
 	case p.Opt.NoiseMethodName() == "speech":
+		if p.preGain > 0 {
+			f = append(f, fmt.Sprintf("volume=%.2fdB", p.preGain))
+		}
 		speech, err := p.speechFilter()
 		if err != nil {
 			return "", err
@@ -91,11 +124,15 @@ func (p *Pipeline) tidyFilter() (string, error) {
 	return strings.Join(f, ","), nil
 }
 
-// finalFilter sets the level and ends the chain: gain (dB), a limiter that keeps the peaks under the
+// finalFilter sets the level and ends the chain: gain (dB), the expander (at the target level), a limiter that keeps the peaks under the
 // true-peak ceiling (with half a dB to spare for what resampling adds), and the fades, last, so nothing
 // lifts them again. length (seconds) is only needed for a fade-out.
 func (p *Pipeline) finalFilter(gain, length float64) string {
-	f := []string{fmt.Sprintf("volume=%.2fdB", gain), p.limiter(), "aresample=48000"}
+	f := []string{fmt.Sprintf("volume=%.2fdB", gain)}
+	if e := p.Opt.expanderFilter(); e != "" {
+		f = append(f, e)
+	}
+	f = append(f, p.limiter(), "aresample=48000")
 	if p.Opt.FadeIn > 0 {
 		f = append(f, fmt.Sprintf("afade=t=in:d=%g", p.Opt.FadeIn))
 	}
