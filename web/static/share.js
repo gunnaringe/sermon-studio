@@ -231,7 +231,7 @@ function showDownload() {
         button.disabled = false;
       }
     });
-    listen.replaceChildren(button, ' ', h('span', { class: 'muted' }, t('Not counted as a download.')));
+    listen.replaceChildren(button);
   }
   // the artist and date, unless the church's name or the title says it already
   const what = [info.artist !== info.church ? info.artist : '', info.date && !(info.title || '').includes(info.date) ? info.date : '']
