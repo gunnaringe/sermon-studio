@@ -216,6 +216,7 @@ func runJob(t *testing.T, ts *testServer, folder string, q runRequest) jobSnapsh
 // makes the main files out of date and leaves the sermon only alone; the sermon's own clip; a run without
 // clips removes the sermon only; a deleted clip refuses the run.
 func TestIntegrationRunWithClips(t *testing.T) {
+	skipIfEvicting(t)
 	ff := requireFFmpeg(t)
 	ts, _ := clipServer(t, ff, nil)
 	src := t.TempDir()

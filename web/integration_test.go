@@ -82,6 +82,7 @@ func waitAnalysis(t *testing.T, ts *testServer, path string) analysisState {
 }
 
 func TestIntegrationAnalysis(t *testing.T) {
+	skipIfEvicting(t)
 	ff := requireFFmpeg(t)
 	ts := newTestServer(t, ff)
 	ts.file(t, "2026-10-04/x", "")
@@ -174,6 +175,7 @@ func events(t *testing.T, url string) []jobSnapshot {
 }
 
 func TestIntegrationRun(t *testing.T) {
+	skipIfEvicting(t)
 	ff := requireFFmpeg(t)
 	ts := newTestServer(t, ff)
 	hs := httptest.NewServer(ts.h)

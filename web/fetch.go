@@ -154,6 +154,8 @@ func fetchFile(ctx context.Context, p string) error {
 	if !ok || !mirrored {
 		return fmt.Errorf("%w: %s", fs.ErrNotExist, p)
 	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute) // a rename or a copy has no deadline of its own
+	defer cancel()
 	start := time.Now()
 	for wait := 10 * time.Millisecond; m.pending(key); wait = min(2*wait, time.Second) { // a move not done yet
 		select {

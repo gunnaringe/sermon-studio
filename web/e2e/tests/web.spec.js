@@ -1317,7 +1317,7 @@ test('download shares: share a finished sermon from its row, download it on the 
   expect(played.headers()['content-disposition']).toMatch(/^inline/);
   const listed = await (await page.request.get('api/shares')).json();
   expect(listed.shares.find((x) => x.label === 'Lytt').count).toBe(0);
-  fs.rmSync(dir, { recursive: true });
+  fs.rmSync(dir, { recursive: true, maxRetries: 10 }); // the studio may still write its files record there
 });
 
 test('a recording being imported shows that, not what is left to do', async ({ page }) => {

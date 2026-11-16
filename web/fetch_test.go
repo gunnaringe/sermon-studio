@@ -238,6 +238,13 @@ func TestFetchNoBucket(t *testing.T) {
 // too: look at what the studio does.
 var evicting sync.Map // the mirrors of evictAll
 
+// skipIfEvicting skips a test that reads the disk itself, with SERMON_TEST_EVICT.
+func skipIfEvicting(t *testing.T) {
+	if os.Getenv("SERMON_TEST_EVICT") != "" {
+		t.Skip("reads the disk itself (SERMON_TEST_EVICT)")
+	}
+}
+
 func evictAll(t *testing.T, cfg *Config) {
 	if os.Getenv("SERMON_TEST_EVICT") == "" {
 		return

@@ -75,6 +75,7 @@ func TestStorageAfterChange(t *testing.T) {
 // An upload holds its whole size while it comes: one that does not fit is refused at the start, and two
 // cannot both take the last room. A finished one counts.
 func TestUploadQuota(t *testing.T) {
+	skipIfEvicting(t) // the files record makes recording.json larger than its quota of bytes allows
 	ts := newTestServer(t, normalizer.FFmpeg{})
 	ts.storageChanged()
 	ts.SetQuota(1000)

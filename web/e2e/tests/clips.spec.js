@@ -82,7 +82,7 @@ test('settings: intro and outro clips, the defaults, archive and delete', async 
   await unused.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(box).toContainText('No clips yet.');
   expect(fs.readdirSync(path.join(DATA, 'churches', 'first-church', 'clips'))).toEqual([]);
-  fs.rmSync(dir, { recursive: true });
+  fs.rmSync(dir, { recursive: true, maxRetries: 10 }); // the studio may still write its files record there
 });
 
 test('editor: the intro and outro of a sermon, its own clip, and a deleted one', async ({ page, request }) => {
@@ -150,7 +150,7 @@ test('editor: the intro and outro of a sermon, its own clip, and a deleted one',
   await expect(page.locator('.save-bar')).not.toContainText('has been deleted');
 
   for (const c of (await (await request.get('api/clips')).json()).clips) await request.post('api/clips/' + c.id + '/delete');
-  fs.rmSync(dir, { recursive: true });
+  fs.rmSync(dir, { recursive: true, maxRetries: 10 }); // the studio may still write its files record there
 });
 
 test('recordings: made with the intro, the sermon only for download, and a share of it', async ({ page, request }) => {
@@ -205,5 +205,5 @@ test('recordings: made with the intro, the sermon only for download, and a share
     await request.post('api/shares/' + sh.id + '/pause');
     expect((await request.post('api/shares/' + sh.id + '/remove')).ok()).toBe(true);
   }
-  fs.rmSync(dir, { recursive: true });
+  fs.rmSync(dir, { recursive: true, maxRetries: 10 }); // the studio may still write its files record there
 });

@@ -19,6 +19,7 @@ func sha(s string) string {
 // The files record: every file of a recording with its size, time and hash; read again only when it changed,
 // kept through a rename, dropped when the file is gone, and recording.json not written when nothing changed.
 func TestFilesRecord(t *testing.T) {
+	skipIfEvicting(t)
 	ts := newTestServer(t, normalizer.FFmpeg{})
 	folder := filepath.Join(ts.root, "2026", "2026-10-18")
 	ts.file(t, "2026/2026-10-18/original/2026-10-18_raw.flac", "the original")
@@ -88,6 +89,7 @@ func TestFilesRecordFollows(t *testing.T) {
 
 // Without RecordFiles (the desktop app) nothing is recorded by itself.
 func TestFilesRecordOff(t *testing.T) {
+	skipIfEvicting(t)
 	ts := newTestServer(t, normalizer.FFmpeg{})
 	folder := filepath.Join(ts.root, "2026-10-04")
 	ts.file(t, "2026-10-04/2026-10-04.mp3", "mp3")
