@@ -288,15 +288,23 @@ func fetchFile(ctx context.Context, p string) error {
 		case <-time.After(wait):
 		}
 	}
-	if _, err := m.blob.GetFile(ctx, key, p); err != nil {
+	// Fetched next to it as a hidden file (which the files record and the mirror pass over), checked and given
+	// its time, then put in place: nothing sees it half fetched, nor with the time of the fetch.
+	tmp := filepath.Join(filepath.Dir(p), "."+filepath.Base(p)+".fetch")
+	defer os.Remove(tmp)
+	if _, err := m.blob.GetFile(ctx, key, tmp); err != nil {
 		return fmt.Errorf("storage: fetching %s: %w", key, err)
 	}
-	sum, err := hashFile(p)
-	if st, serr := os.Stat(p); err != nil || serr != nil || sum != r.SHA256 || st.Size() != r.Size {
-		os.Remove(p) // not the file recorded: never used (not normalizer.Remove: the bucket keeps its copy)
+	sum, err := hashFile(tmp)
+	if st, serr := os.Stat(tmp); err != nil || serr != nil || sum != r.SHA256 || st.Size() != r.Size {
 		return fmt.Errorf("storage: %s from the bucket is not the file recorded", key)
 	}
-	os.Chtimes(p, r.Modified, r.Modified)
+	if err := os.Chtimes(tmp, r.Modified, r.Modified); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, p); err != nil { // not normalizer.Rename: the bucket has it already
+		return err
+	}
 	fr.setBucket(rel, false) // on the disk again: at once, so a rename after takes its record along
 	m.logger.Printf("storage: fetched %s (%s) in %s", key, sizeText(r.Size), time.Since(start).Round(time.Millisecond))
 	return nil
