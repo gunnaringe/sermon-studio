@@ -181,6 +181,9 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `Options.MasterFresh`: MP3/Opus are made from an existing FLAC only while it is of the run, also with Force.
   `POST api/outputs/remove?path&format=…`: deletes outputs (only those) and their records; not during a run.
 - `web/jobs.go`: runs on the server context, `--parallel-runs` at a time (never two of one recording), SSE events.
+- `web/tasks.go`: `GET api/tasks`, the church's work going on (runs, the maker's queue, conversions and analyses, its
+  transcripts), running first; `web/static/tasks.js` is the panel on top of the recordings page (read every 3 s while there
+  is work, else 15 s; it also starts the page's following of its badges).
 - `web/maker.go`: keeps a saved recording's files made, in the background: the formats it keeps (`sermonSettings.Formats`,
   filled in at Save from the church's `processing.formats`, all three when nil; for one saved before, `keepDefaults` takes the
   formats it has) that are missing or stale (`toMake`; a file with no record is fine). Only Save (`handleSermonSave`: first in

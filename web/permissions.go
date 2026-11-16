@@ -101,6 +101,7 @@ var routeActions = map[string]action{
 	"GET /api/folders":          actView,
 	"GET /api/folder":           actView,
 	"GET /api/recordings":       actView,
+	"GET /api/tasks":            actView,
 	"GET /api/recording":        actView,
 	"GET /api/analysis":         actView,
 	"POST /api/analysis":        actView,
