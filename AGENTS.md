@@ -5,7 +5,7 @@ Agent notes (`CLAUDE.md` imports this file).
 Go web service: cut a church service recording on a waveform, get
 loudness-normalised FLAC/MP3/Opus. `README.md` = what it is, `docs/` = guide, running, outputs, design (was PLAN.md).
 The standard library, `golang.org/x/sys` (for Windows), `coreos/go-oidc` + `golang.org/x/oauth2` (the login), `alecthomas/kong`
-(the command line); ffmpeg is run as a command. Keep dependencies few.
+(the command line), `minio/minio-go` (object storage, `blob/`; only the server, never the desktop app); ffmpeg is run as a command. Keep dependencies few.
 
 ## Checks (use these, in this order; output is already short)
 
@@ -20,6 +20,7 @@ scripts/test.sh e2e [-g name]         # browser tests (~4.5 min, one test ~20 s)
 scripts/test.sh desktop               # the desktop program as released, from the outside (~15 s); after
                                       # changing cmd/sermon-studio-desktop or what it uses of web
 scripts/test.sh image                 # Docker build; before release changes
+scripts/test.sh blob                  # package blob against an S3 server (RustFS in podman); after changing blob/
 scripts/fetch-sample.sh && scripts/test.sh guide   # redo docs/img (the guide's pictures) when the UI changes
 scripts/check-links.sh                # relative links and pictures in the Markdown files
 scripts/test.sh site                  # the website (site/): pages, languages, links, video (~30 s); after changing site/
@@ -63,6 +64,13 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   (`warnUnknownEnv`). The client secret is `--oidc-client-secret-file` or `SERMON_STUDIO_OIDC_CLIENT_SECRET` (`clientSecretEnv`,
   read by `serve` itself and never a flag; `takeClientSecret` unsets it first, so ffmpeg never inherits it). The login is required to be chosen: `--oidc-issuer` xor `--no-login`. `admin.go`: `sermon-studio admin …`
   (church create/list/rename, members, invite, remove; `--json`), a client of the running studio's admin socket.
+- `blob/`: an S3-compatible bucket (#86, docs/object-storage.md): `Store` (put, a file in and out, head, copy, delete,
+  list, presigned GET with the file name, `PutNew`/`PutIfMatch` for a lease, `SetCORS`) and `Check`, what a provider
+  has. minio-go is used only here; `web` does not import it, so the desktop app stays without it
+  (`go list -deps ./cmd/sermon-studio-desktop | grep minio` prints nothing). Not used by the studio yet: so far only
+  `sermon-studio admin blob check|cors` (`cmd/sermon-studio/blob.go`, the `--blob-*` flags). Its tests need a bucket:
+  `scripts/test.sh blob` (RustFS in podman, `s3server` in `scripts/lib.sh`, the same in `test.yml`); without
+  `BLOB_TEST_ENDPOINT` they are skipped.
 - `cmd/sermon-studio-desktop/`: the desktop app (docs/desktop.md), a wrapper around `web.App`: `main.go`
   starts it; `internal/desktop/` has its folders and `settings.json`, the Host check (`Guard`), the window
   (`OpenWindow`), one copy at a time (`/_desktop/hello` with the token) and stopping when idle (`Presence`:

@@ -23,13 +23,14 @@ import (
 // where the studio runs. They talk to the running studio over its admin
 // socket in the data dir (web.AdminSocket), so a change takes effect at once.
 type adminCmd struct {
-	DataDir string `required:"" help:"The studio's --data-dir (where its admin socket is)."`
+	DataDir string `help:"The studio's --data-dir (where its admin socket is). Needed by every command but blob."`
 	JSON    bool   `name:"json" help:"Print JSON, for scripts."`
 
 	Church  churchCmd  `cmd:"" help:"Add, list and rename churches, and set their storage quota."`
 	Members membersCmd `cmd:"" help:"List a church's members."`
 	Invite  inviteCmd  `cmd:"" help:"Print an invite link to a church (single use)."`
 	Remove  removeCmd  `cmd:"" help:"Take a member out of a church."`
+	Blob    blobCmd    `cmd:"" help:"Object storage (S3): check a bucket, set its CORS rule."`
 
 	out io.Writer // os.Stdout; tests set it
 }
@@ -76,6 +77,9 @@ type removeCmd struct {
 // call sends one request to the running studio's admin socket and decodes
 // its answer into out.
 func (a *adminCmd) call(method, path string, body, out any) error {
+	if a.DataDir == "" {
+		return errors.New("--data-dir is required: the studio's data dir, where its admin socket is")
+	}
 	sock := web.AdminSocket(a.DataDir)
 	client := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {

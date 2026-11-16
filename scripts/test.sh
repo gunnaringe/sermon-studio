@@ -15,6 +15,7 @@
 #   scripts/test.sh site [args] the website in site/ (Playwright, served as files): pages, languages, links
 #   scripts/test.sh site-shots [shots|video]  the website's pictures and video (use scripts/site-shots.sh)
 #   scripts/test.sh image      the Docker image (vet + all tests inside)
+#   scripts/test.sh blob       the object storage (package blob) against an S3 server (RustFS) in a container
 #   scripts/test.sh changed    the checks for what this branch changes (since it left origin/main, uncommitted too),
 #                              cheapest first, stopping at the first that fails; prints which it runs
 #                              (PLAN_ONLY=1: only that)
@@ -31,20 +32,20 @@ mode=${1:-unit}
 case $mode in
 unit)
 	if command -v go >/dev/null; then
-		test -z "$(gofmt -l cmd models normalizer web)" || { gofmt -l cmd models normalizer web; echo "gofmt needed" >&2; exit 1; }
+		test -z "$(gofmt -l blob cmd models normalizer web)" || { gofmt -l blob cmd models normalizer web; echo "gofmt needed" >&2; exit 1; }
 		go vet ./... && go test -short ./...
 	else
-		incontainer 'test -z "$(gofmt -l cmd models normalizer web)" || { gofmt -l cmd models normalizer web; exit 1; }; go vet ./... && go test -short ./...'
+		incontainer 'test -z "$(gofmt -l blob cmd models normalizer web)" || { gofmt -l blob cmd models normalizer web; exit 1; }; go vet ./... && go test -short ./...'
 	fi
 	;;
 all)
 	[ $# -eq 0 ] && set -- ./...
 	if command -v go >/dev/null && command -v ffmpeg >/dev/null; then # the host's (mise.toml), else a container's
-		test -z "$(gofmt -l cmd models normalizer web)" || { gofmt -l cmd models normalizer web; echo "gofmt needed" >&2; exit 1; }
+		test -z "$(gofmt -l blob cmd models normalizer web)" || { gofmt -l blob cmd models normalizer web; echo "gofmt needed" >&2; exit 1; }
 		go vet ./... && FFMPEG_REQUIRED=1 go test "$@"
 		exit
 	fi
-	IMAGE=$(testimage go "$golang") incontainer 'test -z "$(gofmt -l cmd models normalizer web)" && go vet ./... && FFMPEG_REQUIRED=1 go test "$@"' "$@"
+	IMAGE=$(testimage go "$golang") incontainer 'test -z "$(gofmt -l blob cmd models normalizer web)" && go vet ./... && FFMPEG_REQUIRED=1 go test "$@"' "$@"
 	;;
 desktop)
 	TARGETS=linux-amd64 scripts/build-desktop.sh test >/dev/null
@@ -85,6 +86,21 @@ site-shots)
 image)
 	"$run" build -q -t sermon-studio .
 	;;
+blob)
+	name=sermon-studio-s3test-$$
+	"$run" run -d --rm --name "$name" -p 127.0.0.1::9000 -e RUSTFS_ACCESS_KEY=testkey -e RUSTFS_SECRET_KEY=testsecret "$s3server" >/dev/null
+	trap '"$run" rm -f "$name" >/dev/null' EXIT
+	port=$("$run" port "$name" 9000 | head -1 | sed 's/.*://')
+	i=0
+	until curl -s -o /dev/null "http://127.0.0.1:$port/"; do
+		i=$((i + 1))
+		[ $i -lt 60 ] || { echo "the S3 server did not start" >&2; exit 1; }
+		sleep 0.5
+	done
+	env="BLOB_TEST_ENDPOINT=http://127.0.0.1:$port BLOB_TEST_ACCESS_KEY=testkey BLOB_TEST_SECRET_KEY=testsecret BLOB_TEST_REQUIRED=1"
+	command -v go >/dev/null || { echo "needs Go on the host (mise install)" >&2; exit 1; }
+	env $env go test -count=1 "$@" ./blob/
+	;;
 changed)
 	base=$(git merge-base origin/main HEAD)
 	files=$( (git diff --name-only "$base"; git ls-files --others --exclude-standard) | sort -u)
@@ -95,6 +111,7 @@ changed)
 	has '^(site/|web/e2e/site/)' && plan="$plan site"
 	has '^(normalizer/|go\.(mod|sum)$)' && plan="$plan normalizer"
 	has '^cmd/sermon-studio-desktop/' && plan="$plan desktop"
+	has '^(blob/|go\.(mod|sum)$)' && plan="$plan blob"
 	# The browser tests: the page, the tests, or the server code behind them.
 	if has '^(web/static/|web/e2e/(tests/|run\.sh$|package))' ||
 		printf '%s\n' "$files" | grep -E '^(web|cmd/sermon-studio)/[^/]+\.go$' | grep -vq '_test\.go$'; then
@@ -112,7 +129,7 @@ changed)
 	done
 	;;
 *)
-	sed -n '2,21p' "$0"
+	sed -n '2,22p' "$0"
 	exit 2
 	;;
 esac
