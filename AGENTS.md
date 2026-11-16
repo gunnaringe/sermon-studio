@@ -171,7 +171,11 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   Both are on the edit page (Danger zone, the only place), not the recordings page.
 - `web/recording.go`: `<folder>/recording.json`, the recording's state: `recording` (format, metadata,
   channel verdict; redone when the file's size/mtime change), `convertedFrom` (the WAV, AIFF or video it was made from), `imported` (when it arrived: `markImported`; `recentImports` lists the last `newFor` on top of the first page), the sermon, and `outputs`
-  (how each file was made: `madeFrom` fingerprint → stale/up to date). Change it only through `updateState` (one lock;
+  (how each file was made: `madeFrom` fingerprint → stale/up to date), and `files` (`web/files.go`: every file in the folder but
+  recording.json, draft.json and hidden ones, with size, time and SHA-256; `syncFiles` hashes only what changed, a rename keeps
+  its record; kept by `keepFilesRecorded`, kicked with each storage measuring, `filesChanged`; only with `Config.RecordFiles`,
+  which `serve` sets and the desktop app does not: it reads every file once and changes recording.json). For #86: what the
+  bucket must have, and a check of a file fetched back. Change it only through `updateState` (one lock;
   not written when nothing changed). It must stay quiet while someone edits: it is what a sync tool will carry (#50).
 - `web/sermon.go`, `web/draft.go`: the sermon: `saved` (in recording.json, the version the user saved) + `adjusted`
   (`<folder>/draft.json`, what the editor keeps as you edit, per recording, with when and on which machine; removed

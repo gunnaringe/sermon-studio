@@ -266,7 +266,7 @@ func (s *serveCmd) Run() error {
 	}
 	srv, err := web.NewApp(web.AppConfig{
 		Base: web.Config{Root: s.Root, Inbox: s.Inbox, CacheDir: s.CacheDir,
-			Layout: s.Layout, TrashDays: s.TrashDays, FFmpeg: ff, Logger: logger},
+			Layout: s.Layout, TrashDays: s.TrashDays, FFmpeg: ff, Logger: logger, RecordFiles: true},
 		DataDir: s.DataDir, OIDC: oidc, ChurchHost: s.ChurchHost,
 		Share: share, ParallelRuns: s.ParallelRuns, VisitorRole: s.VisitorRole, Transcription: transcription,
 	})

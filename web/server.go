@@ -36,6 +36,9 @@ type Config struct {
 	CacheDir  string // waveform data and previews
 	Layout    string // where imports go under Root, as a Go time layout
 	TrashDays int    // how long a deleted recording is kept; 0 = DefaultTrashDays
+	// RecordFiles keeps each recording's files record in its recording.json (files.go): size, time, SHA-256.
+	// Off, nothing reads the files to hash them, and recording.json changes as before (a synced folder).
+	RecordFiles bool
 	// InboxEvery is how often the inbox is looked at, InboxSettle how long a
 	// file must stay unchanged before it is taken (0 = 10 s and 30 s).
 	InboxEvery, InboxSettle time.Duration
@@ -99,17 +102,19 @@ type Server struct {
 	transcriptWordsSet string
 	transcriptsFailed  map[string]*transcriptFailed
 
-	limits   *limits // shared by all churches: AppConfig.ParallelRuns encodes, one decode at a time
-	jobs     *jobs
-	maker    *maker
-	scanned  chan struct{} // closed once the start's scan for files to make is done
-	analyses *analyses
-	inbox    *inboxWatcher
-	meta     metaStore
-	proc     procStore
-	clips    clipStore
-	ingestMu sync.Mutex // one inbox file moves at a time
-	stateMu  sync.Mutex // recording.json is read, changed and written as one step
+	limits    *limits // shared by all churches: AppConfig.ParallelRuns encodes, one decode at a time
+	jobs      *jobs
+	maker     *maker
+	scanned   chan struct{} // closed once the start's scan for files to make is done
+	analyses  *analyses
+	inbox     *inboxWatcher
+	meta      metaStore
+	proc      procStore
+	clips     clipStore
+	ingestMu  sync.Mutex    // one inbox file moves at a time
+	stateMu   sync.Mutex    // recording.json is read, changed and written as one step
+	filesMu   sync.Mutex    // one syncFiles at a time (files.go)
+	filesKick chan struct{} // filesChanged: syncAllFiles again
 
 	tagsMu   sync.Mutex
 	tagDates map[string]string // recording date from tags, by cacheKey ("" = none)
@@ -157,6 +162,7 @@ func New(cfg Config) (*Server, error) {
 	s.keepDefaults() // recordings saved before Save kept the church's defaults: they keep those they follow now
 	s.transcriptLang, s.transcriptModels, s.transcriptWordsSet = cfg.Transcript, cfg.TranscriptModels, cfg.TranscriptWords
 	s.transcriptsFailed = map[string]*transcriptFailed{}
+	s.filesKick = make(chan struct{}, 1) // before anything measures the storage (storageChanged kicks it)
 	s.jobs = newJobs(s)
 	s.maker = newMaker(s)
 	// What a restart stopped, or a Save before the files were made by themselves. Only reading: not busy
@@ -176,6 +182,10 @@ func New(cfg Config) (*Server, error) {
 	}
 	s.wg.Add(1)
 	go s.keepSweeping()
+	if cfg.RecordFiles {
+		s.wg.Add(1)
+		go s.keepFilesRecorded()
+	}
 	if cfg.transcriber != nil {
 		s.background(func() {
 			s.moveOrders()

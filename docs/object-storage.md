@@ -4,8 +4,9 @@ The studio is getting the option to keep everything in an S3-compatible bucket, 
 ([#86](https://github.com/gunnaringe/sermon-studio/issues/86)). Any provider with the S3 API works: Cloudflare R2,
 Contabo, Backblaze B2, Hetzner, AWS, or your own (MinIO, Garage, RustFS).
 
-**So far** there are the tools to set up and check a bucket. The studio itself does not use one yet: its files stay in
-`--data-dir`.
+**So far** there are the tools to set up and check a bucket, and each recording's `recording.json` lists its files
+(`files`: size, time and SHA-256), which the bucket will be checked against. The studio itself does not use a bucket
+yet: its files stay in `--data-dir`.
 
 ## Settings
 
