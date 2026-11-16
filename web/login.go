@@ -529,9 +529,15 @@ func writeJSONFile(path string, v any) error {
 	if err != nil {
 		return err
 	}
+	old, hadOld := oldForMirror(path)
+	defer writing.Delete(path) // also when the write fails
+	b = append(b, '\n')
 	tmp := path + ".partial"
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
-	return normalizer.Rename(tmp, path)
+	if err := normalizer.Rename(tmp, path); err != nil {
+		return err
+	}
+	return mirrorWrite(path, b, old, hadOld) // with object storage: in the bucket too, or as it was
 }

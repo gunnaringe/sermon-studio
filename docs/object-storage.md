@@ -4,9 +4,38 @@ The studio is getting the option to keep everything in an S3-compatible bucket, 
 ([#86](https://github.com/gunnaringe/sermon-studio/issues/86)). Any provider with the S3 API works: Cloudflare R2,
 Contabo, Backblaze B2, Hetzner, AWS, or your own (MinIO, Garage, RustFS).
 
-**So far** there are the tools to set up and check a bucket, and each recording's `recording.json` lists its files
-(`files`: size, time and SHA-256), which the bucket will be checked against. The studio itself does not use a bucket
-yet: its files stay in `--data-dir`.
+With the `--blob-*` settings, `serve` keeps a copy of `--data-dir` in the bucket as it works. Without them, nothing
+changes: everything is only in `--data-dir` (the desktop app has no bucket at all).
+
+**Not there yet:** starting a new machine from the bucket (an empty disk that gets everything back), and the disk as
+a cache of limited size. Until then the bucket is a copy kept up to date, and the disk still has everything.
+
+## What goes to the bucket, and when
+
+- **The state files** (`church.json`, `members.json`, `shares.json`, `users.json`, a recording's `recording.json` …) are
+  in the bucket before the request that changed them is answered. If the bucket does not take one, the request fails
+  and the file is as it was, so the disk and the bucket do not disagree.
+- **A recording's draft** (`draft.json`, what the editor keeps as you edit) goes at most every 30 seconds.
+- **Every other file** (the original, the files made, transcripts, clips, the logo) goes in the background once it is
+  whole. What is waiting is kept in `<data-dir>/.blob/journal.json`, so a restart goes on with it, and a provider that
+  is down only delays it.
+- **A rename or removal** by the studio is done in the bucket too: a copy, then a delete (S3 has no rename). That
+  includes the trash: a recording put in the trash is moved there in the bucket, and emptying the trash deletes it.
+- **Only on this machine:** the login sessions (users log in again after a move), the inboxes (a recording counts once
+  it is taken in), the cache (waveforms and previews, made again), the models, the transcript queue's parts, and
+  half-written files.
+
+At start, then every hour, the studio puts in the bucket whatever it lacks (a file changed outside the studio, one a
+crash left out) and reports objects only the bucket has. **It never deletes an object because the disk lacks the
+file**: an empty or wrong disk cannot empty the bucket.
+
+## One studio per bucket
+
+A studio holds the bucket's lease (the object `_lease`: which studio, until when), renewed every minute. Another
+studio, or a second copy, waits up to 3½ minutes for a lease that is still running, then gives up. A clean stop gives
+the lease back, so the new container of an update starts at once; after a crash, the same data dir takes it back at
+once (its id is in `<data-dir>/.blob/id`). A studio that finds its lease taken stops. With conditional puts (see
+`admin blob check`) taking the lease is safe even when two start at the same moment; without, it is read back.
 
 ## Settings
 

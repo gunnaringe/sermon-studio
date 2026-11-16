@@ -71,6 +71,15 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `sermon-studio admin blob check|cors` (`cmd/sermon-studio/blob.go`, the `--blob-*` flags). Its tests need a bucket:
   `scripts/test.sh blob` (RustFS in podman, `s3server` in `scripts/lib.sh`, the same in `test.yml`); without
   `BLOB_TEST_ENDPOINT` they are skipped.
+- `web/mirror.go`, `web/lease.go`: with `AppConfig.Blob` (serve's `--blob-*`; `cmd/sermon-studio/blob.go` `blobStore` adapts
+  `blob.Store` to `web.Blob`), the bucket is a copy of the data dir (docs/object-storage.md). State files are put by
+  `writeFileAtomic`/`writeJSONFile` before they return (`mirrorWrite`, the old content put back on failure: write state
+  files only through them); `draft.json` every `draftEvery`; other files, renames and removals come from
+  `normalizer.Changed` (so keep using `normalizer.Rename`/`Remove`/`RemoveAll`) into the journal (`.blob/journal.json`,
+  one op at a time, retried). The sweep only uploads and reports, never deletes. `mirror.key` says what stays local
+  (sessions, inboxes, cache, models, hidden and half-written files; not `.trash`). One studio per bucket: the lease, an id
+  in `.blob/id`, given back by `Close`; `StorageLost` makes serve exit. Tests: `mirror_test.go` with `fakeBlob` (in memory);
+  `TestBlobServe` against a real bucket.
 - `cmd/sermon-studio-desktop/`: the desktop app (docs/desktop.md), a wrapper around `web.App`: `main.go`
   starts it; `internal/desktop/` has its folders and `settings.json`, the Host check (`Guard`), the window
   (`OpenWindow`), one copy at a time (`/_desktop/hello` with the token) and stopping when idle (`Presence`:

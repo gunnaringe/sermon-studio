@@ -141,8 +141,11 @@ func (s *Server) updateState(folder string, fn func(*folderState) error) (*folde
 	return st, nil
 }
 
-// writeFileAtomic writes path through a hidden .partial next to it, renamed when whole.
+// writeFileAtomic writes path through a hidden .partial next to it, renamed when whole. With object storage, a
+// state file is in the bucket before it returns, or is as it was (mirrorWrite).
 func writeFileAtomic(path string, data []byte) error {
+	old, hadOld := oldForMirror(path)
+	defer writing.Delete(path) // also when the write fails
 	tmp := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".partial")
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return err
@@ -151,7 +154,7 @@ func writeFileAtomic(path string, data []byte) error {
 		normalizer.Remove(tmp)
 		return err
 	}
-	return nil
+	return mirrorWrite(path, data, old, hadOld)
 }
 
 // markImported notes in the folder that its recording has just arrived.

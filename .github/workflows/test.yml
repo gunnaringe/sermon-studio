@@ -57,7 +57,7 @@ jobs:
           go-version: '1.27.x' # as the image build (golang:1.27)
       - name: wait for the S3 server
         run: for i in $(seq 60); do curl -s -o /dev/null http://127.0.0.1:9000/ && exit 0; sleep 1; done; exit 1
-      - run: go test -count=1 ./blob/
+      - run: go test -count=1 ./blob/ && go test -count=1 -run Blob ./cmd/sermon-studio/
         env:
           BLOB_TEST_ENDPOINT: http://127.0.0.1:9000
           BLOB_TEST_ACCESS_KEY: testkey

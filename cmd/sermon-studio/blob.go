@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/gunnaringe/sermon-studio/blob"
+	"github.com/gunnaringe/sermon-studio/web"
 )
 
 // blobFlags are the bucket's settings (#86): any S3-compatible provider. The secret key is only ever read from
@@ -119,4 +122,81 @@ func (c *blobCorsCmd) Run(a *adminCmd) error {
 	return a.print(map[string]any{"origins": c.Origin}, func(w io.Writer) {
 		fmt.Fprintf(w, "The bucket now allows GET and HEAD with Range from %s.\n", strings.Join(c.Origin, ", "))
 	})
+}
+
+// blobStore is a blob.Store as the studio uses it (web.Blob): web does not import package blob, so the desktop
+// app is built without it.
+type blobStore struct{ s *blob.Store }
+
+// werr makes the bucket's errors the studio's.
+func werr(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, blob.ErrNotFound):
+		return fmt.Errorf("%w: %v", web.ErrBlobNotFound, err)
+	case errors.Is(err, blob.ErrPrecondition):
+		return fmt.Errorf("%w: %v", web.ErrBlobPrecondition, err)
+	}
+	return err
+}
+
+func winfo(i blob.Info) web.BlobInfo {
+	return web.BlobInfo{Key: i.Key, Size: i.Size, ETag: i.ETag, Modified: i.Modified}
+}
+
+func (b blobStore) Put(ctx context.Context, key string, r io.Reader, size int64) (web.BlobInfo, error) {
+	i, err := b.s.Put(ctx, key, r, size)
+	return winfo(i), werr(err)
+}
+
+func (b blobStore) PutFile(ctx context.Context, key, path string) (web.BlobInfo, error) {
+	i, err := b.s.PutFile(ctx, key, path)
+	return winfo(i), werr(err)
+}
+
+func (b blobStore) Get(ctx context.Context, key string) (io.ReadCloser, web.BlobInfo, error) {
+	r, i, err := b.s.Get(ctx, key)
+	return r, winfo(i), werr(err)
+}
+
+func (b blobStore) GetFile(ctx context.Context, key, path string) (web.BlobInfo, error) {
+	i, err := b.s.GetFile(ctx, key, path)
+	return winfo(i), werr(err)
+}
+
+func (b blobStore) Head(ctx context.Context, key string) (web.BlobInfo, error) {
+	i, err := b.s.Head(ctx, key)
+	return winfo(i), werr(err)
+}
+
+func (b blobStore) Copy(ctx context.Context, from, to string) error {
+	return werr(b.s.Copy(ctx, from, to))
+}
+
+func (b blobStore) Delete(ctx context.Context, key string) error { return werr(b.s.Delete(ctx, key)) }
+
+func (b blobStore) List(ctx context.Context, prefix string) iter.Seq2[web.BlobInfo, error] {
+	return func(yield func(web.BlobInfo, error) bool) {
+		for i, err := range b.s.List(ctx, prefix) {
+			if !yield(winfo(i), werr(err)) {
+				return
+			}
+		}
+	}
+}
+
+func (b blobStore) Presign(ctx context.Context, key string, expiry time.Duration, name string, inline bool) (*url.URL, error) {
+	u, err := b.s.Presign(ctx, key, expiry, blob.Download{Name: name, Inline: inline})
+	return u, werr(err)
+}
+
+func (b blobStore) PutNew(ctx context.Context, key string, data []byte) (web.BlobInfo, error) {
+	i, err := b.s.PutNew(ctx, key, data)
+	return winfo(i), werr(err)
+}
+
+func (b blobStore) PutIfMatch(ctx context.Context, key string, data []byte, etag string) (web.BlobInfo, error) {
+	i, err := b.s.PutIfMatch(ctx, key, data, etag)
+	return winfo(i), werr(err)
 }

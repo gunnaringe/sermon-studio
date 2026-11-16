@@ -42,6 +42,7 @@ type serveCmd struct {
 	DataDir string `help:"Folder with a folder per church: <id>/Taler (sermons), <id>/Innboks (inbox), <id>/church.json (name and settings)."`
 	Root    string `help:"A single church without a church folder: the folder with its date folders (instead of --data-dir; settings are not saved)."`
 	Inbox   string `help:"With --root: the folder new recordings arrive in (optional)."`
+	blobFlags
 
 	// The login must be chosen: the studio's own, or none at all. A missing
 	// or misspelt setting never means open access.
@@ -264,11 +265,31 @@ func (s *serveCmd) Run() error {
 			return err
 		}
 	}
+	// Object storage (#86): only when a bucket is given; the studio then keeps a copy of the data dir in it.
+	var store web.Blob
+	lost := make(chan error, 1)
+	if s.BlobEndpoint != "" || s.BlobBucket != "" {
+		if s.DataDir == "" {
+			return errors.New("object storage (--blob-*) needs --data-dir")
+		}
+		st, err := s.store()
+		if err != nil {
+			return err
+		}
+		store = blobStore{st}
+		logger.Printf("storage: a copy of the data dir in bucket %s at %s", s.BlobBucket, s.BlobEndpoint)
+	}
 	srv, err := web.NewApp(web.AppConfig{
 		Base: web.Config{Root: s.Root, Inbox: s.Inbox, CacheDir: s.CacheDir,
 			Layout: s.Layout, TrashDays: s.TrashDays, FFmpeg: ff, Logger: logger, RecordFiles: true},
 		DataDir: s.DataDir, OIDC: oidc, ChurchHost: s.ChurchHost,
 		Share: share, ParallelRuns: s.ParallelRuns, VisitorRole: s.VisitorRole, Transcription: transcription,
+		Blob: store, StorageLost: func(err error) {
+			select {
+			case lost <- err:
+			default:
+			}
+		},
 	})
 	if err != nil {
 		return err
@@ -306,6 +327,13 @@ func (s *serveCmd) Run() error {
 
 	select {
 	case err := <-errc:
+		srv.Close()
+		return err
+	case err := <-lost: // another studio took the bucket: stop at once, before writing more
+		hs.Close()
+		if ss != nil {
+			ss.Close()
+		}
 		srv.Close()
 		return err
 	case <-ctx.Done():

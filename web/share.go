@@ -250,16 +250,7 @@ func (a *App) saveShares(t *tenant) error {
 	if t.dir == "" {
 		return nil
 	}
-	b, err := json.MarshalIndent(t.shares, "", "  ")
-	if err != nil {
-		return err
-	}
-	path := filepath.Join(t.dir, sharesFile)
-	tmp := path + ".partial"
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
-		return err
-	}
-	return normalizer.Rename(tmp, path)
+	return writeJSONFile(filepath.Join(t.dir, sharesFile), t.shares)
 }
 
 // findShare is the church and share of a code, or nil.
