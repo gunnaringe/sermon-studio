@@ -224,3 +224,37 @@ func (ts *testServer) settle(t *testing.T) {
 		return true
 	})
 }
+
+// The folder info and the list say what the server makes: the formats of its run, or those waiting to be made;
+// a transcript of another cut does not make the files out of date.
+func TestMakingInfo(t *testing.T) {
+	ts, _ := makerServer(t)
+	ts.file(t, "2026-10-04/original/2026-10-04_raw.flac", "x")
+	ts.file(t, "2026-10-11/original/2026-10-11_raw.flac", "x")
+	saveSermon(t, ts, "2026-10-04", 9, `{"flac":true,"mp3":false,"opus":false}`)
+	saveSermon(t, ts, "2026-10-11", 9, `{"flac":false,"mp3":true,"opus":true}`)
+	eventually(t, "a run", func() bool { return ts.jobs.active("2026-10-04") != nil })
+	running := decode[folderInfo](t, ts.do(t, "GET", "/api/folder?path=2026-10-04", nil))
+	if !reflect.DeepEqual(running.MakingFormats, []string{"flac"}) || running.Making != "" || !reflect.DeepEqual(running.Job.Formats, []string{"flac"}) {
+		t.Errorf("running: making %q %v, job %+v", running.Making, running.MakingFormats, running.Job)
+	}
+	waiting := decode[folderInfo](t, ts.do(t, "GET", "/api/folder?path=2026-10-11", nil))
+	if !reflect.DeepEqual(waiting.MakingFormats, []string{"mp3", "opus"}) || waiting.Making != "waiting" {
+		t.Errorf("waiting: making %q %v", waiting.Making, waiting.MakingFormats)
+	}
+	for _, e := range decode[struct {
+		Recordings []folderEntry `json:"recordings"`
+	}](t, ts.do(t, "GET", "/api/recordings", nil)).Recordings {
+		if want := map[string]string{"2026-10-04": "", "2026-10-11": "waiting"}[e.Path]; e.Making != want {
+			t.Errorf("%s in the list: making %q, want %q", e.Path, e.Making, want)
+		}
+	}
+	folder := filepath.Join(ts.root, "2026-10-11")
+	ts.updateState(folder, func(st *folderState) error {
+		st.Outputs[transcriptFormat] = outputMade{Cut: "an earlier cut"}
+		return nil
+	})
+	if e := ts.entry(folder); e.Outdated {
+		t.Error("a transcript of another cut makes the files out of date")
+	}
+}

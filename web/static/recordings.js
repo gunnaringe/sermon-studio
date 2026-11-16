@@ -9,7 +9,8 @@ import { t, tn } from './i18n.js';
 function badges(e) {
   // While the server works on it, that is the status: what is left to do is not known until it is done.
   const busy = [];
-  if (e.job) busy.push(h('span', { class: 'badge busy' }, t('processing')));
+  if (e.job) busy.push(h('span', { class: 'badge busy', title: t('The files are being made') }, t('processing')));
+  else if (e.making === 'waiting') busy.push(h('span', { class: 'badge busy', title: t('The files wait for another run to finish') }, t('waiting')));
   if (e.converting) busy.push(h('span', { class: 'badge busy' }, t('converting')));
   if (e.preparing) busy.push(h('span', { class: 'badge busy' }, t('preparing')));
   if (busy.length) return busy;
@@ -60,6 +61,7 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
   let query = '';
   const rows = new Map();  // path → what is needed to open its row, in the year list
   const chips = new Map(); // path → the places where its labels are shown
+  const marks = new Map(); // path → the places where its badges are shown
 
   // The labels in use, the most used first: what the label field suggests.
   const suggestions = () => {
@@ -77,6 +79,16 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
     draw();
     if (!chips.has(e.path)) chips.set(e.path, new Set());
     chips.get(e.path).add(draw);
+    return box;
+  }
+
+  // badgesFor is the badges of a recording, drawn again as the server's work on it goes on (watch).
+  function badgesFor(e) {
+    const box = h('span', { class: 'badges' });
+    const draw = () => box.replaceChildren(...badges(e));
+    draw();
+    if (!marks.has(e.path)) marks.set(e.path, new Set());
+    marks.get(e.path).add(draw);
     return box;
   }
 
@@ -102,7 +114,7 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
     toggle.addEventListener('click', (ev) => { ev.stopPropagation(); flip(); });
     const tr = h('tr', { class: 'row', onclick: () => flip() },
       h('td', {}, toggle, h('button', { class: 'sermon-name' }, e.name)), // its click reaches the row
-      h('td', {}, badges(e), when && e.imported ? h('span', { class: 'muted arrived' }, arrived(e.imported)) : '', chipsFor(e)));
+      h('td', {}, badgesFor(e), when && e.imported ? h('span', { class: 'muted arrived' }, arrived(e.imported)) : '', chipsFor(e)));
     if (register) rows.set(e.path, { tr, flip });
     return tr;
   }
@@ -136,6 +148,7 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
   function render() {
     rows.clear();
     chips.clear();
+    marks.clear();
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (tokens.length) {
       const found = all.filter((e) => matches(e, tokens));
@@ -174,6 +187,27 @@ export async function recordingsView(view, { top, church, emptyNote, shares = fa
     tn(data.waiting.length, '{names} stays in the inbox: the church\'s storage is full.', '{names} stay in the inbox: the church\'s storage is full.', { names: data.waiting.join(', ') })) : '';
   view.replaceChildren(h('h1', {}, t('Recordings')), top, waiting, h('div', { class: 'searchbar' }, input), note, list);
   render();
+
+  // While the server works on a recording (a run, one waiting for it, a conversion), its badges follow: the list
+  // is read again every 5 s until nothing is going on, or the page is left.
+  const working = (e) => Boolean(e.job || e.making || e.converting || e.preparing);
+  (async () => {
+    while (all.some(working)) {
+      await new Promise((r) => setTimeout(r, 5000));
+      if (!list.isConnected) return;
+      let fresh;
+      try { fresh = (await api('GET', 'api/recordings')).recordings; } catch { continue; }
+      const byPath = new Map(fresh.map((x) => [x.path, x]));
+      for (const e of all) {
+        const x = byPath.get(e.path);
+        if (!x) continue;
+        const before = JSON.stringify(badges(e).map((b) => b.textContent));
+        Object.assign(e, { job: x.job, making: x.making, converting: x.converting, preparing: x.preparing, outputs: x.outputs,
+          saved: x.saved, outdated: x.outdated, adjusted: x.adjusted });
+        if (JSON.stringify(badges(e).map((b) => b.textContent)) !== before) for (const draw of marks.get(e.path) || []) draw();
+      }
+    }
+  })();
 
   return {
     // open shows one recording: its year open, its row expanded, scrolled to.

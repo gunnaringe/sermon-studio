@@ -59,6 +59,48 @@ export function sermonDetail(entry, ctx = {}) {
     const info = await api('GET', 'api/folder?path=' + q(entry.path));
     panel.replaceChildren(...(info.outputs.length ? processed(info) : unprocessed(info)));
     placeMenu(); // drawn again open, after a format was made
+    if (makingNow(info)) followMaking(info);
+  }
+
+  // makingNow: the server is making the files, or they wait for other runs (maker.go).
+  const makingNow = (info) => info.making === 'waiting' || Boolean(info.job && (info.job.state === 'queued' || info.job.state === 'running'));
+
+  // followMaking looks again every 2 s while the server makes the files: the Download menu and the line under it
+  // follow; when it is done, the details are drawn again with the new files.
+  let following = false;
+  async function followMaking(info) {
+    if (following) return;
+    following = true;
+    try {
+      while (panel.isConnected && makingNow(info)) {
+        await sleep(2000);
+        if (!panel.isConnected) return;
+        const next = await api('GET', 'api/folder?path=' + q(entry.path));
+        Object.assign(info, next);
+        for (const fn of info.redraw || []) fn();
+      }
+      if (panel.isConnected) await show();
+    } catch { /* the next opening shows it */ } finally {
+      following = false;
+    }
+  }
+
+  // makingLine says what the server does with the files: waiting for other runs, or making them (with its bar).
+  function makingLine(info, el) {
+    const draw = () => {
+      const j = info.job;
+      if (j && (j.state === 'queued' || j.state === 'running') && info.making !== 'waiting') {
+        const left = timeLeft(j.remaining);
+        el.replaceChildren(t('The files are being made…') + (left ? ' · ' + left : ''), liveBar(j.progress, j.state === 'running', t('The files are being made…')), backgroundNote('span'));
+      } else if (info.making === 'waiting') {
+        el.replaceChildren(t('The files wait for another run to finish…'));
+      } else {
+        el.replaceChildren(info.makeError ? h('span', { class: 'error' }, t('The files could not be made: {error}', { error: tr(info.makeError) })) : '');
+      }
+    };
+    draw();
+    (info.redraw ||= []).push(draw);
+    return el;
   }
 
   // The recording's own labels: pills with a cross, and a field to add one. The
@@ -200,6 +242,8 @@ export function sermonDetail(entry, ctx = {}) {
     const only = sermonOnly(info).length > 0;
     if (!only) menuVersion = '';
     const made = (format) => info.outputs.find((o) => o.format === format);
+    // Being made by the server now, or waiting to be: shown so, not offered to make.
+    const making = (format) => makingNow(info) && (info.makingFormats || []).includes(format);
     const list = h('div', { class: 'menu-items' });
     const buttons = [];
     const draw = () => {
@@ -209,21 +253,28 @@ export function sermonDetail(entry, ctx = {}) {
         const o = made(format + menuVersion);
         const name = menuVersion ? t('Download {format}, sermon only', { format: label }) : t('Download {format}', { format: label });
         const gone = !info.raw && info.originalDeleted; // nothing to make it from
+        const busy = making(format);
         if (o) {
           const go = h('span', { class: 'go icon', 'aria-hidden': 'true' });
           go.innerHTML = DOWNLOAD_ICON;
+          // One being made again stays there until the new one replaces it.
+          const note = busy ? ' · ' + (info.making === 'waiting' ? t('waiting') : t('being updated')) : o.stale ? ' · ' + t('out of date') : '';
           const link = h('a', { class: 'menu-item', href: fileURL(o, true), 'aria-label': name },
-            h('strong', {}, label), h('span', { class: o.stale ? 'warn' : 'muted' }, formatSize(o.size) + (o.stale ? ' · ' + t('out of date') : '')), go);
-          if (!o.stale || gone || !saved) return link;
+            h('strong', {}, label), h('span', { class: o.stale && !busy ? 'warn' : 'muted' }, formatSize(o.size) + note), go);
+          if (!o.stale || busy || gone || !saved) return link;
           // Made from another cut or sound than the saved version: made again from it, here.
-          const again = h('button', { type: 'button', class: 'menu-item again', name: 'make-again-' + format,
+          const again = h('button', { type: 'button', class: 'menu-item again', name: 'make-again-' + format, disabled: makingNow(info),
             title: t('Make {format} again from the saved version', { format: label }),
             onclick: () => make(format, label, again, status, buttons, true) },
           h('span', {}), h('span', {}), h('span', { class: 'go' }, t('Make again')));
           buttons.push(again);
           return [link, again];
         }
-        const b = h('button', { type: 'button', class: 'menu-item', name: 'make-' + format, disabled: !saved || gone,
+        if (busy) {
+          return h('div', { class: 'menu-item making', 'data-format': format },
+            h('strong', {}, label), h('span', { class: 'muted' }, info.making === 'waiting' ? t('waiting') : t('being made')), h('span', {}));
+        }
+        const b = h('button', { type: 'button', class: 'menu-item', name: 'make-' + format, disabled: !saved || gone || makingNow(info),
           title: gone ? t('The original was deleted, so it cannot be made') : saved ? t('Not made yet: make {format}', { format: label }) : t('Save the sermon in the editor first'),
           onclick: () => make(format, label, b, status, buttons) },
         h('strong', {}, label), h('span', { class: 'muted' }, t('not made')), h('span', { class: 'go' }, t('Make')));
@@ -238,6 +289,7 @@ export function sermonDetail(entry, ctx = {}) {
         draw();
       } }, label);
     draw();
+    (info.redraw ||= []).push(draw); // followMaking draws it again
     const menu = h('details', { class: 'menu download-menu', open: menuOpen },
       iconButton('summary', DOWNLOAD_ICON, t('Download'), { class: 'button primary' }, t('Download')),
       h('div', { class: 'menu-panel' },
@@ -330,6 +382,7 @@ export function sermonDetail(entry, ctx = {}) {
   function unprocessed(info) {
     return [
       labelEditor(),
+      makingNow(info) || info.makeError ? makingLine(info, h('p', { class: 'muted making', 'aria-live': 'polite' })) : '',
       h('p', { class: 'actions' }, iconButton('a', EDIT_ICON, t('Open in the editor'), { class: 'button primary', href: editURL }, t('Open in the editor')), copyLink()),
     ];
   }
@@ -355,7 +408,7 @@ export function sermonDetail(entry, ctx = {}) {
         : t('Made without intro or outro'),
       mw.changed ? t('The intro or outro has changed since: press Save in the editor to make the files again.') : '',
     ].filter(Boolean).join(' · ');
-    const status = h('p', { class: 'muted making', 'aria-live': 'polite' });
+    const status = makingLine(info, h('p', { class: 'muted making', 'aria-live': 'polite' }));
     const best = PLAY_ORDER.map((f) => info.outputs.find((x) => x.format === f)).find(Boolean);
     // What the player plays: the format, and with the intro and outro if the files have them.
     const playing = FORMATS.find(([f]) => f === best.format)[1] + (mw && (mw.intro || mw.outro) ? ' · ' + t('with intro and outro') : '');

@@ -87,6 +87,43 @@ test('a sermon opens its details in the list: play, download, make a missing for
   await expect(page.locator('tr.detail-row')).toHaveCount(1);
 });
 
+test('while the server makes the files: the badge, and the Download menu says what is being made', async ({ page }) => {
+  // The state is the server's (maker.go); here it is put in the answers.
+  let state = { making: 'waiting', makingFormats: ['mp3'], job: null };
+  await page.route(/api\/recordings(\?|$)/, async (route) => {
+    const res = await route.fetch();
+    const data = await res.json();
+    for (const e of data.recordings) if (e.path === folder) Object.assign(e, { making: state.making, job: state.job ? state.job.id : undefined });
+    await route.fulfill({ response: res, json: data });
+  });
+  await page.route(/api\/folder\?/, async (route) => {
+    const res = await route.fetch();
+    const info = await res.json();
+    await route.fulfill({ response: res, json: info.path === folder ? { ...info, ...state } : info });
+  });
+  await page.goto('c/first-church/');
+  const row = page.locator('.year tr.row', { hasText: '2026-07-05' });
+  await expect(row.locator('.badge')).toHaveText(['waiting']);
+  await row.click();
+  const detail = page.locator('tr.detail-row');
+  await expect(detail.locator('.making')).toContainText('The files wait for another run to finish');
+  await detail.locator('summary[aria-label=Download]').click();
+  await expect(detail.getByRole('link', { name: 'Download MP3' })).toContainText('waiting'); // still downloadable
+  // Running: one there being made again stays downloadable, marked so.
+  state = { making: '', makingFormats: ['opus'], job: { id: 'j1', state: 'running', progress: 0.4, remaining: 0, steps: [], log: [], warnings: [], outputs: [], formats: ['opus'] } };
+  const opus = detail.getByRole('link', { name: 'Download Opus' });
+  await expect(opus).toContainText('being updated', { timeout: 10_000 });
+  await expect(detail.locator('.making')).toContainText('The files are being made');
+  await expect(detail.locator('button[name=make-again-opus]')).toHaveCount(0);
+  await expect(detail.locator('button[name=make-again-flac]')).toBeDisabled(); // nothing else is made meanwhile
+  await page.screenshot({ path: path.join(shots, 'sermon-list-being-made.png') });
+  await expect(row.locator('.badge')).toHaveText(['processing'], { timeout: 10_000 });
+  // Done: drawn again with the files.
+  state = {};
+  await expect(opus).not.toContainText('being updated', { timeout: 10_000 });
+  await expect(detail.locator('.making')).toHaveText('');
+});
+
 test('a recording that is not cut yet is "to do", has an edit button, and still opens the editor', async ({ page }) => {
   await page.goto('c/first-church/');
   const row = page.locator('.year tr.row', { hasText: '2026-08-30' });

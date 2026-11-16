@@ -60,6 +60,13 @@ export function outputPart(ed) {
 
   function busy() { return job && (job.state === 'queued' || job.state === 'running'); }
 
+  // makingNow is what the server does with a format now: 'making' (its run), 'waiting' (for other runs), or ''.
+  function makingNow(format) {
+    if (busy() && info.making !== 'waiting') return (job.formats || []).includes(format) ? 'making' : '';
+    if (info.making === 'waiting') return (info.makingFormats || []).includes(format) ? 'waiting' : '';
+    return '';
+  }
+
   // outputState is a format's file: there or not, and whether Save would make
   // it again (stale: made from other settings; unknown: no record).
   function outputState(format) {
@@ -82,7 +89,9 @@ export function outputPart(ed) {
     pills.replaceChildren(...FORMATS.map(([format, label]) => {
       const { file, stale } = outputState(format);
       const chosen = Boolean(opts[format]);
-      const note = !file ? (chosen ? t('will be made') : t('not made'))
+      const doing = makingNow(format);
+      const note = doing ? (doing === 'waiting' ? t('waiting') : file ? t('being updated') : t('being made'))
+        : !file ? (chosen ? t('will be made') : t('not made'))
         : !chosen ? t('will be deleted')
           : stale ? t('out of date, will be made again') : t('up to date');
       return h('div', { 'data-format': format, class: 'pill' + (file ? ' exists' : '') + (chosen ? ' chosen' : '') + (stale ? ' stale' : '') },
@@ -100,7 +109,9 @@ export function outputPart(ed) {
     ed.redrawTranscript?.(transcriptStale());
     const make = [...toMake(), ...(tx === 'make' ? ['transcript'] : [])], del = [...toDelete(), ...(tx === 'delete' ? ['transcript'] : [])], keep = unsaved();
     const blocked = (make.length > 0 || keep) && Boolean(lastCheck.error); // deleting does not need a valid edit
+    const working = busy() || info.making === 'waiting';
     outputNote.textContent = blocked ? ''
+      : working && !keep ? t('Saved. The server is making the files.')
       : make.length || del.length || keep
         ? t('Save {what}.', { what: [keep ? t('keeps the edit') : '', make.length ? t('makes: {formats}', { formats: labels(make) }) : '', del.length ? t('deletes: {formats}', { formats: labels(del) }) : '']
           .filter(Boolean).join(', ') })
