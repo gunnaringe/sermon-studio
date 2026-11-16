@@ -30,6 +30,8 @@ type fakeBlob struct {
 	noCond   bool // conditional puts are not checked, as by a provider without them
 	// hold, when set, keeps a PutFile waiting after it read its file (one in flight); started is told then.
 	hold, started chan struct{}
+	// holdPut, when set, keeps a Put of that key waiting the same way.
+	holdPut string
 }
 
 type fakeObject struct {
@@ -66,6 +68,14 @@ func (b *fakeBlob) Put(_ context.Context, key string, r io.Reader, _ int64) (Blo
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return BlobInfo{}, err
+	}
+	b.mu.Lock()
+	hold, started := b.hold, b.started
+	held := b.holdPut != "" && b.holdPut == key
+	b.mu.Unlock()
+	if held {
+		started <- struct{}{}
+		<-hold
 	}
 	return b.store(key, data, nil)
 }
@@ -499,5 +509,58 @@ func TestMirrorRemadeSameSize(t *testing.T) {
 	}
 	if got := b.text("kirke/Taler/2026-10-18/2026-10-18.mp3"); got != "fiRst" {
 		t.Errorf("the bucket has %q", got)
+	}
+}
+
+// A church's church.json waiting for a slow bucket holds up only that church: another saves its settings, and
+// the app answers meanwhile.
+func TestChurchWriteHoldsOnlyItsChurch(t *testing.T) {
+	b := newFakeBlob()
+	data := t.TempDir()
+	for _, id := range []string{"annen", "kirke"} {
+		os.MkdirAll(filepath.Join(data, id, "Taler"), 0o755)
+	}
+	a, err := NewApp(AppConfig{Base: Config{CacheDir: t.TempDir(), Logger: newTestLogger(t)}, DataDir: data, Blob: b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	tenant := func(id string) *tenant {
+		for _, t := range a.tenants {
+			if t.id == id {
+				return t
+			}
+		}
+		t.Fatalf("no church %s", id)
+		return nil
+	}
+	slow, other := tenant("kirke"), tenant("annen")
+	b.mu.Lock()
+	b.holdPut, b.hold, b.started = "kirke/church.json", make(chan struct{}), make(chan struct{}, 1)
+	b.mu.Unlock()
+	done := make(chan error, 1)
+	go func() { done <- a.update(slow, func(c *churchConfig) { c.Name = "Kirka" }) }()
+	<-b.started
+
+	saved := make(chan error, 1)
+	go func() {
+		a.mu.Lock() // what every request to the app takes
+		a.mu.Unlock()
+		saved <- a.update(other, func(c *churchConfig) { c.Name = "Den andre" })
+	}()
+	select {
+	case err := <-saved:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("another church waited for the slow bucket")
+	}
+	close(b.hold)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if slow.cfg.Name != "Kirka" || other.cfg.Name != "Den andre" {
+		t.Errorf("names: %q, %q", slow.cfg.Name, other.cfg.Name)
 	}
 }

@@ -109,6 +109,9 @@ type tenant struct {
 
 	shares  []*Share // guarded by App.shareMu
 	members []member // guarded by App.mu
+	// writeMu: one change of church.json at a time (App.change), held across its write and, with object
+	// storage, its put in the bucket; App.mu only for setting cfg, so a slow bucket holds up no other church.
+	writeMu sync.Mutex
 }
 
 func (t *tenant) info() TenantInfo {
@@ -393,9 +396,10 @@ func (a *App) update(t *tenant, change func(*churchConfig)) error {
 var errUnchanged = errors.New("unchanged")
 
 // change is update with a change that can fail: then nothing is saved, and its error is returned.
+// t.cfg is set only here, under t.writeMu, so it is read under that without App.mu.
 func (a *App) change(t *tenant, change func(*churchConfig) error) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	t.writeMu.Lock()
+	defer t.writeMu.Unlock()
 	next := t.cfg
 	if err := change(&next); err != nil {
 		if errors.Is(err, errUnchanged) {
@@ -408,7 +412,9 @@ func (a *App) change(t *tenant, change func(*churchConfig) error) error {
 			return err
 		}
 	}
+	a.mu.Lock()
 	t.cfg = next
+	a.mu.Unlock()
 	return nil
 }
 
