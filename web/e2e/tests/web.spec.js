@@ -1229,6 +1229,13 @@ test('download shares: share a finished sermon from its row, download it on the 
   await expect(down.locator('.card-kicker')).toHaveText('Download a sermon');
   await expect(down.locator('.chip')).toHaveText(['1 more download', 'until 2099-12-31 23:59']);
   await expect(down.getByRole('link', { name: 'Made with Sermon Studio' })).toHaveAttribute('href', 'https://sermon-studio.app');
+  // On a phone, the footer is one line.
+  await down.setViewportSize({ width: 360, height: 740 });
+  const foot = await down.locator('footer').boundingBox();
+  const pill = await down.locator('footer a').first().boundingBox();
+  expect(foot.height - pill.height).toBeLessThan(30);
+  await down.screenshot({ path: path.join(shots, 'phone-share-download.png') });
+  await down.setViewportSize({ width: 1280, height: 800 });
   await expect(down.getByRole('button', { name: /^Download FLAC/ })).toHaveCount(0);
   // A share with a limit on its downloads has no player (its file could be kept).
   await expect(down.getByRole('button', { name: '▶ Listen' })).toHaveCount(0);

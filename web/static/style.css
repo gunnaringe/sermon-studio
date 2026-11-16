@@ -134,10 +134,9 @@ header .brand img { width: 28px; height: 28px; flex: none; object-fit: contain; 
 .logo-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
 .logo-row img { width: 40px; height: 40px; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; padding: 2px; background: #fff; }
 
-footer { padding: 0 1.5rem 1.5rem; text-align: center; font-size: 0.85rem; }
+footer { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; padding: 0 1.5rem 1.5rem; font-size: 0.85rem; }
 footer a { color: var(--muted); text-decoration: none; padding: 0.3rem 0.8rem; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); transition: color 0.15s, border-color 0.15s; }
 footer a:hover { color: var(--accent); border-color: var(--accent); }
-footer a + a { margin-left: 0.4rem; }
 .demo-banner { margin: 0; padding: 0.5rem 1.5rem; text-align: center; color: var(--fg);
   background: color-mix(in srgb, var(--accent) 14%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
 .demo-banner[hidden] { display: none; }
