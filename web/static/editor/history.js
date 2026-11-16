@@ -29,7 +29,8 @@ export function historyPart(ed) {
     // The tags only once they are the sermon's own (kept, or typed): else Save takes the church's.
     const tags = ed.ownTags ? { tags: { title: ed.tags.title, artist: ed.tags.artist, album: ed.tags.album } } : {};
     const formats = Object.fromEntries(FORMAT_KEYS.map((k) => [k, Boolean(opts[k])]));
-    return { sections: secs, cuts: list, fadeIn: opts.fadeIn, fadeOut: opts.fadeOut, sound: Object.fromEntries(SOUND_KEYS.map((k) => [k, opts[k]])), ...ed.clipChoices(), ...tags, formats };
+    const words = opts.transcriptWords === undefined ? {} : { transcriptWords: opts.transcriptWords };
+    return { sections: secs, cuts: list, fadeIn: opts.fadeIn, fadeOut: opts.fadeOut, sound: Object.fromEntries(SOUND_KEYS.map((k) => [k, opts[k]])), ...ed.clipChoices(), ...tags, formats, ...words };
   }
 
   // persistAdjusted keeps what is on the page as the adjustments.
@@ -61,6 +62,10 @@ export function historyPart(ed) {
       for (const key of CLIP_KEYS) opts[key] = set[key] || '';
       ed.drawClips();
       if (set.formats) for (const key of FORMAT_KEYS) opts[key] = Boolean(set.formats[key]);
+      if (set.transcriptWords !== undefined) {
+        opts.transcriptWords = set.transcriptWords;
+        ed.redrawWords?.();
+      }
       if (set.sound) {
         Object.assign(opts, set.sound);
         ed.redrawProcessing();
@@ -232,6 +237,7 @@ export function historyPart(ed) {
     if (!saved) return;
     for (const key of CLIP_KEYS) opts[key] = saved[key] || '';
     if (saved.formats) for (const key of FORMAT_KEYS) opts[key] = Boolean(saved.formats[key]);
+    if (saved.transcriptWords !== undefined) opts.transcriptWords = saved.transcriptWords;
     ed.drawClips();
     ed.setTags(saved.tags || null);
     present = snapshot();

@@ -100,7 +100,9 @@ type transcriptInfo struct {
 	// saved one.
 	Model      *modelInfo `json:"model,omitempty"`
 	OtherModel bool       `json:"otherModel,omitempty"`
-	EarlierCut bool       `json:"earlierCut,omitempty"`
+	// Words are the names and words the one there was made with.
+	Words      string `json:"words,omitempty"`
+	EarlierCut bool   `json:"earlierCut,omitempty"`
 	// HasFiles tells whether the files it is made from are there; CanMake whether one can be made in
 	// Spoken, else the church's language: the files, and a model for it.
 	HasFiles bool `json:"hasFiles"`
@@ -143,6 +145,32 @@ func (s *Server) transcriptChoice() (lang string, models map[string]string) {
 	s.transcriptMu.Lock()
 	defer s.transcriptMu.Unlock()
 	return s.transcriptLang, maps.Clone(s.transcriptModels)
+}
+
+// cleanWords is words with the spaces between them made one; nil stays nil.
+func cleanWords(words *string) *string {
+	if words == nil {
+		return nil
+	}
+	w := strings.Join(strings.Fields(*words), " ")
+	return &w
+}
+
+// checkWords checks the length of the words that start whisper's prompt (the church's, or a recording's).
+func checkWords(words string) error {
+	if n := len(strings.Fields(words)); n > normalizer.MaxWords {
+		return fmt.Errorf("at most %d words, not %d", normalizer.MaxWords, n)
+	}
+	return nil
+}
+
+// recordingWords are the words that start whisper's prompt for the folder's transcript: its saved version's,
+// else the church's.
+func (s *Server) recordingWords(folder string) string {
+	if st := readState(folder); st.Saved != nil && st.Saved.TranscriptWords != nil {
+		return *st.Saved.TranscriptWords
+	}
+	return s.transcriptWords()
 }
 
 // transcriptWords are the church's words (names, places) that start whisper's prompt.
@@ -202,7 +230,7 @@ func (s *Server) transcript(p normalizer.Paths, st *folderState) *transcriptInfo
 	_, _, info.HasFiles = transcriptSource(p, st)
 	installed := s.cfg.transcriber.installed()
 	if tf, err := readTranscript(data); err == nil {
-		info.State, info.Spoken = "done", tf.Language
+		info.State, info.Spoken, info.Words = "done", tf.Language, tf.Words
 		info.Text, info.Captions = s.fileInfo(text), s.fileInfo(captions)
 		info.Model = &modelInfo{Name: tf.Model.Name, Key: tf.Model.Key(), Date: tf.Model.Date}
 		// Another version of its model is there now, or (it is gone) another model for the language.
@@ -285,7 +313,7 @@ type transcriptOrder struct {
 }
 
 // startTranscript queues the folder's transcript in lang with the model with the key ("" = the church's for
-// its language, else the first for lang), with the church's words, unless one is waiting or being made.
+// its language, else the first for lang), with its words (recordingWords), unless one is waiting or being made.
 func (s *Server) startTranscript(folder, lang, key string) error {
 	if lang == "" {
 		return errNoTranscript
@@ -308,7 +336,7 @@ func (s *Server) startTranscript(folder, lang, key string) error {
 	}
 	s.setTranscriptFailed(folder, "", nil)
 	if !s.cfg.transcriber.add(transcriptJob{Church: s.cfg.church, Folder: s.relPath(folder), Language: lang, Model: key,
-		Words: s.transcriptWords(), At: time.Now().UTC()}) {
+		Words: s.recordingWords(folder), At: time.Now().UTC()}) {
 		return errBusy // one in another language or with another model is being made
 	}
 	return nil
@@ -355,7 +383,7 @@ func (s *Server) moveOrders() {
 		}
 		if order != nil {
 			s.cfg.transcriber.add(transcriptJob{Church: s.cfg.church, Folder: s.relPath(folder), Language: order.Language,
-				Model: order.Model, Words: s.transcriptWords(), At: order.At})
+				Model: order.Model, Words: s.recordingWords(folder), At: order.At})
 		}
 		return nil
 	})
@@ -590,9 +618,9 @@ func (s *Server) handleTranscriptionPut(w http.ResponseWriter, r *http.Request) 
 	}
 	words := s.transcriptWords()
 	if q.Words != nil {
-		words = strings.Join(strings.Fields(*q.Words), " ")
-		if n := len(strings.Fields(words)); n > normalizer.MaxWords {
-			writeError(w, http.StatusBadRequest, fmt.Errorf("at most %d words, not %d", normalizer.MaxWords, n))
+		words = *cleanWords(q.Words)
+		if err := checkWords(words); err != nil {
+			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 	}

@@ -98,6 +98,7 @@ export const spanOf = (x) => ({ start: x.region.start, end: x.region.end, ...(x.
  * @property {() => any} currentSettings the edit on the page as it is kept, or null
  * @property {() => Promise<void>} persistAdjusted keep the edit on the page as the adjustments
  * @property {() => void} saveSoon persistAdjusted, after a moment without changes
+ * @property {() => void} [redrawWords] shows the transcript's names and words as opts has them (editor/transcript.js)
  * @property {(set: any, o?: { show?: boolean }) => void} applySettings put a kept edit on the page
  * @property {() => void} record make the edit as it is now a step of undo, if it changed
  * @property {() => void} recordSoon record, after a moment without changes

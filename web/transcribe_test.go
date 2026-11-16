@@ -504,6 +504,24 @@ func TestTranscriptWords(t *testing.T) {
 	if _, ok := tr.status("", "2026-10-04"); ok {
 		t.Error("still waiting after ✕")
 	}
+	// Save keeps the church's words with the recording; a recording's own words go with its transcript.
+	if w := ts.withDefaults(folder, *saved).TranscriptWords; w == nil || *w != "Melhus Peder Ås" {
+		t.Errorf("Save keeps %v", w)
+	}
+	own := "Hovin  kirke"
+	ts.updateState(folder, func(st *folderState) error {
+		st.Saved.TranscriptWords = cleanWords(&own)
+		return nil
+	})
+	if rec := ts.do(t, "POST", "/api/transcript?path=2026-10-04", nil); rec.Code != http.StatusOK {
+		t.Fatalf("ask again: %d %s", rec.Code, rec.Body)
+	}
+	tr.mu.Lock()
+	j = tr.find("", "2026-10-04")
+	tr.mu.Unlock()
+	if j == nil || j.Words != "Hovin kirke" {
+		t.Errorf("the recording's words: %+v", j)
+	}
 }
 
 // idle takes the test church out of the transcriber once it is in: its transcripts wait, and none runs.

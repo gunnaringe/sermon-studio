@@ -79,7 +79,7 @@ export async function transcriptSettings(box) {
         has && others.length ? otherModels : '') : '');
   }
 
-  // The church's names and words, saved when it is left changed.
+  // The church's names and words: what a recording's transcript starts with. Saved when it is left changed.
   function wordsField() {
     return h('label', { class: 'transcript-words' },
       h('span', { class: 'name' }, t('Names and words')),
@@ -87,7 +87,7 @@ export async function transcriptSettings(box) {
         h('textarea', { name: 'transcript-words', rows: 3, maxlength: 3000,
           placeholder: t('Kari Nordmann, Fjellheim church, Habakkuk'),
           onchange: (e) => { data.words = e.target.value; save(); } }, data.words || ''),
-        h('span', { class: 'muted' }, t('Names, places and words the sermons use, spelled as they should be. They help the speech model write them right. Keep it short: at most {n} words.', { n: data.maxWords }))));
+        h('span', { class: 'muted' }, t('What a recording\'s transcript starts with: names, places and words the sermons use, spelled as they should be. Each recording keeps its own, which can be changed in its editor. Keep it short: at most {n} words.', { n: data.maxWords }))));
   }
   draw();
 }

@@ -156,6 +156,10 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   await expect(box.locator('.transcript-choice')).toBeHidden();
   await on.click();
   await expect(box.locator('.pill .state')).toHaveText('will be made');
+  // The recording's own names and words for it, from the church's until changed; Save keeps them with the recording.
+  const words = box.locator('textarea[name=transcript-words]');
+  await expect(words).toBeVisible();
+  await words.fill('Hovin kirke, Habakkuk');
   await expect(page.locator('.save-what')).toContainText(/Save makes: (Opus, )?transcript\./, { timeout: 30_000 });
   await box.screenshot({ path: path.join(shots, 'transcript-picker.png') });
 
@@ -172,6 +176,8 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   const asked = page.waitForRequest((r) => r.method() === 'POST' && /api\/sermon\/save\?/.test(r.url()));
   await page.locator('.save-bar button.primary').click();
   expect((await asked).postDataJSON().transcript).toEqual({ language: 'nb', model: NB });
+  const savedWords = async () => (await (await page.request.get('api/folder?path=' + encodeURIComponent(folder))).json()).sermon.saved.transcriptWords;
+  await expect.poll(savedWords, { timeout: 15_000 }).toBe('Hovin kirke, Habakkuk');
   const bar = box.locator('.transcript-progress');
   // Waiting, with how many are made before it (across the churches).
   await expect(bar).toContainText('Waiting for its turn… (2 ahead)', { timeout: 60_000 }); // after the run, when there is one

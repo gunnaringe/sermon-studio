@@ -38,6 +38,8 @@ export async function editorView(view, slug, config) {
   // keeps the files of the saved version made in them.
   if (kept && kept.formats) for (const f of FORMAT_KEYS) opts[f] = Boolean(kept.formats[f]);
   else if (info.outputs.length) for (const f of FORMAT_KEYS) opts[f] = info.outputs.some((o) => o.format === f);
+  // The names and words for its transcript: its own, else (undefined) the church's, which Save keeps.
+  opts.transcriptWords = kept ? kept.transcriptWords : undefined;
   // Tags are per sermon: those kept with it, else the church's defaults for this folder (Save keeps those).
   const tags = { title: '', artist: '', album: '', ...((kept && kept.tags) || info.tags || {}) };
   const sections = [], cuts = [];

@@ -23,8 +23,9 @@ export function outputPart(ed) {
   // request is the run as the server takes it, and as it checks it.
   /** @returns {Record<string, any>} */
   function request(force = false) {
+    const { transcriptWords: _words, ...run } = opts; // the transcript's, not the run's
     return {
-      ...opts,
+      ...run,
       force,
       ...(info.tags ? tags : {}),
       noiseReduction: Math.round(opts.noiseReduction),

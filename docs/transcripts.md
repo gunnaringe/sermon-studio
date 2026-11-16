@@ -81,8 +81,11 @@ language) is not tried again.
 
 **Names and words.** Whisper writes what it hears, and spells names as it guesses. **Names and words** in **Settings →
 Processing → Transcripts** are the church's names, places and words (at most 300), spelled as they should be: they start
-whisper's prompt for every part, followed by the last words of the part before, which helps it spell them right. A
-transcript waiting keeps the words it was asked with.
+whisper's prompt for every part, followed by the last words of the part before, which helps it spell them right. They are
+the default: each recording has its own, under **Names and words** in its editor's Transcript step, starting with the
+church's and kept by Save (as the tags are), so a change in Settings only reaches recordings saved after it. A transcript
+made with other words than the recording's is made again by the next Save. A transcript waiting keeps the words it was
+asked with.
 
 ## When it is made
 
