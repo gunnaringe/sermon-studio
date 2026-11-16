@@ -423,15 +423,24 @@ body.card-page main.narrow > :first-child { margin-top: 0; }
 body.card-page main.narrow > :last-child { margin-bottom: 0; }
 body.card-page main.narrow > h1 { margin-top: 0; }
 body.card-page footer { margin-top: auto; }
-.card-church { margin: 0 0 0.3rem; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.card-kicker { margin: 0 0 0.35rem; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.card-meta { margin: -0.2rem 0 0.6rem; color: var(--muted); }
+/* the share page: a soft band of the accent behind the card, the limits as chips */
+body.card-page { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, var(--bg)) 0, var(--bg) 22rem) no-repeat var(--bg); }
+body.card-page .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.4rem 0 1.1rem; }
+body.card-page .chips:empty { display: none; }
+body.card-page .chip { padding: 0.2rem 0.65rem; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); font-size: 0.85rem; }
 body.card-page .files li { box-shadow: none; background: var(--panel-2); }
 .drop.big { padding: 2.2rem 1.5rem; }
 .drop-icon { display: block; margin: 0 auto 0.6rem; color: var(--muted); line-height: 0; }
 .drop-icon svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 /* a download share's files: one wide button each, its size at the end */
 body.card-page .downloads { flex-direction: column; }
-body.card-page .downloads button { display: flex; justify-content: space-between; gap: 1rem; width: 100%; padding: 0.75rem 1rem; text-align: left; }
-body.card-page .downloads button .size { font-weight: 400; opacity: 0.85; }
+body.card-page .downloads button { display: flex; align-items: center; gap: 0.7rem; width: 100%; padding: 0.8rem 1rem; text-align: left; }
+body.card-page .downloads button .name { flex: 1; }
+body.card-page .downloads button .icon { line-height: 0; }
+body.card-page .downloads button .icon svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+body.card-page .downloads button .size { font-weight: 400; opacity: 0.85; font-variant-numeric: tabular-nums; }
 body.card-page .listen audio { display: block; width: 100%; }
 @media (max-width: 640px) {
   body.card-page main.narrow { margin: 1rem auto; padding: 1.2rem 1.1rem; }
@@ -805,3 +814,8 @@ h1 > .title-action svg { fill: none; stroke: currentColor; stroke-width: 2; stro
 .task-list .task { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.8rem; padding: 0.45rem 0; border-top: 1px solid var(--line); }
 .task-list .task .detail { font-size: 0.9em; text-align: right; }
 .task-list .task progress { grid-column: 1 / -1; height: 0.4rem; }
+
+/* A share's description: the church's own note (shares.js), with its line breaks. */
+.share-form textarea { width: 100%; box-sizing: border-box; font: inherit; }
+.share-form .hint { display: block; font-size: 0.85em; margin-top: 0.15rem; }
+.share-description { white-space: pre-wrap; margin: 0.2rem 0; }

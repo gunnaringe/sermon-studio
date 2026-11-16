@@ -14,10 +14,24 @@ langSelect.addEventListener('change', () => { setLang(langSelect.value); locatio
 
 const view = document.getElementById('view');
 
-// setHeading names the page, in the header and the tab, for what the code is for.
-function setHeading(text) {
-  document.getElementById('heading').textContent = text;
-  document.title = text;
+// setHeading names the page: the church in the header (else the app), and in the tab what the code is for.
+function setHeading(text, church = '') {
+  document.getElementById('heading').textContent = church || 'Sermon Studio';
+  document.title = church ? text + ' · ' + church : text;
+}
+
+// chips are a share's limits, each on its own.
+const chips = (parts) => h('p', { class: 'chips' }, parts.map((p) => h('span', { class: 'chip' }, p)));
+
+// downIcon is the arrow on a download's button.
+function downIcon() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '18');
+  svg.setAttribute('height', '18');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = '<path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/>';
+  return h('span', { class: 'icon' }, svg);
 }
 let code = '';
 let info = null;
@@ -89,14 +103,14 @@ async function tryCode(c) {
   else showUpload();
 }
 
-function limitsText() {
+function limitParts() {
   const parts = [info.allTypes
     ? t('Audio or video files up to {size}', { size: formatSize(info.maxFileSize) })
     : t('{types} files up to {size}', { types: info.types.join(` ${t('or')} `), size: formatSize(info.maxFileSize) })];
   if (info.uploadsLeft !== undefined) parts.push(tn(info.uploadsLeft, '{n} more file', '{n} more files'));
   if (info.bytesLeft !== undefined) parts.push(t('{size} left', { size: formatSize(info.bytesLeft) }));
   if (info.expires) parts.push(t('until {time}', { time: formatDateTime(info.expires) }));
-  return parts.join(' · ');
+  return parts;
 }
 
 const queue = [];
@@ -129,7 +143,7 @@ function otherCode() {
 }
 
 function showUpload() {
-  setHeading(t('Send a recording'));
+  setHeading(t('Send a recording'), info.church);
   showLogo();
   const input = h('input', { type: 'file', multiple: true, accept: info.types.join(','), hidden: true });
   const list = h('ul', { class: 'files' });
@@ -155,9 +169,9 @@ function showUpload() {
     add([...e.dataTransfer.files]);
   });
   view.replaceChildren(
-    h('p', { class: 'card-church' }, info.church),
+    h('p', { class: 'card-kicker' }, t('Send a recording')),
     h('h1', {}, info.label),
-    limitsLine = h('p', { class: 'muted' }, t('For {church}. {limits}.', { church: info.church, limits: limitsText() })),
+    limitsLine = chips(limitParts()),
     info.state ? h('p', { class: 'error' }, t('This code cannot be used any more.')) : drop,
     input, list,
     h('p', { class: 'muted' }, t('Keep this page open until every file is received.'), ' ', otherCode()));
@@ -173,17 +187,17 @@ function downloadLimits() {
   const parts = [];
   if (info.downloadsLeft !== undefined) parts.push(info.downloadsLeft ? tn(info.downloadsLeft, '{n} more download', '{n} more downloads') : t('no downloads left'));
   if (info.expires) parts.push(t('until {time}', { time: formatDateTime(info.expires) }));
-  return t('From {church}.', { church: info.church }) + (parts.length ? ' ' + parts.join(' · ') + '.' : '');
+  return parts;
 }
 
 // showDownload is the page of a download share: the sermon, and a button per file. A press counts one
 // download and starts it from an address that works for some hours without the code, so the browser
 // can download it, and continue a download that broke; pressing again for it counts nothing.
 function showDownload() {
-  setHeading(t('Download a sermon'));
+  setHeading(t('Download a sermon'), info.church);
   showLogo();
   const status = h('p', { class: 'muted', role: 'status' });
-  const limits = h('p', { class: 'muted' }, downloadLimits());
+  const limits = chips(downloadLimits());
   const press = async (f, button) => {
     button.disabled = true;
     try {
@@ -195,7 +209,7 @@ function showDownload() {
       const again = await call('GET', 'api/share').catch(() => null);
       if (again && again.resp.ok) {
         info = again.data;
-        limits.textContent = downloadLimits();
+        limits.replaceChildren(...chips(downloadLimits()).children);
       }
     } catch (e) {
       status.className = 'error';
@@ -207,7 +221,7 @@ function showDownload() {
   const buttons = info.files.map((f) => {
     const audio = Boolean(FORMAT_NAMES[f.format]);
     const b = h('button', { type: 'button', class: audio ? 'primary' : '', name: 'download-' + f.format },
-      h('span', {}, downloadName(f.format)), h('span', { class: 'size' }, formatSize(f.size)));
+      downIcon(), h('span', { class: 'name' }, downloadName(f.format)), h('span', { class: 'size' }, formatSize(f.size)));
     b.addEventListener('click', () => press(f, b));
     return b;
   });
@@ -242,9 +256,9 @@ function showDownload() {
     : info.state ? t('This code cannot be used any more.')
       : !buttons.length && !preparing.length ? t('This sermon is no longer available.') : '';
   view.replaceChildren(
-    h('p', { class: 'card-church' }, info.church),
+    h('p', { class: 'card-kicker' }, t('Download a sermon')),
     h('h1', {}, info.title || info.label),
-    what ? h('p', {}, what) : '',
+    what ? h('p', { class: 'card-meta' }, what) : '',
     limits,
     // the sermon's files, then the transcript's
     ...(ended ? [h('p', { class: 'error' }, ended)] : [
@@ -300,7 +314,7 @@ async function run() {
   const r = await call('GET', 'api/share').catch(() => null);
   if (r && r.resp.ok) {
     info = r.data;
-    limitsLine.textContent = t('For {church}. {limits}.', { church: info.church, limits: limitsText() });
+    limitsLine.replaceChildren(...chips(limitParts()).children);
   }
 }
 

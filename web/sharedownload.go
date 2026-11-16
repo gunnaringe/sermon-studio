@@ -171,6 +171,7 @@ type downloadRequest struct {
 	SermonOnly   bool
 	MaxDownloads int
 	Expires      *time.Time
+	Description  string
 }
 
 // createDownloadShare makes a download share of a saved recording, of the files made (shareable): POST
@@ -197,7 +198,11 @@ func (a *App) createDownloadShare(w http.ResponseWriter, t *tenant, label string
 	if q.AllFormats {
 		formats, picked = downloadFormats, nil
 	}
+	desc := cleanDescription(q.Description)
 	err = checkLabel(label)
+	if err == nil {
+		err = checkDescription(desc)
+	}
 	switch {
 	case err != nil:
 	case !q.AllFormats && (len(picked) == 0 || len(picked) != len(formats)):
@@ -226,7 +231,7 @@ func (a *App) createDownloadShare(w http.ResponseWriter, t *tenant, label string
 		return
 	}
 	a.addShare(w, t, &Share{Kind: kindDownload, Recording: s.relPath(abs), RecordingID: st.ID, Formats: picked, AllFormats: q.AllFormats,
-		Transcript: q.Transcript, SermonOnly: sermonOnly, MaxDownloads: maxDownloads}, label, expires)
+		Transcript: q.Transcript, SermonOnly: sermonOnly, MaxDownloads: maxDownloads, Description: desc}, label, expires)
 }
 
 // shareable tells why a download share of the recording cannot be made: it is not saved, a format it gives has

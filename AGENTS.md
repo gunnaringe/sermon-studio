@@ -199,7 +199,7 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
 - `web/inboxwatch.go`: `ingest` moves settled inbox files straight to their date
   folder (convert + prepare happen there).
 - `web/share.go`: shares (codes for the public share page: upload shares, and download shares, `sharedownload.go`), `<church>/shares.json`, the studio's
-  `api/shares` (only with `--share-listen`; its own overlay from the share icon in the header, `shares`, `shares.js`; the icon's number is `api/shares/active`). Pause/resume (the same code works again), remove a paused or ended one (`removeShares`; an open share is never removed; remove-ended leaves the paused). `web/sharesite.go`: the public listener
+  `api/shares` (only with `--share-listen`; its own overlay from the share icon in the header, `shares`, `shares.js`; the icon's number is `api/shares/active`). Pause/resume (the same code works again), remove a paused or ended one (`removeShares`; an open share is never removed; remove-ended leaves the paused). `description`: the church's note, never sent to the share page (`downloadInfo`). `web/shareedit.go`: `PUT api/shares/{id}` changes a share (name, description, expiry, limits, a download share's formats and transcript, checked with `shareable`), the code and log stay. `web/sharesite.go`: the public listener
   (`App.ShareHandler`: `share.html` + `api/share/*`, nothing else), chunked upload to
   `Innboks/.share-<id>.partial`. `web/ratelimit.go`: its limits per address (an IPv6 address counts as its /64) and in all.
 - `web/sharedownload.go`: a download share gives one saved recording's finished files (`shareable`; it makes nothing;

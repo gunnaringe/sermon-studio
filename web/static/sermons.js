@@ -3,7 +3,7 @@
 // been processed, only a way into the editor.
 import { api, q, h, href, formatSize, formatTime, forTenant, timeLeft, liveBar, backgroundNote } from './util.js';
 import { alertDialog, confirmDialog } from './dialog.js';
-import { showCode, expiryInput, recordingShares } from './shares.js';
+import { showCode, expiryInput, descriptionInput, recordingShares } from './shares.js';
 import { t, tn, tr } from './i18n.js';
 import { transcriptPanel } from './transcripts.js';
 
@@ -323,6 +323,7 @@ export function sermonDetail(entry, ctx = {}) {
       const label = h('input', { type: 'text', name: 'label', id: 'download-label', maxlength: 80, value: entry.name });
       const max = h('input', { type: 'number', name: 'maxDownloads', min: 0, step: 1, placeholder: t('no limit') });
       const expires = expiryInput();
+      const description = descriptionInput();
       const what = h('div', { class: 'share-what wide', 'aria-live': 'polite' });
       // draw says what the share gives: the files there, and those not made (shared once made, with all formats).
       const draw = () => {
@@ -352,6 +353,7 @@ export function sermonDetail(entry, ctx = {}) {
               h('p', { class: 'muted' }, t('All formats are shared, also ones made later. Untick the ones not to share.')),
               h('span', {}, boxes.map((b, i) => h('label', { class: 'check' }, b, ' ' + FORMATS[i][1] + ' ')))),
             h('label', { for: 'download-label' }, t('Name')), label,
+            h('span', {}, t('Description')), h('span', {}, description, h('span', { class: 'muted hint' }, t('Not shown to those who use the code.'))),
             version ? [h('label', { for: 'download-version' }, t('Version')), version] : '',
             h('label', {}, t('Max downloads')), max,
             h('span', {}, t('Expires')), expires.el),
@@ -360,7 +362,7 @@ export function sermonDetail(entry, ctx = {}) {
         try {
           const formats = boxes.filter((b) => b.checked).map((b) => b.value);
           const done = await api('POST', 'api/shares', {
-            kind: 'download', recording: entry.path, label: label.value,
+            kind: 'download', recording: entry.path, label: label.value, description: description.value,
             allFormats: formats.length === FORMATS.length, formats, transcript: withTranscript,
             sermonOnly: Boolean(version && version.value === 'sermon'),
             maxDownloads: Number(max.value) || 0,

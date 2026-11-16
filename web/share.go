@@ -53,6 +53,7 @@ type Share struct {
 	Hash        string     `json:"hash"`           // SHA-256 of the code, hex
 	Hint        string     `json:"hint"`           // the code's last four characters, to tell shares apart
 	Label       string     `json:"label"`
+	Description string     `json:"description,omitempty"` // the church's own note on it: never shown on the share page
 	Created     time.Time  `json:"created"`
 	Expires     *time.Time `json:"expires,omitempty"`
 	MaxUploads  int        `json:"maxUploads,omitempty"` // 0 = no limit
@@ -286,6 +287,7 @@ type shareView struct {
 	Kind        string        `json:"kind"`
 	Hint        string        `json:"hint"`
 	Label       string        `json:"label"`
+	Description string        `json:"description,omitempty"`
 	Created     time.Time     `json:"created"`
 	Expires     *time.Time    `json:"expires,omitempty"`
 	MaxUploads  int           `json:"maxUploads"`
@@ -320,7 +322,7 @@ func (sh *Share) view(now time.Time) shareView {
 	if log == nil {
 		log = []ShareUpload{}
 	}
-	v := shareView{ID: sh.ID, Kind: sh.Kind, Hint: sh.Hint, Label: sh.Label, Created: sh.Created, Expires: sh.Expires,
+	v := shareView{ID: sh.ID, Kind: sh.Kind, Hint: sh.Hint, Label: sh.Label, Description: sh.Description, Created: sh.Created, Expires: sh.Expires,
 		MaxUploads: sh.MaxUploads, MaxFileSize: sh.MaxFileSize, MaxTotal: sh.MaxTotal, Types: sh.types(), AllTypes: sh.AllTypes,
 		State: sh.state(now), Count: sh.Count, Bytes: sh.Bytes, Uploading: n, Log: log}
 	if sh.Kind == kindDownload {
@@ -457,22 +459,7 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var q struct {
-		Kind         string     `json:"kind"` // "" or kindUpload, kindDownload
-		Recording    string     `json:"recording"`
-		Formats      []string   `json:"formats"`
-		AllFormats   bool       `json:"allFormats"`
-		Transcript   bool       `json:"transcript"`
-		SermonOnly   bool       `json:"sermonOnly"`
-		MaxDownloads int        `json:"maxDownloads"`
-		Label        string     `json:"label"`
-		Expires      *time.Time `json:"expires"` // nil = never
-		MaxUploads   int        `json:"maxUploads"`
-		MaxFileSize  int64      `json:"maxFileSize"`
-		MaxTotal     int64      `json:"maxTotal"`
-		Types        []string   `json:"types"`
-		AllTypes     bool       `json:"allTypes"`
-	}
+	var q shareRequest
 	if err := decodeRequest(r, &q); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -480,7 +467,8 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 	label := strings.Join(strings.Fields(q.Label), " ")
 	if q.Kind == kindDownload {
 		a.createDownloadShare(w, t, label, downloadRequest{Recording: q.Recording, Formats: q.Formats, AllFormats: q.AllFormats,
-			Transcript: q.Transcript, SermonOnly: q.SermonOnly, MaxDownloads: q.MaxDownloads, Expires: q.Expires})
+			Transcript: q.Transcript, SermonOnly: q.SermonOnly, MaxDownloads: q.MaxDownloads, Expires: q.Expires,
+			Description: q.Description})
 		return
 	}
 	if q.Kind != "" && q.Kind != kindUpload {
@@ -491,6 +479,35 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errNoInbox)
 		return
 	}
+	sh, err := q.uploadShare(time.Now())
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	a.addShare(w, t, sh, label, q.Expires)
+}
+
+// shareRequest is a share as the studio sends it: POST api/shares to make one, PUT api/shares/{id} to change one.
+type shareRequest struct {
+	Kind         string     `json:"kind"` // "" or kindUpload, kindDownload
+	Recording    string     `json:"recording"`
+	Formats      []string   `json:"formats"`
+	AllFormats   bool       `json:"allFormats"`
+	Transcript   bool       `json:"transcript"`
+	SermonOnly   bool       `json:"sermonOnly"`
+	MaxDownloads int        `json:"maxDownloads"`
+	Label        string     `json:"label"`
+	Description  string     `json:"description"`
+	Expires      *time.Time `json:"expires"` // nil = never
+	MaxUploads   int        `json:"maxUploads"`
+	MaxFileSize  int64      `json:"maxFileSize"`
+	MaxTotal     int64      `json:"maxTotal"`
+	Types        []string   `json:"types"`
+	AllTypes     bool       `json:"allTypes"`
+}
+
+// uploadShare is the upload share q asks for (its limits, name and description), checked.
+func (q shareRequest) uploadShare(now time.Time) (*Share, error) {
 	var types []string
 	for _, ext := range shareTypes {
 		if slices.Contains(q.Types, ext) {
@@ -500,8 +517,8 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 	if q.MaxFileSize == 0 {
 		q.MaxFileSize = defaultShareFileSize
 	}
-	now := time.Now()
-	err := checkLabel(label)
+	desc := cleanDescription(q.Description)
+	err := checkLabel(strings.Join(strings.Fields(q.Label), " "))
 	switch {
 	case err != nil:
 	case !q.AllTypes && (len(types) == 0 || len(types) != len(q.Types)):
@@ -512,16 +529,33 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 		err = errors.New("limits cannot be negative")
 	case q.Expires != nil && !q.Expires.After(now):
 		err = errors.New("the expiry is in the past")
+	default:
+		err = checkDescription(desc)
 	}
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
+		return nil, err
 	}
-	sh := &Share{MaxUploads: q.MaxUploads, MaxFileSize: q.MaxFileSize, MaxTotal: q.MaxTotal, Types: types, AllTypes: q.AllTypes}
+	sh := &Share{MaxUploads: q.MaxUploads, MaxFileSize: q.MaxFileSize, MaxTotal: q.MaxTotal, Types: types, AllTypes: q.AllTypes,
+		Description: desc}
 	if q.AllTypes {
 		sh.Types = nil
 	}
-	a.addShare(w, t, sh, label, q.Expires)
+	return sh, nil
+}
+
+// maxDescription is how long a share's description can be, in characters.
+const maxDescription = 500
+
+// cleanDescription is a description without spaces at its ends and with Windows' line ends made one.
+func cleanDescription(d string) string {
+	return strings.TrimSpace(strings.ReplaceAll(d, "\r\n", "\n"))
+}
+
+func checkDescription(d string) error {
+	if len([]rune(d)) > maxDescription || strings.ContainsFunc(d, func(r rune) bool { return r < ' ' && r != '\n' }) {
+		return fmt.Errorf("the description can be up to %d characters", maxDescription)
+	}
+	return nil
 }
 
 func checkLabel(label string) error {

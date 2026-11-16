@@ -54,7 +54,18 @@ export function expiryInput() {
   return { el, value: () => {
     if (date.validity.badInput) throw new Error(t('The expiry date is not complete.'));
     return parseExpiry(date.value, time.value);
+  }, set: (iso) => { // a time as the server gives it: the day, and its time unless it is the end of the day
+    if (!iso) { date.value = time.value = ''; return; }
+    const d = new Date(iso);
+    date.value = formatDate(d);
+    const end = d.getHours() === 23 && d.getMinutes() === 59;
+    time.value = end ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   } };
+}
+
+// descriptionInput is a share's description: the church's own note, never shown on the share page.
+export function descriptionInput(value = '') {
+  return h('textarea', { name: 'description', rows: 2, maxlength: 500, placeholder: t('Only for the church: who it is for, why'), 'aria-label': t('Description') }, value);
 }
 
 // parseExpiry reads a day (yyyy-mm-dd, as a date field gives it) and a time (hh:mm, or empty for the
@@ -157,12 +168,14 @@ export async function sharesView(box) {
   const uploads = num('maxUploads', { step: 1, placeholder: t('no limit') });
   const total = num('maxTotal', { placeholder: t('no limit') });
   const expires = expiryInput();
+  const description = descriptionInput();
   // The form is a dialog of its own, from the button over the list: the shares there are come first.
   const create = h('button', { class: 'primary', name: 'new-share', onclick: async () => {
     const made = await formDialog({
       title: t('New upload share'),
       body: h('div', { class: 'share-form' },
         h('label', { for: 'share-label' }, t('Name')), Object.assign(label, { id: 'share-label' }),
+        h('span', {}, t('Description')), h('span', {}, description, h('span', { class: 'muted hint' }, t('Not shown to those who use the code.'))),
         h('span', {}, t('File types')), h('span', {}, h('label', { class: 'check' }, allTypes, ' ' + t('All supported audio')), h('br'), typeList),
         h('label', {}, t('Max file size (GB)')), fileSize,
         h('label', {}, t('Max number of files')), uploads,
@@ -171,6 +184,7 @@ export async function sharesView(box) {
       confirm: t('Make share'),
       submit: () => api('POST', 'api/shares', {
         label: label.value,
+        description: description.value,
         allTypes: allTypes.checked,
         types: allTypes.checked ? [] : types.filter((c) => c.checked).map((c) => c.value),
         maxFileSize: Math.round(Number(fileSize.value) * GB),
@@ -259,6 +273,7 @@ function shareGroups(data, refresh, { compact = false } = {}) {
       compact ? '' : h('span', { class: 'badge kind' }, s.kind === 'download' ? t('Download') : t('Upload')), ' ',
       h('span', { class: 'muted mono' }, '…' + s.hint)),
     s.kind === 'download' && !compact ? h('p', {}, t('Download of {name}', { name: baseName(s.recording) })) : '',
+    s.description ? h('p', { class: 'share-description' }, s.description) : '',
     h('p', { class: 'muted' }, limits(s)),
     h('p', {}, `${used(s)} · ${t('made {date}', { date: formatDate(s.created) })}`),
     s.removeAt ? h('p', { class: 'muted' }, t('Removed automatically on {date}.', { date: formatDate(s.removeAt) })) : '',
@@ -268,7 +283,8 @@ function shareGroups(data, refresh, { compact = false } = {}) {
     h('p', {}, !s.state ? h('button', { name: 'pause', onclick: pause(s) }, t('Pause'))
       : s.state === 'paused' ? [h('button', { class: 'primary', name: 'resume', onclick: resume(s) }, t('Resume')), ' ',
         h('button', { name: 'remove', onclick: remove(s) }, t('Remove'))]
-      : h('button', { name: 'remove', onclick: remove(s) }, t('Remove'))));
+      : h('button', { name: 'remove', onclick: remove(s) }, t('Remove')),
+      ' ', h('button', { name: 'edit', onclick: act(() => editShare(s, data)) }, t('Edit…'))));
 
   if (!data.shares.length) return [h('p', { class: 'muted' }, t('No shares yet.'))];
   return [
@@ -283,4 +299,56 @@ function shareGroups(data, refresh, { compact = false } = {}) {
       compact ? '' : [' ', h('button', { name: 'remove-ended', onclick: removeEnded }, t('Remove {n} ended', { n: ended.length }))]),
       ...ended.map(row)) : '',
   ];
+}
+
+// editShare changes a share in a dialog: its name, description and expiry, and what it allows (an upload share's
+// file types and limits, a download share's formats, transcript and downloads). The code stays. false = not changed.
+async function editShare(s, data) {
+  const label = h('input', { type: 'text', name: 'label', id: 'edit-label', maxlength: 80, value: s.label });
+  const description = descriptionInput(s.description || '');
+  const expires = expiryInput();
+  expires.set(s.expires);
+  const num = (name, value, attrs = {}) => h('input', { type: 'number', name, min: 0, step: 'any', value: value || '', placeholder: t('no limit'), ...attrs });
+  let fields, body;
+  if (s.kind === 'download') {
+    const all = h('input', { type: 'checkbox', name: 'allFormats', checked: s.allFormats, onchange: () => { list.hidden = all.checked; } });
+    const boxes = Object.keys(FORMAT_NAMES).map((f) => h('input', { type: 'checkbox', name: 'format', value: f, checked: s.allFormats || s.formats.includes(f) }));
+    const list = h('span', { hidden: s.allFormats }, boxes.map((b) => h('label', { class: 'check' }, b, ' ' + FORMAT_NAMES[b.value] + ' ')));
+    const transcript = h('input', { type: 'checkbox', name: 'transcript', checked: s.transcript });
+    const max = num('maxDownloads', s.maxDownloads, { step: 1 });
+    fields = [
+      h('span', {}, t('Formats')), h('span', {}, h('label', { class: 'check' }, all, ' ' + t('All formats, also ones made later')), h('br'), list),
+      h('span', {}, t('Transcript')), h('label', { class: 'check' }, transcript, ' ' + t('Also its text and captions')),
+      h('label', {}, t('Max downloads')), max];
+    body = () => ({ allFormats: all.checked, formats: all.checked ? [] : boxes.filter((b) => b.checked).map((b) => b.value),
+      transcript: transcript.checked, maxDownloads: Number(max.value) || 0 });
+  } else {
+    const all = h('input', { type: 'checkbox', name: 'allTypes', checked: s.allTypes, onchange: () => { list.hidden = all.checked; } });
+    const boxes = data.types.map((x) => h('input', { type: 'checkbox', name: 'type', value: x, checked: s.allTypes || s.types.includes(x) }));
+    const list = h('span', { hidden: s.allTypes }, boxes.map((b) => h('label', { class: 'check' }, b, ' ' + b.value + ' ')));
+    const fileSize = num('maxFileSize', s.maxFileSize / GB, { min: 0.01, placeholder: '' });
+    const uploads = num('maxUploads', s.maxUploads, { step: 1 });
+    const total = num('maxTotal', s.maxTotal ? s.maxTotal / GB : 0);
+    fields = [
+      h('span', {}, t('File types')), h('span', {}, h('label', { class: 'check' }, all, ' ' + t('All supported audio')), h('br'), list),
+      h('label', {}, t('Max file size (GB)')), fileSize,
+      h('label', {}, t('Max number of files')), uploads,
+      h('label', {}, t('Max total size (GB)')), total];
+    body = () => ({ allTypes: all.checked, types: all.checked ? [] : boxes.filter((b) => b.checked).map((b) => b.value),
+      maxFileSize: Math.round(Number(fileSize.value) * GB), maxUploads: Number(uploads.value) || 0,
+      maxTotal: Math.round(Number(total.value) * GB) || 0 });
+  }
+  const done = await formDialog({
+    title: t('Edit share'),
+    body: [h('p', { class: 'muted' }, t('The code stays the same.')),
+      h('div', { class: 'share-form' },
+        h('label', { for: 'edit-label' }, t('Name')), label,
+        h('span', {}, t('Description')), h('span', {}, description, h('span', { class: 'muted hint' }, t('Not shown to those who use the code.'))),
+        ...fields,
+        h('span', {}, t('Expires')), expires.el)],
+    confirm: t('Save'),
+    submit: () => api('PUT', 'api/shares/' + encodeURIComponent(s.id),
+      { label: label.value, description: description.value, expires: expires.value(), ...body() }),
+  });
+  return done ? true : false;
 }
