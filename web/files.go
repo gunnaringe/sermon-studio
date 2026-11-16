@@ -124,8 +124,16 @@ func churchFilesOf(dir string) map[string]fileRecord {
 
 // syncRecord brings a files record up to date with the disk (filesOf its folder).
 func (s *Server) syncRecord(fr filesRecord, filesOf func(string) map[string]fileRecord) (added, changed, gone int) {
-	s.filesMu.Lock() // one at a time: the disk is what limits it
-	defer s.filesMu.Unlock()
+	s.filesMu.Lock() // one at a time (the disk is what limits it), and never while evict takes a file off
+	added, changed, gone, wrote := s.syncRecordLocked(fr, filesOf)
+	s.filesMu.Unlock()
+	if wrote && afterSync != nil {
+		afterSync(s, fr)
+	}
+	return
+}
+
+func (s *Server) syncRecordLocked(fr filesRecord, filesOf func(string) map[string]fileRecord) (added, changed, gone int, wrote bool) {
 	folder := fr.folder
 	old := fr.files()
 	disk := filesOf(folder)
@@ -190,13 +198,11 @@ func (s *Server) syncRecord(fr filesRecord, filesOf func(string) map[string]file
 	switch {
 	case errors.Is(err, errChangedMeanwhile): // a fetch, an eviction, a removal: done again with it
 		s.filesChanged()
-		return 0, 0, 0
+		return 0, 0, 0, false
 	case err != nil:
 		s.cfg.Logger.Printf("%s: files: %v", s.display(folder), err)
 	}
-	if afterSync != nil {
-		afterSync(s, fr)
-	}
+	wrote = true
 	return
 }
 

@@ -58,7 +58,7 @@ func churchServerOf(dir string) *Server {
 	serversMu.RLock()
 	defer serversMu.RUnlock()
 	for _, s := range servers {
-		if s.churchDir != "" && dir == s.churchDir {
+		if s.churchDir != "" && dir == s.churchDir { // both resolved, as serverOf compares (callers norm dir)
 			return s
 		}
 	}
@@ -136,7 +136,7 @@ func recordOf(folder string) filesRecord {
 
 // churchRecord is the record of a church's files, for its server.
 func (s *Server) churchRecord() (filesRecord, bool) {
-	if s.churchDir == "" || s.cfg.SaveChurchFiles == nil {
+	if s.churchDir == "" || s.cfg.SaveChurchFiles == nil || !s.cfg.RecordFiles {
 		return filesRecord{}, false
 	}
 	return filesRecord{folder: s.churchDir, file: filepath.Join(s.churchDir, churchFile), srv: s, church: true}, true
@@ -371,6 +371,8 @@ func (s *Server) evict(ctx context.Context, fr filesRecord, rel string) error {
 	if sum, err := hashFile(p); err != nil || sum != r.SHA256 {
 		return fmt.Errorf("%w: %s is not the file recorded", errNotEvicted, rel)
 	}
+	s.filesMu.Lock() // no syncRecord in between: it would see the file still there and mark it so again
+	defer s.filesMu.Unlock()
 	if err := fr.setBucket(rel, true); err != nil {
 		return err
 	}
