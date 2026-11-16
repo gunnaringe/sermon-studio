@@ -1,4 +1,5 @@
 # go vet and all tests (with ffmpeg) on Windows and macOS. Linux is tested in the image build (image.yml).
+# The object storage (package blob) against an S3 server, RustFS, on Linux.
 name: Test
 
 on:
@@ -39,3 +40,26 @@ jobs:
       - run: go test ./...
         env:
           FFMPEG_REQUIRED: 1 # fail, not skip, when ffmpeg is not found
+
+  blob:
+    runs-on: ubuntu-latest
+    services:
+      s3:
+        image: docker.io/rustfs/rustfs:1.0.6 # keep equal to scripts/lib.sh
+        env:
+          RUSTFS_ACCESS_KEY: testkey
+          RUSTFS_SECRET_KEY: testsecret
+        ports: ['9000:9000']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x' # as the image build (golang:1.27)
+      - name: wait for the S3 server
+        run: for i in $(seq 60); do curl -s -o /dev/null http://127.0.0.1:9000/ && exit 0; sleep 1; done; exit 1
+      - run: go test -count=1 ./blob/
+        env:
+          BLOB_TEST_ENDPOINT: http://127.0.0.1:9000
+          BLOB_TEST_ACCESS_KEY: testkey
+          BLOB_TEST_SECRET_KEY: testsecret
+          BLOB_TEST_REQUIRED: 1

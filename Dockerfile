@@ -10,6 +10,7 @@ RUN apk add --no-cache ffmpeg
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
+COPY blob ./blob
 COPY cmd ./cmd
 COPY models ./models
 COPY normalizer ./normalizer

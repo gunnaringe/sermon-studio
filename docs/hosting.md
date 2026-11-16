@@ -105,6 +105,8 @@ and the models.
 
 ## What needs a backup
 
+(With object storage, [docs/object-storage.md](object-storage.md), the bucket will hold the churches; it is not used yet.)
+
 - `/srv/sermon-studio/data`: the churches, `users.json` and `sessions.json` (not `cache/` or `.models/`, which
   come back by themselves);
 - `/srv/pocket-id/data`: the accounts and passkeys (a copy of a running SQLite database: `sqlite3 .backup`),
