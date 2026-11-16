@@ -78,6 +78,7 @@ var routeActions = map[string]action{
 	"PUT /api/shares/ended-days":    actChurchSettings,
 	"GET /api/shares":               actShares,
 	"POST /api/shares":              actShares,
+	"PUT /api/shares/{id}":          actShares,
 	"POST /api/shares/{id}/pause":   actShares,
 	"POST /api/shares/{id}/resume":  actShares,
 	"POST /api/shares/{id}/remove":  actShares,

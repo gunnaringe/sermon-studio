@@ -249,6 +249,13 @@ resume it, so the same code works again. A paused share, or one that has ended (
 can be removed, with its list of uploads; its code then works no more, and the files it brought stay.
 **Remove ended** removes all the ended ones at once, not the paused ones.
 
+A share can have a **description**, a note for the church only (who it is for, what to remember); it
+is shown in the list and never on the share page. **Edit…** on a share changes its name, description,
+expiry and what it allows, keeping its code, counts and log: an upload share's file types and limits, a
+download share's formats, transcript and number of downloads (its recording and version stay; another
+recording needs another share). A share that had ended opens again when the change allows more; a
+download going on of a format no longer given stops.
+
 The share icon shows how many uploads and downloads are going on now (an upload counts while chunks
 arrive), checked every 30 seconds. The list has two folds: **Open** (open and paused shares) and **Ended** (expired, used up or full),
 folded. An ended share is removed automatically some days after it ended: 30 unless you choose 7, 90,

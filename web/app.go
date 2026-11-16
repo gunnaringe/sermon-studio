@@ -430,6 +430,7 @@ func (a *App) Handler() http.Handler {
 	if a.share != nil {
 		handle(mux, "GET /api/shares", a.handleShares)
 		handle(mux, "POST /api/shares", a.handleShareCreate)
+		handle(mux, "PUT /api/shares/{id}", a.handleShareUpdate)
 		handle(mux, "POST /api/shares/{id}/pause", a.handleSharePause)
 		handle(mux, "POST /api/shares/{id}/resume", a.handleShareResume)
 		handle(mux, "POST /api/shares/{id}/remove", a.handleShareRemove)

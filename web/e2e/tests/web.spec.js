@@ -1109,7 +1109,12 @@ test('shares: make a code in the studio, send a recording with the link', async 
   await expect.poll(() => up.locator('header .brand img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
   await up.screenshot({ path: path.join(shots, 'share-upload-logo.png') });
   expect((await page.request.delete('api/logo?tenant=first-church')).ok()).toBe(true);
-  await expect(up.getByText('3 more files · until 2099-12-31 23:59')).toBeVisible();
+  await expect(up.locator('.chip', { hasText: '3 more files' })).toBeVisible();
+  await expect(up.locator('.chip', { hasText: 'until 2099-12-31 23:59' })).toBeVisible();
+  // The church once, in the header: not again in the card.
+  const church = await up.locator('#heading').textContent();
+  expect(church).not.toBe('Sermon Studio');
+  await expect(up.locator('main')).not.toContainText(church);
   // While a file is sent, the screen is kept on and closing the page asks first; after, neither.
   await up.evaluate(() => {
     const lock = Object.assign(new EventTarget(), { release() { window.locks.released++; this.dispatchEvent(new Event('release')); return Promise.resolve(); } });
@@ -1221,8 +1226,9 @@ test('download shares: share a finished sermon from its row, download it on the 
   // The link opens the sermon; a press downloads the file, and counts one.
   const down = await context.newPage();
   await down.goto(link);
-  await expect(down.locator('#heading')).toHaveText('Download a sermon');
-  await expect(down.getByText(/^From .+\. 1 more download · until 2099-12-31 23:59\.$/)).toBeVisible();
+  await expect(down.locator('.card-kicker')).toHaveText('Download a sermon');
+  await expect(down.locator('.chip')).toHaveText(['1 more download', 'until 2099-12-31 23:59']);
+  await expect(down.getByRole('link', { name: 'Made with Sermon Studio' })).toHaveAttribute('href', 'https://sermon-studio.app');
   await expect(down.getByRole('button', { name: /^Download FLAC/ })).toHaveCount(0);
   // A share with a limit on its downloads has no player (its file could be kept).
   await expect(down.getByRole('button', { name: '▶ Listen' })).toHaveCount(0);
@@ -1230,7 +1236,7 @@ test('download shares: share a finished sermon from its row, download it on the 
   expect(file.suggestedFilename()).toBe('2025-12-24 Christmas.mp3');
   expect(fs.readFileSync(await file.path()).equals(mp3)).toBe(true);
   await expect(down.getByText('The download has started.')).toBeVisible();
-  await expect(down.getByText(/^From .+\. no downloads left · until 2099-12-31 23:59\.$/)).toBeVisible();
+  await expect(down.locator('.chip')).toHaveText(['no downloads left', 'until 2099-12-31 23:59']);
   await down.screenshot({ path: path.join(shots, 'share-download.png') });
 
   // Used up: under Ended in the studio, removed automatically after the days the church chose.
@@ -1258,6 +1264,28 @@ test('download shares: share a finished sermon from its row, download it on the 
   await page.reload(); // the row was drawn before the download
   await expect(own.locator('details.share-group.ended > summary')).toHaveText('Ended (1)');
   await expect(own.locator('details.share-group')).toHaveCount(1);
+
+  // Edit…: more downloads, the FLAC too, and a description only the church sees. The code stays, and works again.
+  await page.goto('c/first-church/shares');
+  await endedGroup.locator('> summary').click();
+  await row.getByRole('button', { name: 'Edit…' }).click();
+  const edit = page.getByRole('dialog', { name: 'Edit share' });
+  await expect(edit.locator('input[name=label]')).toHaveValue('For Anna');
+  await expect(edit.locator('input[name=expires]')).toHaveValue('2099-12-31');
+  await expect(edit.locator('input[name=expiresTime]')).toHaveValue('');
+  await edit.locator('textarea[name=description]').fill('Anna at the care home.\nAsk her son first.');
+  await edit.locator('input[name=maxDownloads]').fill('3');
+  await edit.getByLabel('FLAC').check();
+  await page.screenshot({ path: path.join(shots, 'share-edit.png') });
+  await edit.getByRole('button', { name: 'Save' }).click();
+  await expect(edit).toBeHidden();
+  const reopened = page.locator('details.share-group:not(.ended) .share', { hasText: 'For Anna' });
+  await expect(reopened).toContainText('Anna at the care home.');
+  await expect(reopened).toContainText('FLAC MP3 · up to 3 downloads');
+  await down.reload();
+  await expect(down.locator('.chip')).toHaveText(['2 more downloads', 'until 2099-12-31 23:59']);
+  await expect(down.getByRole('button', { name: /^Download FLAC/ })).toBeVisible();
+  await expect(down.locator('main')).not.toContainText('care home');
 
   // A share without a limit plays the sermon on the page, and listening is not counted.
   const free = await (await page.request.post('api/shares', { data: { kind: 'download', recording: folder, formats: ['mp3'], label: 'Lytt' } })).json();
