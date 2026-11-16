@@ -39,7 +39,7 @@ func (p *Pipeline) renderMaster(ctx context.Context, dst string, length float64,
 	} else {
 		args = append(args, "-filter_complex", graph+";[cut]"+tidyF+"[out]", "-map", "[out]")
 	}
-	args = append(args, "-c:a", "flac", "-sample_fmt", "s32")
+	args = append(args, tempCodec...)
 	if err := p.runTo(ctx, tidy, length, args...); err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (p *Pipeline) renderMaster(ctx context.Context, dst string, length float64,
 	if comp := compressionFilters[p.Opt.CompressionName()]; comp != "" {
 		squeezed := tidyName(dst, "2")
 		p.cleanup = append(p.cleanup, squeezed)
-		if err := p.runTo(ctx, squeezed, length, "-i", tidy, "-af", fmt.Sprintf("volume=%.2fdB,%s", gain, comp), "-c:a", "flac", "-sample_fmt", "s32"); err != nil {
+		if err := p.runTo(ctx, squeezed, length, append([]string{"-i", tidy, "-af", fmt.Sprintf("volume=%.2fdB,%s", gain, comp)}, tempCodec...)...); err != nil {
 			return err
 		}
 		if m, err = p.FF.Measure(ctx, squeezed); err != nil {
