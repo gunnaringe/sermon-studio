@@ -1596,6 +1596,7 @@ test('processing: the church\'s defaults in Settings; a recording goes back to t
     await expect(page.getByRole('heading', { name: 'Processing' })).toBeVisible();
     await expect(settings).toBeVisible();
     await settings.locator('select[name=compression]').selectOption('strong');
+    await settings.locator('select[name=expander]').selectOption('light');
     await settings.locator('input[name=fadeIn]').fill('2');
     await settings.getByLabel('Opus bitrate Stereo').fill('80k');
     await settings.locator('select[name=lowCutChoice]').selectOption('80');
@@ -1610,7 +1611,7 @@ test('processing: the church\'s defaults in Settings; a recording goes back to t
     await page.getByRole('heading', { name: 'Processing' }).scrollIntoViewIfNeeded();
     await settings.screenshot({ path: path.join(shots, 'settings-processing.png') });
     const defaults = async () => (await (await page.request.get('api/config')).json()).defaults;
-    expect((await defaults()).processing).toMatchObject({ compression: 'strong', fadeIn: 2, lowCut: 80, declick: 0, stereoLevels: { opusBitrate: '80k' },
+    expect((await defaults()).processing).toMatchObject({ compression: 'strong', expander: 'light', fadeIn: 2, lowCut: 80, declick: 0, stereoLevels: { opusBitrate: '80k' },
       formats: { flac: false, mp3: true, opus: false } });
     expect((await defaults()).start).toMatchObject({ flac: false, mp3: true, opus: false }); // a new recording starts with them
 
@@ -1657,6 +1658,7 @@ test('processing: the choices are kept with the sermon, and a sample can be hear
   await editor(page, () => window.__editor.addSection(10, 90));
   await page.locator('select[name=leveling]').selectOption('gentle');
   await page.locator('select[name=compression]').selectOption('normal');
+  await page.locator('select[name=expander]').selectOption('strong');
   await page.locator('input[name=roomSound]').fill('40');
   await page.locator('input[name=noiseReduction]').fill('8');
   await page.locator('input[name=targetLufs]').fill('-17');
@@ -1664,13 +1666,14 @@ test('processing: the choices are kept with the sermon, and a sample can be hear
     const st = sermonOf('2026/2026-10-04');
     return (st.adjusted || st.saved)?.sound;
   };
-  await expect.poll(sound, { timeout: 15_000 }).toMatchObject({ leveling: 'gentle', compression: 'normal', roomSound: 40, noiseReduction: 8, targetLufs: -17, stereo: false });
+  await expect.poll(sound, { timeout: 15_000 }).toMatchObject({ leveling: 'gentle', compression: 'normal', expander: 'strong', roomSound: 40, noiseReduction: 8, targetLufs: -17, stereo: false });
 
   // Back after a reload, from the sermon rather than from what was last used.
   await page.reload();
   await page.waitForFunction(() => window.__editor && window.__editor.ws.getDuration() > 0, null, { timeout: 60_000 });
   await expect(page.locator('select[name=leveling]')).toHaveValue('gentle');
   await expect(page.locator('select[name=compression]')).toHaveValue('normal');
+  await expect(page.locator('select[name=expander]')).toHaveValue('strong');
   await expect(page.locator('input[name=roomSound]')).toHaveValue('40');
   await expect(page.locator('input[name=targetLufs]')).toHaveValue('-17');
 

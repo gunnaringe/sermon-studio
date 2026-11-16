@@ -114,7 +114,7 @@ export function processingPart(ed) {
       ...config.defaults.processing,
       stereo: opts.stereo, noiseReduction: Math.round(opts.noiseReduction), noiseMethod: opts.noiseMethod, roomSound: opts.roomSound,
       ...Object.fromEntries(REPAIR_KEYS.map((k) => [k, opts[k]])),
-      leveling: opts.leveling, compression: opts.compression, truePeak: opts.truePeak,
+      leveling: opts.leveling, compression: opts.compression, expander: opts.expander, truePeak: opts.truePeak,
       fadeIn: opts.fadeIn, fadeOut: opts.fadeOut,
       [opts.stereo ? 'stereoLevels' : 'mono']: levels,
     };
@@ -172,6 +172,12 @@ export function processingPart(ed) {
       h('option', { value, selected: (opts.noiseMethod || '') === value }, label))));
     const repair = repairControls(opts, () => ed.changed(), field);
     const strengths = (off, a, b, c) => [['off', off], ['gentle', a], ['normal', b], ['strong', c]];
+    // Quieter pauses: off is kept out of what is saved, as files made before it have none.
+    const expander = field(t('Quieter pauses'), h('select', { name: 'expander', onchange: (e) => {
+      opts.expander = e.target.value === 'off' ? undefined : e.target.value;
+      ed.changed();
+    } }, [['off', t('Off')], ['light', t('compression|Light')], ['normal', t('Normal')], ['strong', t('Strong')]].map(([value, label]) =>
+      h('option', { value, selected: (opts.expander || 'off') === value }, label))));
 
     const sample = h('audio', { class: 'player', controls: true, hidden: true, 'aria-label': t('The sample') });
     const sampleStatus = h('span', { class: 'muted', role: 'status' });
@@ -218,7 +224,9 @@ export function processingPart(ed) {
       group(t('Levels'),
         choice('leveling', t('Leveling'), strengths(t('Off'), t('Gentle'), t('Normal'), t('Strong'))),
         choice('compression', t('Compression'), [['off', t('Off')], ['light', t('compression|Light')], ['normal', t('Normal')], ['strong', t('Strong')]]),
-        hint(t('Leveling brings quiet speech and loud parts closer. Compression narrows the loudness range further: light is usually enough.'))),
+        hint(t('Leveling brings quiet speech and loud parts closer. Compression narrows the loudness range further: light is usually enough.')),
+        expander,
+        hint(t('Quieter pauses turns the sound down between words, so hiss is heard less. Too strong can cut off the ends of soft words: listen to a sample.'))),
       group(t('Loudness'),
         num('targetLufs', t('Target loudness (LUFS)'), 0.5, -70, -5),
         num('truePeak', t('Max true peak (dBTP)'), 0.1, -20, 0),

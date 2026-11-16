@@ -27,6 +27,9 @@ func (p *Pipeline) renderMaster(ctx context.Context, dst string, length float64,
 	if err != nil {
 		return err
 	}
+	if err := p.speechLevel(ctx, args, graph); err != nil {
+		return err
+	}
 	tidyF, err := p.tidyFilter()
 	if err != nil {
 		return err
@@ -86,6 +89,37 @@ func (p *Pipeline) renderMaster(ctx context.Context, dst string, length float64,
 		p.logf("%.1f LUFS after the limiter; %+.1f dB more.", got.LUFS, miss)
 		gain += miss
 	}
+}
+
+// SpeechLevel is the loudness (LUFS) Speech takes the noise out at: its network was trained on speech at a
+// normal level, and in a much quieter recording it takes the voice for noise and turns it down too.
+const SpeechLevel = -30
+
+// speechLevel sets preGain, the gain that brings a sermon quieter than SpeechLevel up to it before Speech
+// (measured from the cut input: args and graph as cutInput gives them). Other methods are left as they are:
+// the standard one does as well or better at the recording's own level.
+func (p *Pipeline) speechLevel(ctx context.Context, args []string, graph string) error {
+	p.preGain = 0
+	if p.Opt.NoiseMethodName() != "speech" {
+		return nil
+	}
+	measure := "ebur128=framelog=quiet"
+	if graph == "" {
+		args = append(args, "-map", "0:a:0", "-af", measure)
+	} else {
+		args = append(args, "-filter_complex", graph+";[cut]"+measure+"[out]", "-map", "[out]")
+	}
+	res, err := p.FF.Run(ctx, append(args, "-f", "null", "-")...)
+	if err != nil {
+		return err
+	}
+	lufs, err := lastFloat(reLUFS, res.Stderr, "integrated loudness")
+	if err != nil || lufs < -70 || lufs >= SpeechLevel {
+		return nil // silent (said later) or loud enough
+	}
+	p.preGain = math.Min(SpeechLevel-lufs, 50)
+	p.logf("The sermon is %.1f LUFS: raised %.1f dB before Speech, which works on speech at a normal level.", lufs, p.preGain)
+	return nil
 }
 
 // Sample renders seconds of the recording from start with the processing in o (no cuts, pauses or fades) as an

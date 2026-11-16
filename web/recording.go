@@ -275,11 +275,12 @@ func madeFrom(o normalizer.Options, format, clips string) string {
 		RoomSound                   int
 		Repair                      *normalizer.Repair `json:",omitempty"` // omitted when it does nothing: older fingerprints stay as they were
 		Leveling, Compression       string
+		Expander                    string `json:",omitempty"` // omitted when off: older fingerprints stay as they were
 		TargetLUFS, TruePeak        float64
 		Tags                        normalizer.Tags
 		Format, Bitrate             string
 		Clips                       string `json:",omitempty"` // omitted without clips: older fingerprints stay as they were
-	}{o.Start, o.End, o.FadeIn, o.FadeOut, o.Cuts, o.Pauses, o.Stereo, nr, noiseMethodKey(o), room, repairKey(o.Repair), o.LevelingName(), o.CompressionName(), o.TargetLUFS, o.TruePeak, o.Tags, format, bitrateFor(o, format), clips}
+	}{o.Start, o.End, o.FadeIn, o.FadeOut, o.Cuts, o.Pauses, o.Stereo, nr, noiseMethodKey(o), room, repairKey(o.Repair), o.LevelingName(), o.CompressionName(), expanderKey(o), o.TargetLUFS, o.TruePeak, o.Tags, format, bitrateFor(o, format), clips}
 	data, _ := json.Marshal(v)
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:8])
@@ -298,6 +299,14 @@ func repairKey(r normalizer.Repair) *normalizer.Repair {
 		return nil
 	}
 	return &r
+}
+
+// expanderKey is the expander in madeFrom: "" when it is off.
+func expanderKey(o normalizer.Options) string {
+	if m := o.ExpanderName(); m != "off" {
+		return m
+	}
+	return ""
 }
 
 // noiseMethodKey is the noise method in madeFrom: "" for the standard one.

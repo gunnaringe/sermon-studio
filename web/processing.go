@@ -23,6 +23,7 @@ type processing struct {
 	normalizer.Repair
 	Leveling     string        `json:"leveling"`
 	Compression  string        `json:"compression"`
+	Expander     string        `json:"expander,omitempty"` // "" = off
 	TruePeak     float64       `json:"truePeak"`
 	FadeIn       float64       `json:"fadeIn"`
 	FadeOut      float64       `json:"fadeOut"`
@@ -48,7 +49,7 @@ func builtinProcessing() processing {
 	m := requestFrom(normalizer.DefaultOptions())
 	return processing{
 		Stereo: m.Stereo, NoiseReduction: m.NoiseReduction, NoiseMethod: m.NoiseMethod, RoomSound: m.RoomSound, Repair: m.Repair,
-		Leveling: m.Leveling, Compression: m.Compression, TruePeak: m.TruePeak,
+		Leveling: m.Leveling, Compression: m.Compression, Expander: m.Expander, TruePeak: m.TruePeak,
 		FadeIn: m.FadeIn, FadeOut: m.FadeOut,
 		Mono: levelsOf(m), StereoLevels: levelsOf(stereoDefaults()),
 	}
@@ -58,7 +59,7 @@ func builtinProcessing() processing {
 func (p processing) request(stereo bool) runRequest {
 	q := requestFrom(normalizer.DefaultOptions())
 	q.Stereo, q.NoiseReduction, q.NoiseMethod, q.RoomSound, q.Leveling, q.Compression = stereo, p.NoiseReduction, p.NoiseMethod, p.RoomSound, p.Leveling, p.Compression
-	q.TruePeak, q.FadeIn, q.FadeOut, q.Repair = p.TruePeak, p.FadeIn, p.FadeOut, p.Repair
+	q.TruePeak, q.FadeIn, q.FadeOut, q.Repair, q.Expander = p.TruePeak, p.FadeIn, p.FadeOut, p.Repair, p.Expander
 	l := p.Mono
 	if stereo {
 		l = p.StereoLevels

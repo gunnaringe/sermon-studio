@@ -95,6 +95,8 @@ export async function processingView(box, saved) {
       roomNote,
       choice('leveling', t('Leveling'), strengths(['gentle', t('Gentle')])),
       choice('compression', t('Compression'), strengths(['light', t('compression|Light')])),
+      row(t('Quieter pauses'), h('select', { name: 'expander', onchange: (e) => { p.expander = e.target.value === 'off' ? undefined : e.target.value; touched(); } },
+        strengths(['light', t('compression|Light')]).map(([value, text]) => h('option', { value, selected: (p.expander || 'off') === value }, text)))),
       pair(t('Target loudness (LUFS)'), (o, label) => num(o, 'targetLufs', 0.5, -70, -5, label)),
       row(t('Max true peak (dBTP)'), num(p, 'truePeak', 0.1, -20, 0, t('Max true peak (dBTP)'))),
       pair(t('MP3 bitrate'), (o, label) => text(o, 'mp3Bitrate', label)),

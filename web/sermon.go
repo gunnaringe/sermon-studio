@@ -45,6 +45,7 @@ type soundSettings struct {
 	normalizer.Repair
 	Leveling    string  `json:"leveling"`
 	Compression string  `json:"compression"`
+	Expander    string  `json:"expander,omitempty"` // "" = off
 	TargetLUFS  float64 `json:"targetLufs"`
 	TruePeak    float64 `json:"truePeak"`
 	Mp3Bitrate  string  `json:"mp3Bitrate"`
@@ -57,7 +58,7 @@ func (s *soundSettings) applyTo(q *runRequest) {
 		return
 	}
 	q.Stereo, q.NoiseReduction, q.NoiseMethod, q.RoomSound, q.Leveling, q.Compression = s.Stereo, s.NoiseReduction, s.NoiseMethod, s.RoomSound, s.Leveling, s.Compression
-	q.TargetLUFS, q.TruePeak, q.Mp3Bitrate, q.OpusBitrate, q.Repair = s.TargetLUFS, s.TruePeak, s.Mp3Bitrate, s.OpusBitrate, s.Repair
+	q.TargetLUFS, q.TruePeak, q.Mp3Bitrate, q.OpusBitrate, q.Repair, q.Expander = s.TargetLUFS, s.TruePeak, s.Mp3Bitrate, s.OpusBitrate, s.Repair, s.Expander
 }
 
 // withSound is c with the church's processing as its sound when it has none (saved before the sound was
@@ -66,7 +67,7 @@ func (c sermonSettings) withSound(p processing) sermonSettings {
 	if c.Sound == nil {
 		q := p.start()
 		c.Sound = &soundSettings{Stereo: q.Stereo, NoiseReduction: q.NoiseReduction, NoiseMethod: q.NoiseMethod, RoomSound: q.RoomSound, Repair: q.Repair, Leveling: q.Leveling,
-			Compression: q.Compression, TargetLUFS: q.TargetLUFS, TruePeak: q.TruePeak, Mp3Bitrate: q.Mp3Bitrate, OpusBitrate: q.OpusBitrate}
+			Compression: q.Compression, Expander: q.Expander, TargetLUFS: q.TargetLUFS, TruePeak: q.TruePeak, Mp3Bitrate: q.Mp3Bitrate, OpusBitrate: q.OpusBitrate}
 	}
 	return c
 }

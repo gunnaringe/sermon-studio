@@ -141,8 +141,11 @@ Each can have a label, which shows on the waveform.
   **Keep room sound** (how much of the room's own sound, such as its reverb, is kept: less reduction or more room sound sounds more natural); with Speech, 80 % or more shows a note, since at 100 % it takes nothing out). A sermon recorded very
   quietly (its loud parts at -30 dB or lower, where -12 to -6 is usual) shows a warning above the noise choices: it is raised to
   the target loudness, and its hiss with it, so raise the recording level at the mixer; Standard at 20 to 30 dB helps such a
-  recording.
-  *Levels*: **Leveling** (off, gentle, normal, strong) and **Compression** (off, light, normal, strong). *Loudness*: the target
+  recording. Speech works on speech at a normal level, so a sermon quieter than -30 LUFS is raised to it before Speech
+  (otherwise it would take the voice for noise and turn it down too).
+  *Levels*: **Leveling** (off, gentle, normal, strong), **Compression** (off, light, normal, strong) and **Quieter pauses**
+  (off, light, normal, strong: the sound between words is turned down, at most 10, 20 or 30 dB, so the hiss there is heard
+  less; too strong can cut off the ends of soft words, so listen to a sample). *Loudness*: the target
   (LUFS) and the true-peak ceiling. *Encoding*: the MP3 and Opus bitrates. **Hear a sample** makes 30 seconds from the playhead with
   the settings, to listen to before the whole sermon is made (cuts, pauses and fades are not applied). A recording starts with
   the church's defaults (**Settings → Processing**: the same choices, loudness and bitrates for mono and for stereo, and the fade
