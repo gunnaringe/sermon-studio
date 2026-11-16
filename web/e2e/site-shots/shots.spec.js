@@ -138,7 +138,6 @@ for (const [lang, L] of Object.entries(LANGS).filter(([l]) => !only.length || on
     await detail.locator('button[name=share-download]').click();
     const dialog = page.getByRole('dialog');
     await dialog.locator('input[name=label]').fill(L.share);
-    await dialog.locator('input[name=maxDownloads]').fill('20');
     await dialog.locator('input[name=expires]').fill('2026-12-31');
     await shot('share');
     await dialog.getByRole('button', { name: T('Make share'), exact: true }).click();

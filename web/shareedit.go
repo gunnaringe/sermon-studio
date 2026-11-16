@@ -13,7 +13,7 @@ import (
 
 // handleShareUpdate changes a share: PUT api/shares/{id} with the share as POST api/shares takes it. Its name,
 // description and expiry, and what it allows: an upload share's file types and limits; a download share's formats,
-// transcript and number of downloads (not its recording or version, which make another share). The code, the
+// and transcript (not its recording or version, which make another share). The code, the
 // counts and the log stay. A share that had ended (expired, used up) is open again when the change allows more;
 // downloads going on of a format it no longer gives stop.
 func (a *App) handleShareUpdate(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +69,7 @@ func (a *App) handleShareUpdate(w http.ResponseWriter, r *http.Request) {
 		sh.Expires = &e
 	}
 	if sh.Kind == kindDownload {
-		sh.Formats, sh.AllFormats, sh.Transcript, sh.MaxDownloads = next.Formats, next.AllFormats, next.Transcript, next.MaxDownloads
+		sh.Formats, sh.AllFormats, sh.Transcript = next.Formats, next.AllFormats, next.Transcript
 		for tid, tk := range sh.Tickets {
 			if !sh.gives(tk.Format) {
 				delete(sh.Tickets, tid)
@@ -87,7 +87,7 @@ func (a *App) handleShareUpdate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"share": sh.view(now)})
 }
 
-// changedDownload is the download share old with q's formats, transcript, limit and description, checked against
+// changedDownload is the download share old with q's formats, transcript and description, checked against
 // its recording as it is now (shareable): what it gives must be there.
 func (a *App) changedDownload(t *tenant, old *Share, q shareRequest, now time.Time) (*Share, error) {
 	var picked []string
@@ -104,8 +104,6 @@ func (a *App) changedDownload(t *tenant, old *Share, q shareRequest, now time.Ti
 	switch {
 	case !q.AllFormats && (len(picked) == 0 || len(picked) != len(q.Formats)):
 		return nil, fmt.Errorf("choose formats from %s", strings.Join(downloadFormats, ", "))
-	case q.MaxDownloads < 0:
-		return nil, errors.New("limits cannot be negative")
 	case q.Expires != nil && !q.Expires.After(now):
 		return nil, errors.New("the expiry is in the past")
 	}
@@ -123,5 +121,5 @@ func (a *App) changedDownload(t *tenant, old *Share, q shareRequest, now time.Ti
 	if err := t.srv.shareable(abs, paths, formats, q.AllFormats, old.SermonOnly, q.Transcript); err != nil {
 		return nil, err
 	}
-	return &Share{Formats: picked, AllFormats: q.AllFormats, Transcript: q.Transcript, MaxDownloads: q.MaxDownloads, Description: desc}, nil
+	return &Share{Formats: picked, AllFormats: q.AllFormats, Transcript: q.Transcript, Description: desc}, nil
 }

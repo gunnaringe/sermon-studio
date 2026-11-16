@@ -150,7 +150,6 @@ test('a finished sermon shared for download', async ({ page, context }) => {
   await page.locator('tr.detail-row').getByRole('button', { name: 'Share for download…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Share for download' });
   await dialog.locator('input[name=label]').fill('For the homebound');
-  await dialog.locator('input[name=maxDownloads]').fill('10');
   await dialog.locator('input[name=expires]').fill('2026-12-31');
   await shot(page, '20-share-download');
   await dialog.getByRole('button', { name: 'Make share' }).click();

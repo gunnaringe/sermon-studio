@@ -252,7 +252,7 @@ can be removed, with its list of uploads; its code then works no more, and the f
 A share can have a **description**, a note for the church only (who it is for, what to remember); it
 is shown in the list and never on the share page. **Edit…** on a share changes its name, description,
 expiry and what it allows, keeping its code, counts and log: an upload share's file types and limits, a
-download share's formats, transcript and number of downloads (its recording and version stay; another
+download share's formats and transcript (its recording and version stay; another
 recording needs another share). A share that had ended opens again when the change allows more; a
 download going on of a format no longer given stops.
 
@@ -281,8 +281,9 @@ removed once they have sat untouched for a day; the server looks every hour.
 
 **Share for download…** on a finished sermon (in its row on the recordings page) makes a code that lets
 someone without a login download it (only a saved sermon is shared): **Recording**, or **Recording and transcript**
-(when it has one); all formats, also ones made later, unless **Limit formats** leaves some out; a name, and optionally
-how many downloads and an expiry. A share makes nothing: Save in the editor makes the files, and the dialog says which
+(when it has one); all formats, also ones made later, unless **Limit formats** leaves some out; a name, and an expiry: in
+30 days unless changed (**Never** keeps it open until it is paused or removed). There is no limit on the number of
+downloads; the count is shown. A share makes nothing: Save in the editor makes the files, and the dialog says which
 are not made yet. While a run is making a file the share gives, the share page says it is *being prepared*. The
 transcript is given as text and as captions (WebVTT), and is not counted as a download. The code and the link are shown once, as for uploads,
 and the share is listed under **Shares** with its downloads (file, size, address, time); it is
@@ -294,8 +295,7 @@ The share page shows the sermon's title and a button per file. A press counts on
 it from an address that works for 6 hours without the code, so the browser can download it and continue
 a download that broke; pressing again for the same file, from the same address, in that time counts
 nothing. **▶ Listen** plays the sermon on the page (MP3 when the share gives it, else Opus or FLAC). Listening is
-not counted as a download and is not in the share's log, but it needs a code that can still be used. Only a
-share without a limit on its downloads has it: the file a player gets could be kept. A share follows its sermon when it is renamed or given another date, and gives the files as they
+not counted as a download and is not in the share's log, but it needs a code that can still be used. A share follows its sermon when it is renamed or given another date, and gives the files as they
 are now, also after a new Save. While the sermon is in the trash the page says it is no longer available;
 restored, it works again.
 

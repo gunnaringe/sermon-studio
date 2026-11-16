@@ -101,11 +101,11 @@ test('the theme is automatic, or light, or dark', async ({ page }) => {
 
 test.describe('the public upload page', () => {
   test.use({ locale: 'nb-NO' });
-  test('is translated, with its own language choice and the link to the repo', async ({ page }) => {
+  test('is translated, with its own language choice and the link to Sermon Studio', async ({ page }) => {
     await page.goto('http://localhost:8081/');
     await expect(page.getByRole('heading', { name: 'Skriv inn koden' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fortsett' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Kildekode på GitHub' })).toHaveAttribute('href', REPO);
+    await expect(page.getByRole('link', { name: 'Laget med Sermon Studio' })).toHaveAttribute('href', 'https://sermon-studio.app');
     await page.getByLabel('Kode').fill('AAAA-BBBB-CCCC-DDDD');
     await page.getByRole('button', { name: 'Fortsett' }).click();
     await expect(page.getByRole('alert')).toContainText('ukjent kode'); // the server's message, translated
