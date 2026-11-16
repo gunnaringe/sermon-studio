@@ -211,7 +211,6 @@ func TestShareDownloadRefusals(t *testing.T) {
 		`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":[],"label":"None"}`,
 		`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":""}`,
 		`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":"Past","expires":"2020-01-01T00:00:00Z"}`,
-		`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":"A limit","maxDownloads":2}`,
 		`{"kind":"download","recording":"2026/2026-11-01","formats":["mp3"],"label":"No such recording"}`,
 		`{"kind":"download","recording":"","formats":["mp3"],"label":"The root"}`,
 		`{"kind":"download","recording":"../kirke","formats":["mp3"],"label":"Outside"}`,
@@ -479,5 +478,20 @@ func TestShareListen(t *testing.T) {
 	}
 	if c, _ := listen(code, "1.1.1.1", "txt"); c != http.StatusBadRequest {
 		t.Errorf("listening to the transcript: %d", c)
+	}
+}
+
+// A studio page loaded before download shares lost their limit still sends maxDownloads: it is ignored, and
+// the share gives as many downloads as are asked for.
+func TestShareDownloadOldPage(t *testing.T) {
+	st, code := downloadTest(t, `{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":"Old page","maxDownloads":1}`)
+	for _, ip := range []string{"1.1.1.1", "2.2.2.2"} {
+		if c, _ := st.download(code, ip, "mp3"); c != http.StatusCreated {
+			t.Errorf("download from %s: %d", ip, c)
+		}
+	}
+	id := decode[struct{ Shares []shareView }](t, do(st.studio, "GET", "/api/shares", "")).Shares[0].ID
+	if w := do(st.studio, "PUT", "/api/shares/"+id, `{"label":"Old page","formats":["mp3"],"maxDownloads":3}`); w.Code != http.StatusOK {
+		t.Errorf("edit from an old page: %d %s", w.Code, w.Body)
 	}
 }

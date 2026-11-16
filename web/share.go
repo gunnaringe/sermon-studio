@@ -487,20 +487,23 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 
 // shareRequest is a share as the studio sends it: POST api/shares to make one, PUT api/shares/{id} to change one.
 type shareRequest struct {
-	Kind        string     `json:"kind"` // "" or kindUpload, kindDownload
-	Recording   string     `json:"recording"`
-	Formats     []string   `json:"formats"`
-	AllFormats  bool       `json:"allFormats"`
-	Transcript  bool       `json:"transcript"`
-	SermonOnly  bool       `json:"sermonOnly"`
-	Label       string     `json:"label"`
-	Description string     `json:"description"`
-	Expires     *time.Time `json:"expires"` // nil = never
-	MaxUploads  int        `json:"maxUploads"`
-	MaxFileSize int64      `json:"maxFileSize"`
-	MaxTotal    int64      `json:"maxTotal"`
-	Types       []string   `json:"types"`
-	AllTypes    bool       `json:"allTypes"`
+	Kind       string   `json:"kind"` // "" or kindUpload, kindDownload
+	Recording  string   `json:"recording"`
+	Formats    []string `json:"formats"`
+	AllFormats bool     `json:"allFormats"`
+	Transcript bool     `json:"transcript"`
+	SermonOnly bool     `json:"sermonOnly"`
+	// MaxDownloads is ignored: download shares have no limit any more. Kept so a studio page loaded before
+	// that (it sends maxDownloads) can still make and change shares.
+	MaxDownloads int        `json:"maxDownloads"`
+	Label        string     `json:"label"`
+	Description  string     `json:"description"`
+	Expires      *time.Time `json:"expires"` // nil = never
+	MaxUploads   int        `json:"maxUploads"`
+	MaxFileSize  int64      `json:"maxFileSize"`
+	MaxTotal     int64      `json:"maxTotal"`
+	Types        []string   `json:"types"`
+	AllTypes     bool       `json:"allTypes"`
 }
 
 // uploadShare is the upload share q asks for (its limits, name and description), checked.

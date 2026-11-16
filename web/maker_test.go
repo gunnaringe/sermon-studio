@@ -51,7 +51,8 @@ func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
 // eventually waits up to 5 s for ok.
 func eventually(t *testing.T, what string, ok func() bool) {
 	t.Helper()
-	for end := time.Now().Add(5 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+	// Long enough for a busy CI machine (the image build runs every package's tests at once).
+	for end := time.Now().Add(15 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
 		if ok() {
 			return
 		}

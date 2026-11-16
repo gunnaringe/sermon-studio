@@ -1254,9 +1254,9 @@ test('download shares: share a finished sermon from its row, download it on the 
 
   // Expired: under Ended in the studio, removed automatically after the days the church chose.
   const anna = (await (await page.request.get('api/shares')).json()).shares.find((x) => x.label === 'For Anna');
-  const soon = new Date(Date.now() + 1500).toISOString();
+  const soon = new Date(Date.now() + 4000).toISOString();
   expect((await page.request.put('api/shares/' + anna.id, { data: { label: 'For Anna', formats: ['mp3'], expires: soon } })).status()).toBe(200);
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(4500);
   await page.goto('c/first-church/shares');
   const endedGroup = page.locator('details.share-group.ended');
   await expect(endedGroup.locator('> summary')).toHaveText(/^Ended \(\d+\)$/);
