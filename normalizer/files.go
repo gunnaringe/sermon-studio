@@ -2,15 +2,18 @@ package normalizer
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
 )
 
-func exists(path string) bool { _, err := os.Stat(path); return err == nil }
+func exists(path string) bool { return Exists(path) }
 
 func firstExisting(paths ...string) string {
 	for _, s := range paths {
@@ -62,6 +65,9 @@ func SameContent(a, b string) (bool, error) {
 }
 
 func fileHash(path string) ([]byte, error) {
+	if err := NeedFile(context.Background(), path); err != nil {
+		return nil, err
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -76,6 +82,9 @@ func fileHash(path string) ([]byte, error) {
 
 // CopyFile copies src to dst and syncs it to disk.
 func CopyFile(src, dst string) error {
+	if err := NeedFile(context.Background(), src); err != nil {
+		return err
+	}
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -100,6 +109,9 @@ func CopyFile(src, dst string) error {
 // while Windows says the file is in use: a preview being played, a virus scanner looking at a new file.
 // Elsewhere a file in use can be renamed and removed, and they are the os ones.
 func Rename(oldpath, newpath string) error {
+	if err := NeedFile(context.Background(), oldpath); err != nil { // kept elsewhere: renamed on the disk
+		return err
+	}
 	err := retry(func() error { return os.Rename(oldpath, newpath) })
 	if err == nil && Changed != nil {
 		Changed(oldpath, newpath)
@@ -108,8 +120,15 @@ func Rename(oldpath, newpath string) error {
 }
 
 func Remove(path string) error {
+	st, lerr := os.Lstat(path)
+	if errors.Is(lerr, fs.ErrNotExist) && Forget != nil {
+		if _, ok := elsewhere(path); ok {
+			return Forget(path)
+		}
+	}
 	err := retry(func() error { return os.Remove(path) })
-	if err == nil && Changed != nil {
+	// An empty folder has nothing to remove elsewhere: only files kept there may be under it.
+	if err == nil && Changed != nil && (lerr != nil || !st.IsDir()) {
 		Changed(path, "")
 	}
 	return err

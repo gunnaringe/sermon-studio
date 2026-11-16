@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -210,6 +211,7 @@ func (s *Server) handleOwnClipAudio(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	fetchFor(r.Context(), ownClipFile(abs, which))
 	f, err := os.Open(ownClipFile(abs, which))
 	if err != nil {
 		writeError(w, http.StatusNotFound, errNoClip)
@@ -273,6 +275,9 @@ func (s *Server) handleOwnClipAdd(w http.ResponseWriter, r *http.Request) {
 
 // copyFile copies src to dst through a hidden file next to it, renamed when whole.
 func copyFile(src, dst string) error {
+	if err := fetchFor(context.Background(), src); err != nil {
+		return err
+	}
 	in, err := os.Open(src)
 	if err != nil {
 		return err

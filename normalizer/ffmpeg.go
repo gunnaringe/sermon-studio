@@ -39,6 +39,9 @@ func (f FFmpeg) run(ctx context.Context, progress func(seconds float64), args []
 		// Every 0.1 s instead of 0.5: on a fast machine a step can be over before the first report.
 		full = append(full, "-progress", "pipe:1", "-stats_period", "0.1")
 	}
+	if err := NeedInputs(ctx, args); err != nil {
+		return Result{}, err
+	}
 	cmd := command(ctx, f.Bin, append(full, GuardInputs(args)...), f.background)
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out

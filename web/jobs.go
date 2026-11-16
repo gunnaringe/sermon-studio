@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -406,4 +405,5 @@ func (s *Server) handleJobEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 // fileExists is a small helper for the inbox.
-func fileExists(path string) bool { _, err := os.Stat(path); return err == nil }
+// fileExists reports whether path is there: on the disk, or kept only in the bucket (fetch.go).
+func fileExists(path string) bool { return normalizer.Exists(path) }

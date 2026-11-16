@@ -69,7 +69,7 @@ func (s *Server) entry(abs string) folderEntry {
 		e.Convert, e.Prepare = stage == "convert", stage != "" && stage != "convert"
 	}
 	for _, o := range outputsOf(paths) {
-		if _, err := os.Stat(o.path); err == nil {
+		if fileExists(o.path) {
 			e.Outputs = append(e.Outputs, o.format)
 		}
 	}
@@ -647,7 +647,7 @@ func (s *Server) outputStatus(paths normalizer.Paths, o normalizer.Options, clip
 	out := map[string]outputState{}
 	for _, x := range runOutputs(paths, clips) {
 		var st outputState
-		if _, err := os.Stat(x.path); err == nil {
+		if fileExists(x.path) {
 			m, ok := made[x.format]
 			st = outputState{Exists: true, Known: ok, Stale: ok && m.From != madeFrom(o, baseFormat(x.format), clipsOf(x, clips))}
 		}

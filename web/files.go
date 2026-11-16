@@ -28,6 +28,8 @@ type fileRecord struct {
 	Size     int64     `json:"size"`
 	Modified time.Time `json:"modified"`
 	SHA256   string    `json:"sha256"`
+	// Bucket: kept only in the bucket, not on the disk (object storage, fetch.go).
+	Bucket bool `json:"bucket,omitempty"`
 }
 
 // filesOf are the files of a recording folder as they are on the disk now: the path in the folder (with
@@ -96,6 +98,7 @@ func (s *Server) syncFiles(folder string) (added, changed, gone int) {
 	moved := map[string]bool{} // old names of files renamed
 	for rel, d := range disk {
 		if r, ok := old[rel]; ok && r.same(d) {
+			r.Bucket = false // on the disk again: fetched
 			next[rel] = r
 			continue
 		}
@@ -116,6 +119,11 @@ func (s *Server) syncFiles(folder string) (added, changed, gone int) {
 		}
 		d.SHA256 = sum
 		next[rel] = d
+	}
+	for rel, r := range old {
+		if _, there := disk[rel]; r.Bucket && !there {
+			next[rel] = r // kept in the bucket only
+		}
 	}
 	for rel := range next {
 		switch r, ok := old[rel]; {
@@ -145,14 +153,20 @@ func (s *Server) syncFiles(folder string) (added, changed, gone int) {
 	}); err != nil {
 		s.cfg.Logger.Printf("%s: files: %v", s.display(folder), err)
 	}
+	if afterSync != nil {
+		afterSync(s, folder)
+	}
 	return
 }
+
+// afterSync, set only by tests, is called when a recording's files record changed (SERMON_TEST_EVICT).
+var afterSync func(s *Server, folder string)
 
 // renamedFrom is the old name of a file that is not on the disk any more under it but has the size and time of
 // d: the same file, renamed (the studio renames a recording's files with it). Each old name is taken once.
 func renamedFrom(old, disk map[string]fileRecord, d fileRecord, taken map[string]bool) (string, bool) {
 	for rel, r := range old {
-		if _, still := disk[rel]; !still && !taken[rel] && r.same(d) {
+		if _, still := disk[rel]; !still && !taken[rel] && !r.Bucket && r.same(d) {
 			return rel, true
 		}
 	}

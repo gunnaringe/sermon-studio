@@ -62,7 +62,7 @@ type recStamp struct {
 }
 
 func stampOf(path string) (recStamp, bool) {
-	st, err := os.Stat(path)
+	st, err := normalizer.Stat(path)
 	if err != nil {
 		return recStamp{}, false
 	}

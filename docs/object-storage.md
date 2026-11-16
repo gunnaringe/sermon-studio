@@ -7,8 +7,9 @@ Contabo, Backblaze B2, Hetzner, AWS, or your own (MinIO, Garage, RustFS).
 With the `--blob-*` settings, `serve` keeps a copy of `--data-dir` in the bucket as it works. Without them, nothing
 changes: everything is only in `--data-dir` (the desktop app has no bucket at all).
 
-**Not there yet:** starting a new machine from the bucket (an empty disk that gets everything back), and the disk as
-a cache of limited size. Until then the bucket is a copy kept up to date, and the disk still has everything.
+**Not there yet:** starting a new machine from the bucket, and removing files from the disk that are not used
+(see [Files only in the bucket](#files-only-in-the-bucket)). Until then the bucket is a copy kept up to date, and the
+disk still has everything.
 
 ## What goes to the bucket, and when
 
@@ -28,6 +29,21 @@ a cache of limited size. Until then the bucket is a copy kept up to date, and th
 At start, then every hour, the studio puts in the bucket whatever it lacks (a file changed outside the studio, one a
 crash left out) and reports objects only the bucket has. **It never deletes an object because the disk lacks the
 file**: an empty or wrong disk cannot empty the bucket.
+
+## Files only in the bucket
+
+A recording's file can be kept in the bucket alone. Its files record says so (`"bucket": true` under `files` in
+`recording.json`), and the studio still lists it, shows it and plans runs with it. It is fetched when something needs
+to read it: a run, an analysis, a sample, a transcript, a download, a rename. Each fetched file is checked against its
+SHA-256 in the record, and keeps the time it had, so it is not taken for changed or put in the bucket again. Removing it
+(deleting the original or a format, the trash) removes it from the bucket and the record.
+
+A file leaves the disk only once the record has it as it is now and the bucket has it as uploaded after its last
+change, with nothing for it waiting in the journal and no work going on in its recording. The JSON files, drafts and
+the cache always stay on the disk; so far so do the church's clips and logo, which have no files record yet.
+
+**Not there yet:** nothing removes files from the disk by itself so far. That comes with the settings for how long an
+unused file stays (30 days by default) and how much the disk may hold.
 
 ## One studio per bucket
 
@@ -86,3 +102,7 @@ It ends with an error when something needed is missing.
 
 `scripts/test.sh blob` runs the tests of package `blob` against RustFS in a container (MinIO no longer publishes
 images). CI does the same on Linux (`test.yml`).
+
+`SERMON_TEST_EVICT=1 go test ./web/` runs the studio's tests with every recording's file kept only in the bucket as
+soon as it is recorded and uploaded: what reads a file without fetching it shows up there. Tests that read the disk
+themselves skip in this mode (`skipIfEvicting`).
