@@ -157,7 +157,7 @@ func (a *App) keepDiskOnce(now time.Time, opt DiskOptions) {
 		}
 		var records []filesRecord
 		for _, e := range s.allRecordings() {
-			records = append(records, recordOf(filepath.Join(s.root, filepath.FromSlash(e.Path))))
+			records = append(records, s.record(filepath.Join(s.root, filepath.FromSlash(e.Path))))
 		}
 		if fr, ok := s.churchRecord(); ok {
 			records = append(records, fr)

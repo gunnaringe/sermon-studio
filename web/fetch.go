@@ -129,9 +129,14 @@ func (fr filesRecord) change(fn func(map[string]fileRecord) error) error {
 	return err
 }
 
-// recordOf is the record of a recording folder.
+// recordOf is the record of a recording folder, for a path as the mirror has it (normed).
 func recordOf(folder string) filesRecord {
 	return filesRecord{folder: folder, file: statePath(folder), srv: serverOf(folder)}
+}
+
+// record is the record of one of the server's own recording folders (a path under its root as it has it).
+func (s *Server) record(folder string) filesRecord {
+	return filesRecord{folder: folder, file: statePath(folder), srv: s}
 }
 
 // churchRecord is the record of a church's files, for its server.

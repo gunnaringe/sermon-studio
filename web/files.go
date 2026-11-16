@@ -91,7 +91,7 @@ func (r fileRecord) same(disk fileRecord) bool {
 // syncFiles brings a recording's files record up to date with its folder; it says what changed, for the log.
 // A file that changes while it is read is left for the next time.
 func (s *Server) syncFiles(folder string) (added, changed, gone int) {
-	return s.syncRecord(recordOf(folder), filesOf)
+	return s.syncRecord(s.record(folder), filesOf)
 }
 
 // syncChurchFiles is syncFiles for the church's own files (churchFilesOf), recorded in church.json.

@@ -51,7 +51,7 @@ func (ft *fetchTest) put(rel, data string) {
 
 func (ft *fetchTest) evict(rel string) {
 	ft.t.Helper()
-	if err := ft.srv.evict(context.Background(), recordOf(ft.folder), rel); err != nil {
+	if err := ft.srv.evict(context.Background(), ft.srv.record(ft.folder), rel); err != nil {
 		ft.t.Fatalf("evict %s: %v", rel, err)
 	}
 	if _, err := os.Stat(filepath.Join(ft.folder, filepath.FromSlash(rel))); err == nil {
@@ -200,7 +200,7 @@ func TestEvictRefuses(t *testing.T) {
 
 	// Changed since it was recorded.
 	os.WriteFile(mp3, []byte("ID3 another"), 0o644)
-	if err := ft.srv.evict(context.Background(), recordOf(ft.folder), "2026-10-18.mp3"); !errors.Is(err, errNotEvicted) {
+	if err := ft.srv.evict(context.Background(), ft.srv.record(ft.folder), "2026-10-18.mp3"); !errors.Is(err, errNotEvicted) {
 		t.Errorf("changed: %v", err)
 	}
 
@@ -210,7 +210,7 @@ func TestEvictRefuses(t *testing.T) {
 	ft.b.mu.Unlock()
 	ft.put("2026-10-18.txt", "Hei.")
 	ft.srv.syncFiles(ft.folder)
-	if err := ft.srv.evict(context.Background(), recordOf(ft.folder), "2026-10-18.txt"); !errors.Is(err, errNotEvicted) {
+	if err := ft.srv.evict(context.Background(), ft.srv.record(ft.folder), "2026-10-18.txt"); !errors.Is(err, errNotEvicted) {
 		t.Errorf("not uploaded: %v", err)
 	}
 	if !fileExists(filepath.Join(ft.folder, "2026-10-18.txt")) {
@@ -218,7 +218,7 @@ func TestEvictRefuses(t *testing.T) {
 	}
 
 	// Things that stay on the disk.
-	if err := ft.srv.evict(context.Background(), recordOf(ft.folder), "recording.json"); !errors.Is(err, errNotEvicted) {
+	if err := ft.srv.evict(context.Background(), ft.srv.record(ft.folder), "recording.json"); !errors.Is(err, errNotEvicted) {
 		t.Errorf("recording.json: %v", err)
 	}
 }
@@ -228,7 +228,7 @@ func TestFetchNoBucket(t *testing.T) {
 	ts := newTestServer(t, normalizer.FFmpeg{})
 	folder := filepath.Join(ts.root, "2026-10-18")
 	ts.file(t, "2026-10-18/2026-10-18.mp3", "mp3")
-	if err := ts.evict(context.Background(), recordOf(folder), "2026-10-18.mp3"); !errors.Is(err, errNotEvicted) {
+	if err := ts.evict(context.Background(), ts.record(folder), "2026-10-18.mp3"); !errors.Is(err, errNotEvicted) {
 		t.Errorf("evicted without a bucket: %v", err)
 	}
 	if got := elsewhereFiles(folder); got != nil {
