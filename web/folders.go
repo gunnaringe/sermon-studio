@@ -31,6 +31,8 @@ type folderEntry struct {
 	Convert bool     `json:"converting"` // the recording is being converted (normalizer.ConvertsTo)
 	Prepare bool     `json:"preparing"`  // the waveform and preview are being made
 	Job     string   `json:"job,omitempty"`
+	// Making is "waiting" while its files are still to be made (maker.go) and no run of it is there yet.
+	Making string `json:"making,omitempty"`
 	// Saved: the editor has a saved version (the recording is done); Outdated:
 	// some of its files were made from another cut than that.
 	Saved    bool `json:"saved"`
@@ -75,6 +77,8 @@ func (s *Server) entry(abs string) folderEntry {
 	e.Pending = e.Raw && len(e.Outputs) < 3
 	if j := s.jobs.active(e.Path); j != nil {
 		e.Job = j.ID
+	} else if s.maker.waiting(e.Path) {
+		e.Making = "waiting"
 	}
 	if e.Date {
 		st := readState(abs)
@@ -84,8 +88,10 @@ func (s *Server) entry(abs string) folderEntry {
 		if st.Saved != nil {
 			e.Saved = true
 			cut := savedCut(*st.Saved)
-			for _, m := range st.Outputs {
-				e.Outdated = e.Outdated || (m.Cut != "" && m.Cut != cut)
+			for f, m := range st.Outputs {
+				if f != transcriptFormat { // the transcript says itself whether it is of another cut
+					e.Outdated = e.Outdated || (m.Cut != "" && m.Cut != cut)
+				}
 			}
 		}
 	}
@@ -265,6 +271,8 @@ type folderInfo struct {
 	// MakeError why they could not be made the last time.
 	Making    string `json:"making,omitempty"`
 	MakeError string `json:"makeError,omitempty"`
+	// MakingFormats are the formats being made (by its run) or to be made (waiting).
+	MakingFormats []string `json:"makingFormats,omitempty"`
 }
 
 type outputFileInfo struct {
@@ -300,8 +308,20 @@ func (s *Server) folderInfo(abs string) (folderInfo, error) {
 	if s.cfg.transcriber != nil {
 		info.Transcript = s.transcript(paths, st)
 	}
-	if s.maker.waiting(info.Path) {
+	waiting := s.maker.waiting(info.Path)
+	if waiting {
 		info.Making = "waiting"
+	}
+	if j := s.jobs.active(info.Path); j != nil {
+		info.MakingFormats = j.Formats
+	} else if waiting {
+		if _, todo := s.toMake(abs); todo != nil {
+			for _, f := range []string{"flac", "mp3", "opus"} {
+				if todo.has(f) {
+					info.MakingFormats = append(info.MakingFormats, f)
+				}
+			}
+		}
 	}
 	info.MakeError = s.maker.failure(info.Path)
 	if j := s.jobs.latest(info.Path); j != nil {

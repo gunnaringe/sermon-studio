@@ -102,6 +102,7 @@ type Server struct {
 	limits   *limits // shared by all churches: AppConfig.ParallelRuns encodes, one decode at a time
 	jobs     *jobs
 	maker    *maker
+	scanned  chan struct{} // closed once the start's scan for files to make is done
 	analyses *analyses
 	inbox    *inboxWatcher
 	meta     metaStore
@@ -160,9 +161,11 @@ func New(cfg Config) (*Server, error) {
 	s.maker = newMaker(s)
 	// What a restart stopped, or a Save before the files were made by themselves. Only reading: not busy
 	// (the runs it queues are); Close waits for it.
+	s.scanned = make(chan struct{})
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
+		defer close(s.scanned)
 		s.scanToMake()
 	}()
 	s.analyses = newAnalyses(s)

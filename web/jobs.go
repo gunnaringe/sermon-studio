@@ -24,8 +24,9 @@ const keepFinished = 50
 
 // job is one pipeline run for a date folder.
 type job struct {
-	ID     string
-	Folder string // relative to the root
+	ID      string
+	Folder  string   // relative to the root
+	Formats []string // the formats it makes
 
 	mu       sync.Mutex
 	state    string // queued, running, done, failed, cancelled
@@ -54,6 +55,7 @@ type jobSnapshot struct {
 	Remaining float64          `json:"remaining,omitempty"`
 	Error     string           `json:"error,omitempty"`
 	Outputs   []outputFileInfo `json:"outputs"`
+	Formats   []string         `json:"formats"` // the formats it makes
 }
 
 func (j *job) snapshot() jobSnapshot {
@@ -65,6 +67,7 @@ func (j *job) snapshot() jobSnapshot {
 		Warnings: append([]string{}, j.warnings...), Progress: j.progress, Error: j.err,
 		Outputs:   append([]outputFileInfo{}, j.outputs...),
 		Remaining: remaining(j.stepAt, j.progress),
+		Formats:   j.Formats,
 	}
 }
 
@@ -168,7 +171,16 @@ func (js *jobs) start(pl plan) (*job, error) {
 	id := make([]byte, 8)
 	rand.Read(id)
 	ctx, cancel := context.WithCancel(js.s.ctx)
-	j := &job{ID: hex.EncodeToString(id), Folder: folder, state: "queued",
+	var formats []string
+	for _, f := range []struct {
+		name string
+		on   bool
+	}{{"flac", pl.opt.Outputs.Flac}, {"mp3", pl.opt.Outputs.Mp3}, {"opus", pl.opt.Outputs.Opus}} {
+		if f.on {
+			formats = append(formats, f.name)
+		}
+	}
+	j := &job{ID: hex.EncodeToString(id), Folder: folder, Formats: formats, state: "queued",
 		subs: map[chan struct{}]struct{}{}, cancel: cancel, finished: make(chan struct{})}
 	js.byID[j.ID] = j
 	js.all = append(js.all, j)
