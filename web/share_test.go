@@ -619,8 +619,7 @@ func TestSharePausedState(t *testing.T) {
 // A share that has ended is removed by itself when it ended longer ago than the church keeps them
 // (30 days unless chosen; 0 = never). Open and paused ones stay.
 func TestShareEndedAreRemoved(t *testing.T) {
-	st, used := downloadTest(t, `{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":"Used up","maxDownloads":1}`)
-	st.download(used, "1.1.1.1", "mp3")
+	st, _ := downloadTest(t, `{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":"Download expired"}`)
 	for _, label := range []string{"Expired long ago", "Expired lately", "Paused", "Open"} {
 		st.makeShare(`{"label":"` + label + `","allTypes":true,"expires":"2099-01-01T00:00:00Z"}`)
 	}
@@ -634,7 +633,7 @@ func TestShareEndedAreRemoved(t *testing.T) {
 	shares["Expired long ago"].Expires = &long
 	shares["Expired lately"].Expires = &lately
 	shares["Paused"].Paused = true
-	shares["Used up"].Log[0].Time = long
+	shares["Download expired"].Expires = &long
 	st.app.shareMu.Unlock()
 	labels := func() []string {
 		var out []string

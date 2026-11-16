@@ -40,7 +40,6 @@ func (st *shareTest) save(dir string) {
 
 type downloadInfoView struct {
 	Kind, Title, Date, State string
-	DownloadsLeft            *int
 	Preparing                []string
 	Files                    []struct {
 		Format string
@@ -85,9 +84,9 @@ func readAll(resp *http.Response) string {
 var escape = url.QueryEscape
 
 func TestShareDownload(t *testing.T) {
-	st, code := downloadTest(t, `{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3","flac"],"maxDownloads":2,"label":"For Anna"}`)
+	st, code := downloadTest(t, `{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3","flac"],"label":"For Anna"}`)
 	info := st.info(code)
-	if info.Kind != "download" || info.Title == "" || info.Date != "2026-10-18" || info.State != "" || *info.DownloadsLeft != 2 ||
+	if info.Kind != "download" || info.Title == "" || info.Date != "2026-10-18" || info.State != "" ||
 		len(info.Files) != 2 || info.Files[0].Format != "flac" || info.Files[1].Size != int64(len("ID3 the mp3 file")) {
 		t.Fatalf("info: %+v", info)
 	}
@@ -107,9 +106,6 @@ func TestShareDownload(t *testing.T) {
 	if c, again := st.download(code, "1.1.1.1", "mp3"); c != http.StatusOK || again != addr {
 		t.Errorf("again: %d %q", c, again)
 	}
-	if left := *st.info(code).DownloadsLeft; left != 1 {
-		t.Errorf("downloads left: %d", left)
-	}
 	resp := st.fetch(addr, "")
 	if b := readAll(resp); resp.StatusCode != http.StatusOK || b != "ID3 the mp3 file" || resp.Header.Get("Content-Type") != "audio/mpeg" ||
 		resp.Header.Get("Content-Disposition") != `attachment; filename="2026-10-18 Advent.mp3"` {
@@ -125,17 +121,14 @@ func TestShareDownload(t *testing.T) {
 	if c, _ := st.download(code, "2.2.2.2", "flac"); c != http.StatusCreated {
 		t.Errorf("second download: %d", c)
 	}
-	if c, _ := st.download(code, "3.3.3.3", "mp3"); c != http.StatusForbidden {
-		t.Errorf("a third, of two: %d", c)
+	if c, _ := st.download(code, "3.3.3.3", "mp3"); c != http.StatusCreated {
+		t.Errorf("a third: there is no limit on downloads: %d", c)
 	}
-	if info := st.info(code); info.State != "used up" || *info.DownloadsLeft != 0 {
-		t.Errorf("used up: %+v", info)
-	}
-	if c, again := st.download(code, "1.1.1.1", "mp3"); c != http.StatusOK || again != addr {
-		t.Errorf("one already counted still works when used up: %d", c)
+	if info := st.info(code); info.State != "" {
+		t.Errorf("still open: %+v", info)
 	}
 	list := decode[struct{ Shares []shareView }](t, do(st.studio, "GET", "/api/shares", ""))
-	if s := list.Shares[0]; s.Kind != "download" || s.Count != 2 || len(s.Log) != 2 || s.Log[0].Name != "2026-10-18 Advent.flac" || s.Resumable != 2 || s.Downloading != 0 || s.Missing {
+	if s := list.Shares[0]; s.Kind != "download" || s.Count != 3 || len(s.Log) != 3 || s.Log[0].Name != "2026-10-18 Advent.mp3" || s.Resumable != 3 || s.Downloading != 0 || s.Missing {
 		t.Errorf("in the studio: %+v", s)
 	}
 	// A wrong ticket counts as a wrong code; an expired one has ended.
@@ -218,7 +211,7 @@ func TestShareDownloadRefusals(t *testing.T) {
 		`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":[],"label":"None"}`,
 		`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":""}`,
 		`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":"Past","expires":"2020-01-01T00:00:00Z"}`,
-		`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":"Negative","maxDownloads":-1}`,
+		`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"label":"A limit","maxDownloads":2}`,
 		`{"kind":"download","recording":"2026/2026-11-01","formats":["mp3"],"label":"No such recording"}`,
 		`{"kind":"download","recording":"","formats":["mp3"],"label":"The root"}`,
 		`{"kind":"download","recording":"../kirke","formats":["mp3"],"label":"Outside"}`,
@@ -376,7 +369,7 @@ func TestShareDownloadAllFormatsAndTranscript(t *testing.T) {
 	refused(`"allFormats":true`, "save the sermon in the editor first")
 	st.save(dir)
 
-	code, view := st.makeShare(`{"kind":"download",` + rec + `,"allFormats":true,"maxDownloads":5}`)
+	code, view := st.makeShare(`{"kind":"download",` + rec + `,"allFormats":true}`)
 	if !view.AllFormats || strings.Join(view.Formats, ",") != "flac,mp3,opus" {
 		t.Errorf("view: %+v", view)
 	}
@@ -397,7 +390,7 @@ func TestShareDownloadAllFormatsAndTranscript(t *testing.T) {
 	os.WriteFile(data, tf, 0o644)
 	os.WriteFile(text, []byte("Hei.\n"), 0o644)
 	os.WriteFile(captions, []byte("WEBVTT\n"), 0o644)
-	code, view = st.makeShare(`{"kind":"download",` + rec + `,"allFormats":true,"transcript":true,"maxDownloads":5}`)
+	code, view = st.makeShare(`{"kind":"download",` + rec + `,"allFormats":true,"transcript":true}`)
 	if !view.Transcript {
 		t.Errorf("view: %+v", view)
 	}
@@ -406,7 +399,7 @@ func TestShareDownloadAllFormatsAndTranscript(t *testing.T) {
 	for _, f := range info.Files {
 		formats = append(formats, f.Format)
 	}
-	if strings.Join(formats, ",") != "mp3,opus,txt,vtt" || *info.DownloadsLeft != 5 {
+	if strings.Join(formats, ",") != "mp3,opus,txt,vtt" {
 		t.Fatalf("info: %+v", info)
 	}
 	c, addr := st.download(code, "1.1.1.1", "txt")
@@ -416,12 +409,20 @@ func TestShareDownloadAllFormatsAndTranscript(t *testing.T) {
 	if c != http.StatusCreated || string(got) != "Hei.\n" || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
 		t.Errorf("text: %d %q %s", c, got, resp.Header.Get("Content-Type"))
 	}
-	if left := *st.info(code).DownloadsLeft; left != 5 {
-		t.Errorf("the transcript was counted: %d left", left)
+	counted := func() int {
+		for _, s := range decode[struct{ Shares []shareView }](t, do(st.studio, "GET", "/api/shares", "")).Shares {
+			if s.ID == view.ID {
+				return s.Count
+			}
+		}
+		return -1
+	}
+	if n := counted(); n != 0 {
+		t.Errorf("the transcript was counted: %d", n)
 	}
 	st.download(code, "1.1.1.1", "mp3")
-	if left := *st.info(code).DownloadsLeft; left != 4 {
-		t.Errorf("the MP3 was not counted: %d left", left)
+	if n := counted(); n != 1 {
+		t.Errorf("the MP3 was not counted: %d", n)
 	}
 	// A share without the transcript does not give it.
 	plain, _ := st.makeShare(`{"kind":"download",` + rec + `,"formats":["mp3"]}`)
@@ -478,9 +479,5 @@ func TestShareListen(t *testing.T) {
 	}
 	if c, _ := listen(code, "1.1.1.1", "txt"); c != http.StatusBadRequest {
 		t.Errorf("listening to the transcript: %d", c)
-	}
-	limited, _ := st.makeShare(`{"kind":"download","recording":"2026/2026-10-18 Advent","formats":["mp3"],"maxDownloads":3,"label":"Tre"}`)
-	if c, _ := listen(limited, "1.1.1.1", "mp3"); c != http.StatusForbidden {
-		t.Errorf("listening on a share with a limit: %d", c)
 	}
 }

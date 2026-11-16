@@ -27,7 +27,6 @@ function limits(s) {
   if (s.kind === 'download') {
     return [(s.allFormats ? t('all formats') : s.formats.map((f) => FORMAT_NAMES[f] || f).join(' ')) + (s.sermonOnly ? ' (' + t('sermon only') + ')' : '')
       + (s.transcript ? ' + ' + t('transcript') : ''),
-      s.maxDownloads ? tn(s.maxDownloads, 'up to {n} download', 'up to {n} downloads') : t('no download limit'),
       s.expires ? t('until {time}', { time: formatDateTime(s.expires) }) : t('no expiry')].join(' · ');
   }
   const out = [t('up to {size} per file', { size: formatSize(s.maxFileSize) }), s.allTypes ? t('all audio') : s.types.join(' ')];
@@ -302,7 +301,7 @@ function shareGroups(data, refresh, { compact = false } = {}) {
 }
 
 // editShare changes a share in a dialog: its name, description and expiry, and what it allows (an upload share's
-// file types and limits, a download share's formats, transcript and downloads). The code stays. false = not changed.
+// file types and limits, a download share's formats and transcript). The code stays. false = not changed.
 async function editShare(s, data) {
   const label = h('input', { type: 'text', name: 'label', id: 'edit-label', maxlength: 80, value: s.label });
   const description = descriptionInput(s.description || '');
@@ -315,13 +314,11 @@ async function editShare(s, data) {
     const boxes = Object.keys(FORMAT_NAMES).map((f) => h('input', { type: 'checkbox', name: 'format', value: f, checked: s.allFormats || s.formats.includes(f) }));
     const list = h('span', { hidden: s.allFormats }, boxes.map((b) => h('label', { class: 'check' }, b, ' ' + FORMAT_NAMES[b.value] + ' ')));
     const transcript = h('input', { type: 'checkbox', name: 'transcript', checked: s.transcript });
-    const max = num('maxDownloads', s.maxDownloads, { step: 1 });
     fields = [
       h('span', {}, t('Formats')), h('span', {}, h('label', { class: 'check' }, all, ' ' + t('All formats, also ones made later')), h('br'), list),
-      h('span', {}, t('Transcript')), h('label', { class: 'check' }, transcript, ' ' + t('Also its text and captions')),
-      h('label', {}, t('Max downloads')), max];
+      h('span', {}, t('Transcript')), h('label', { class: 'check' }, transcript, ' ' + t('Also its text and captions'))];
     body = () => ({ allFormats: all.checked, formats: all.checked ? [] : boxes.filter((b) => b.checked).map((b) => b.value),
-      transcript: transcript.checked, maxDownloads: Number(max.value) || 0 });
+      transcript: transcript.checked });
   } else {
     const all = h('input', { type: 'checkbox', name: 'allTypes', checked: s.allTypes, onchange: () => { list.hidden = all.checked; } });
     const boxes = data.types.map((x) => h('input', { type: 'checkbox', name: 'type', value: x, checked: s.allTypes || s.types.includes(x) }));

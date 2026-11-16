@@ -22,8 +22,8 @@ import (
 // address of the file that works for ticketFor, so the browser can download
 // and resume it (Range) without the code, and without counting again.
 // Listening gets a ticket too, for the page's player: the file sent inline,
-// not counted as a download, while the code can still be used; only a share
-// without a limit on its downloads has it.
+// not counted as a download, while the code can still be used. A download
+// share has no limit on its downloads: its expiry ends it.
 
 const (
 	kindUpload   = "upload"
@@ -164,20 +164,19 @@ func (a *App) findRecordings(t *tenant, only *Share) map[*Share]string {
 
 // downloadRequest is a download share asked for: POST api/shares with kind "download".
 type downloadRequest struct {
-	Recording    string
-	Formats      []string // when not AllFormats
-	AllFormats   bool     // every format, also ones made later
-	Transcript   bool     // and the transcript
-	SermonOnly   bool
-	MaxDownloads int
-	Expires      *time.Time
-	Description  string
+	Recording   string
+	Formats     []string // when not AllFormats
+	AllFormats  bool     // every format, also ones made later
+	Transcript  bool     // and the transcript
+	SermonOnly  bool
+	Expires     *time.Time
+	Description string
 }
 
 // createDownloadShare makes a download share of a saved recording, of the files made (shareable): POST
 // api/shares with kind "download". It makes nothing: Save in the editor makes every format.
 func (a *App) createDownloadShare(w http.ResponseWriter, t *tenant, label string, q downloadRequest) {
-	rec, formats, sermonOnly, maxDownloads, expires := q.Recording, q.Formats, q.SermonOnly, q.MaxDownloads, q.Expires
+	rec, formats, sermonOnly, expires := q.Recording, q.Formats, q.SermonOnly, q.Expires
 	s := t.srv
 	abs, err := s.resolve(rec)
 	if err != nil || rec == "" || !s.entry(abs).Date {
@@ -207,8 +206,6 @@ func (a *App) createDownloadShare(w http.ResponseWriter, t *tenant, label string
 	case err != nil:
 	case !q.AllFormats && (len(picked) == 0 || len(picked) != len(formats)):
 		err = fmt.Errorf("choose formats from %s", strings.Join(downloadFormats, ", "))
-	case maxDownloads < 0:
-		err = errors.New("limits cannot be negative")
 	case expires != nil && !expires.After(time.Now()):
 		err = errors.New("the expiry is in the past")
 	case sermonOnly && !slices.ContainsFunc(sermonOnlyOutputs(paths), func(o output) bool { return fileExists(o.path) }):
@@ -231,7 +228,7 @@ func (a *App) createDownloadShare(w http.ResponseWriter, t *tenant, label string
 		return
 	}
 	a.addShare(w, t, &Share{Kind: kindDownload, Recording: s.relPath(abs), RecordingID: st.ID, Formats: picked, AllFormats: q.AllFormats,
-		Transcript: q.Transcript, SermonOnly: sermonOnly, MaxDownloads: maxDownloads, Description: desc}, label, expires)
+		Transcript: q.Transcript, SermonOnly: sermonOnly, Description: desc}, label, expires)
 }
 
 // shareable tells why a download share of the recording cannot be made: it is not saved, a format it gives has
@@ -287,9 +284,6 @@ func (a *App) downloadInfo(w http.ResponseWriter, t *tenant, sh *Share) {
 	state := sh.state(time.Now())
 	info := map[string]any{"kind": kindDownload, "label": sh.Label, "church": t.info().Name, "expires": sh.Expires,
 		"logo": t.logoFile() != ""}
-	if sh.MaxDownloads > 0 {
-		info["downloadsLeft"] = max(0, sh.MaxDownloads-sh.Count)
-	}
 	a.shareMu.Unlock()
 	files, preparing := []map[string]any{}, []string{}
 	if abs == "" {
@@ -363,10 +357,6 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	}
 	if !sh.gives(q.Format) || (q.Listen && !slices.Contains(downloadFormats, q.Format)) {
 		writeError(w, http.StatusBadRequest, errors.New("this code does not give that format"))
-		return
-	}
-	if q.Listen && sh.MaxDownloads > 0 { // a player's file can be kept too: it would get round the limit
-		writeError(w, http.StatusForbidden, errors.New("this code gives a number of downloads, not listening"))
 		return
 	}
 	abs := a.findRecordings(t, sh)[sh]

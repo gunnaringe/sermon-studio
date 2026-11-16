@@ -1204,7 +1204,14 @@ test('download shares: share a finished sermon from its row, download it on the 
   for (const f of ['FLAC', 'Opus']) await dialog.getByLabel(f).uncheck();
   await expect(what).toHaveText('✓ Ready: MP3');
   await dialog.locator('input[name=label]').fill('For Anna');
-  await dialog.locator('input[name=maxDownloads]').fill('1');
+  // It ends by itself in 30 days unless changed; there is no limit on the number of downloads.
+  await expect(dialog.locator('input[name=maxDownloads]')).toHaveCount(0);
+  const month = new Date();
+  month.setDate(month.getDate() + 30);
+  const day = (d) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  await expect(dialog.locator('input[name=expires]')).toHaveValue(day(month));
+  await expect(dialog.locator('input[name=expiresTime]')).toHaveValue('');
+  await dialog.locator('input[name=expires]').fill('');
   await dialog.locator('input[name=expiresTime]').fill('12:00'); // a time, but no day
   await dialog.getByRole('button', { name: 'Make share' }).click();
   await page.getByRole('dialog', { name: 'Something went wrong' }).getByRole('button', { name: 'OK' }).click();
@@ -1227,7 +1234,7 @@ test('download shares: share a finished sermon from its row, download it on the 
   const down = await context.newPage();
   await down.goto(link);
   await expect(down.locator('.card-kicker')).toHaveText('Download a sermon');
-  await expect(down.locator('.chip')).toHaveText(['1 more download', 'until 2099-12-31 23:59']);
+  await expect(down.locator('.chip')).toHaveText(['until 2099-12-31 23:59']);
   await expect(down.getByRole('link', { name: 'Made with Sermon Studio' })).toHaveAttribute('href', 'https://sermon-studio.app');
   // On a phone, the footer is one line.
   await down.setViewportSize({ width: 360, height: 740 });
@@ -1237,23 +1244,26 @@ test('download shares: share a finished sermon from its row, download it on the 
   await down.screenshot({ path: path.join(shots, 'phone-share-download.png') });
   await down.setViewportSize({ width: 1280, height: 800 });
   await expect(down.getByRole('button', { name: /^Download FLAC/ })).toHaveCount(0);
-  // A share with a limit on its downloads has no player (its file could be kept).
-  await expect(down.getByRole('button', { name: '▶ Listen' })).toHaveCount(0);
+  await expect(down.getByRole('button', { name: '▶ Listen' })).toBeVisible(); // every share has the player
   const [file] = await Promise.all([down.waitForEvent('download'), down.getByRole('button', { name: /^Download MP3/ }).click()]);
   expect(file.suggestedFilename()).toBe('2025-12-24 Christmas.mp3');
   expect(fs.readFileSync(await file.path()).equals(mp3)).toBe(true);
   await expect(down.getByText('The download has started.')).toBeVisible();
-  await expect(down.locator('.chip')).toHaveText(['no downloads left', 'until 2099-12-31 23:59']);
+  await expect(down.locator('.chip')).toHaveText(['until 2099-12-31 23:59']);
   await down.screenshot({ path: path.join(shots, 'share-download.png') });
 
-  // Used up: under Ended in the studio, removed automatically after the days the church chose.
+  // Expired: under Ended in the studio, removed automatically after the days the church chose.
+  const anna = (await (await page.request.get('api/shares')).json()).shares.find((x) => x.label === 'For Anna');
+  const soon = new Date(Date.now() + 1500).toISOString();
+  expect((await page.request.put('api/shares/' + anna.id, { data: { label: 'For Anna', formats: ['mp3'], expires: soon } })).status()).toBe(200);
+  await page.waitForTimeout(2000);
   await page.goto('c/first-church/shares');
   const endedGroup = page.locator('details.share-group.ended');
   await expect(endedGroup.locator('> summary')).toHaveText(/^Ended \(\d+\)$/);
   await endedGroup.locator('> summary').click();
   const row = endedGroup.locator('.share', { hasText: 'For Anna' });
   await expect(row).toContainText('Download of 2025-12-24 Christmas');
-  await expect(row).toContainText('used up');
+  await expect(row).toContainText('expired');
   await expect(row).toContainText('1 download ·');
   await expect(row).toContainText(/Removed automatically on \d{4}-\d{2}-\d{2}\./);
   await row.locator('summary', { hasText: 'Downloads' }).click();
@@ -1272,29 +1282,29 @@ test('download shares: share a finished sermon from its row, download it on the 
   await expect(own.locator('details.share-group.ended > summary')).toHaveText('Ended (1)');
   await expect(own.locator('details.share-group')).toHaveCount(1);
 
-  // Edit…: more downloads, the FLAC too, and a description only the church sees. The code stays, and works again.
+  // Edit…: a later expiry, the FLAC too, and a description only the church sees. The code stays, and works again.
   await page.goto('c/first-church/shares');
   await endedGroup.locator('> summary').click();
   await row.getByRole('button', { name: 'Edit…' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit share' });
   await expect(edit.locator('input[name=label]')).toHaveValue('For Anna');
-  await expect(edit.locator('input[name=expires]')).toHaveValue('2099-12-31');
-  await expect(edit.locator('input[name=expiresTime]')).toHaveValue('');
+  await expect(edit.locator('input[name=maxDownloads]')).toHaveCount(0);
+  await edit.locator('input[name=expires]').fill('2099-12-31');
+  await edit.locator('input[name=expiresTime]').fill('');
   await edit.locator('textarea[name=description]').fill('Anna at the care home.\nAsk her son first.');
-  await edit.locator('input[name=maxDownloads]').fill('3');
   await edit.getByLabel('FLAC').check();
   await page.screenshot({ path: path.join(shots, 'share-edit.png') });
   await edit.getByRole('button', { name: 'Save' }).click();
   await expect(edit).toBeHidden();
   const reopened = page.locator('details.share-group:not(.ended) .share', { hasText: 'For Anna' });
   await expect(reopened).toContainText('Anna at the care home.');
-  await expect(reopened).toContainText('FLAC MP3 · up to 3 downloads');
+  await expect(reopened).toContainText('FLAC MP3 · until 2099-12-31 23:59');
   await down.reload();
-  await expect(down.locator('.chip')).toHaveText(['2 more downloads', 'until 2099-12-31 23:59']);
+  await expect(down.locator('.chip')).toHaveText(['until 2099-12-31 23:59']);
   await expect(down.getByRole('button', { name: /^Download FLAC/ })).toBeVisible();
   await expect(down.locator('main')).not.toContainText('care home');
 
-  // A share without a limit plays the sermon on the page, and listening is not counted.
+  // The player plays the sermon on the page, and listening is not counted.
   const free = await (await page.request.post('api/shares', { data: { kind: 'download', recording: folder, formats: ['mp3'], label: 'Lytt' } })).json();
   const listen = await context.newPage();
   await listen.goto('http://localhost:8081/#code=' + free.code);

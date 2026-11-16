@@ -64,15 +64,14 @@ type Share struct {
 	Paused      bool       `json:"paused,omitempty"`   // takes no uploads until resumed
 
 	// A download share: the recording (its path, kept up to date, and its id in recording.json), the
-	// formats it gives, and how many downloads it allows (0 = no limit). Count and Log are its downloads.
-	Recording    string                     `json:"recording,omitempty"`
-	RecordingID  string                     `json:"recordingId,omitempty"`
-	Formats      []string                   `json:"formats,omitempty"`
-	AllFormats   bool                       `json:"allFormats,omitempty"` // every format, also ones made later (Formats unused)
-	Transcript   bool                       `json:"transcript,omitempty"` // and the transcript, its text and captions
-	SermonOnly   bool                       `json:"sermonOnly,omitempty"` // the sermon without its intro and outro (<date>_sermon.*)
-	MaxDownloads int                        `json:"maxDownloads,omitempty"`
-	Tickets      map[string]*downloadTicket `json:"tickets,omitempty"` // by ticket id
+	// formats it gives. Count and Log are its downloads; there is no limit on them, the expiry ends it.
+	Recording   string                     `json:"recording,omitempty"`
+	RecordingID string                     `json:"recordingId,omitempty"`
+	Formats     []string                   `json:"formats,omitempty"`
+	AllFormats  bool                       `json:"allFormats,omitempty"` // every format, also ones made later (Formats unused)
+	Transcript  bool                       `json:"transcript,omitempty"` // and the transcript, its text and captions
+	SermonOnly  bool                       `json:"sermonOnly,omitempty"` // the sermon without its intro and outro (<date>_sermon.*)
+	Tickets     map[string]*downloadTicket `json:"tickets,omitempty"`    // by ticket id
 
 	Count   int                       `json:"count"` // finished uploads
 	Bytes   int64                     `json:"bytes"`
@@ -136,7 +135,7 @@ func (sh *Share) state(now time.Time) string {
 	switch {
 	case sh.Expires != nil && now.After(*sh.Expires):
 		return "expired"
-	case sh.MaxUploads > 0 && sh.Count >= sh.MaxUploads, sh.MaxDownloads > 0 && sh.Count >= sh.MaxDownloads:
+	case sh.MaxUploads > 0 && sh.Count >= sh.MaxUploads:
 		return "used up"
 	case sh.MaxTotal > 0 && sh.Bytes >= sh.MaxTotal:
 		return "full"
@@ -301,15 +300,14 @@ type shareView struct {
 	Uploading   int           `json:"uploading"`
 	Log         []ShareUpload `json:"log"`
 
-	Recording    string   `json:"recording,omitempty"` // a download share's
-	Formats      []string `json:"formats,omitempty"`
-	AllFormats   bool     `json:"allFormats,omitempty"`
-	Transcript   bool     `json:"transcript,omitempty"`
-	SermonOnly   bool     `json:"sermonOnly,omitempty"`
-	MaxDownloads int      `json:"maxDownloads"`
-	Downloading  int      `json:"downloading"`       // files being sent now
-	Resumable    int      `json:"resumable"`         // counted downloads that can still be fetched or resumed
-	Missing      bool     `json:"missing,omitempty"` // its recording is not there (in the trash)
+	Recording   string   `json:"recording,omitempty"` // a download share's
+	Formats     []string `json:"formats,omitempty"`
+	AllFormats  bool     `json:"allFormats,omitempty"`
+	Transcript  bool     `json:"transcript,omitempty"`
+	SermonOnly  bool     `json:"sermonOnly,omitempty"`
+	Downloading int      `json:"downloading"`       // files being sent now
+	Resumable   int      `json:"resumable"`         // counted downloads that can still be fetched or resumed
+	Missing     bool     `json:"missing,omitempty"` // its recording is not there (in the trash)
 
 	Ended    *time.Time `json:"ended,omitempty"`    // when it ended (expired, used up, full)
 	RemoveAt *time.Time `json:"removeAt,omitempty"` // when it is removed by itself, if the church does that
@@ -326,7 +324,7 @@ func (sh *Share) view(now time.Time) shareView {
 		MaxUploads: sh.MaxUploads, MaxFileSize: sh.MaxFileSize, MaxTotal: sh.MaxTotal, Types: sh.types(), AllTypes: sh.AllTypes,
 		State: sh.state(now), Count: sh.Count, Bytes: sh.Bytes, Uploading: n, Log: log}
 	if sh.Kind == kindDownload {
-		v.Kind, v.Types, v.MaxFileSize, v.Recording, v.Formats, v.MaxDownloads = kindDownload, []string{}, 0, sh.Recording, sh.formats(), sh.MaxDownloads
+		v.Kind, v.Types, v.MaxFileSize, v.Recording, v.Formats = kindDownload, []string{}, 0, sh.Recording, sh.formats()
 		v.SermonOnly, v.AllFormats, v.Transcript = sh.SermonOnly, sh.AllFormats, sh.Transcript
 		for _, tk := range sh.Tickets {
 			if now.Before(tk.Expires) && !tk.Listen { // listening is not a download
@@ -467,7 +465,7 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 	label := strings.Join(strings.Fields(q.Label), " ")
 	if q.Kind == kindDownload {
 		a.createDownloadShare(w, t, label, downloadRequest{Recording: q.Recording, Formats: q.Formats, AllFormats: q.AllFormats,
-			Transcript: q.Transcript, SermonOnly: q.SermonOnly, MaxDownloads: q.MaxDownloads, Expires: q.Expires,
+			Transcript: q.Transcript, SermonOnly: q.SermonOnly, Expires: q.Expires,
 			Description: q.Description})
 		return
 	}
@@ -489,21 +487,20 @@ func (a *App) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 
 // shareRequest is a share as the studio sends it: POST api/shares to make one, PUT api/shares/{id} to change one.
 type shareRequest struct {
-	Kind         string     `json:"kind"` // "" or kindUpload, kindDownload
-	Recording    string     `json:"recording"`
-	Formats      []string   `json:"formats"`
-	AllFormats   bool       `json:"allFormats"`
-	Transcript   bool       `json:"transcript"`
-	SermonOnly   bool       `json:"sermonOnly"`
-	MaxDownloads int        `json:"maxDownloads"`
-	Label        string     `json:"label"`
-	Description  string     `json:"description"`
-	Expires      *time.Time `json:"expires"` // nil = never
-	MaxUploads   int        `json:"maxUploads"`
-	MaxFileSize  int64      `json:"maxFileSize"`
-	MaxTotal     int64      `json:"maxTotal"`
-	Types        []string   `json:"types"`
-	AllTypes     bool       `json:"allTypes"`
+	Kind        string     `json:"kind"` // "" or kindUpload, kindDownload
+	Recording   string     `json:"recording"`
+	Formats     []string   `json:"formats"`
+	AllFormats  bool       `json:"allFormats"`
+	Transcript  bool       `json:"transcript"`
+	SermonOnly  bool       `json:"sermonOnly"`
+	Label       string     `json:"label"`
+	Description string     `json:"description"`
+	Expires     *time.Time `json:"expires"` // nil = never
+	MaxUploads  int        `json:"maxUploads"`
+	MaxFileSize int64      `json:"maxFileSize"`
+	MaxTotal    int64      `json:"maxTotal"`
+	Types       []string   `json:"types"`
+	AllTypes    bool       `json:"allTypes"`
 }
 
 // uploadShare is the upload share q asks for (its limits, name and description), checked.

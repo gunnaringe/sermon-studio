@@ -185,7 +185,6 @@ const downloadName = (format) => format === 'txt' ? t('Download the transcript')
 
 function downloadLimits() {
   const parts = [];
-  if (info.downloadsLeft !== undefined) parts.push(info.downloadsLeft ? tn(info.downloadsLeft, '{n} more download', '{n} more downloads') : t('no downloads left'));
   if (info.expires) parts.push(t('until {time}', { time: formatDateTime(info.expires) }));
   return parts;
 }
@@ -226,8 +225,8 @@ function showDownload() {
     return b;
   });
   // Listen: a player for the sermon, from an address that is not counted as a download. MP3 first, as every
-  // browser plays it. Not for a share with a limit on its downloads: the player's file could be kept.
-  const playable = info.downloadsLeft === undefined && ['mp3', 'opus', 'flac'].map((f) => info.files.find((x) => x.format === f)).find(Boolean);
+  // browser plays it.
+  const playable = ['mp3', 'opus', 'flac'].map((f) => info.files.find((x) => x.format === f)).find(Boolean);
   const listen = h('p', { class: 'listen' });
   if (playable) {
     const button = h('button', { type: 'button', name: 'listen' }, t('▶ Listen'));

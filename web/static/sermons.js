@@ -301,7 +301,7 @@ export function sermonDetail(entry, ctx = {}) {
   }
 
   // shareButton makes a download share of a saved sermon's files: a code and a link that let someone without a
-  // login download them on the public share page, as often as it allows. The recording, or with its transcript;
+  // login download them on the public share page until it expires (in 30 days unless changed). The recording, or with its transcript;
   // all formats (also ones made later) unless limited. It makes nothing: Save in the editor makes the files.
   function shareButton(info) {
     return iconButton('button', SHARE_ICON, t('Share for download…'), { name: 'share-download', onclick: async () => {
@@ -321,8 +321,11 @@ export function sermonDetail(entry, ctx = {}) {
       const version = sermonOnly(info).length ? h('select', { name: 'version', id: 'download-version', onchange: () => draw() },
         h('option', { value: '' }, t('With intro and outro')), h('option', { value: 'sermon' }, t('Sermon only'))) : null;
       const label = h('input', { type: 'text', name: 'label', id: 'download-label', maxlength: 80, value: entry.name });
-      const max = h('input', { type: 'number', name: 'maxDownloads', min: 0, step: 1, placeholder: t('no limit') });
       const expires = expiryInput();
+      const month = new Date();
+      month.setDate(month.getDate() + 30);
+      month.setHours(23, 59, 0, 0);
+      expires.set(month.toISOString()); // a share ends by itself unless the church says otherwise
       const description = descriptionInput();
       const what = h('div', { class: 'share-what wide', 'aria-live': 'polite' });
       // draw says what the share gives: the files there, and those not made (shared once made, with all formats).
@@ -355,7 +358,6 @@ export function sermonDetail(entry, ctx = {}) {
             h('label', { for: 'download-label' }, t('Name')), label,
             h('span', {}, t('Description')), h('span', {}, description, h('span', { class: 'muted hint' }, t('Not shown to those who use the code.'))),
             version ? [h('label', { for: 'download-version' }, t('Version')), version] : '',
-            h('label', {}, t('Max downloads')), max,
             h('span', {}, t('Expires')), expires.el),
         ] });
         if (!ok) return;
@@ -365,7 +367,6 @@ export function sermonDetail(entry, ctx = {}) {
             kind: 'download', recording: entry.path, label: label.value, description: description.value,
             allFormats: formats.length === FORMATS.length, formats, transcript: withTranscript,
             sermonOnly: Boolean(version && version.value === 'sermon'),
-            maxDownloads: Number(max.value) || 0,
             expires: expires.value(),
           });
           await showCode(done.url, done.code, { download: true, expires: done.share.expires });
