@@ -10,7 +10,10 @@ import { transcriptPanel, modelLine, languageName } from '../transcripts.js';
 
 /** @param {import('./common.js').Editor} ed */
 export function transcriptPart(ed) {
-  const { path, info } = ed;
+  const { path, info, opts } = ed;
+  let churchWords = '';
+  // words are the names and words this transcript is made with: the recording's own, else the church's.
+  const words = () => (opts.transcriptWords === undefined ? churchWords : opts.transcriptWords);
   // A place on the page, which becomes the section once there are models.
   let transcriptEl = h('div', { hidden: true });
   let chooser = null;
@@ -26,7 +29,8 @@ export function transcriptPart(ed) {
     const tx = panel.transcript;
     if (!chooser || !tx || busy(tx)) return '';
     if (!on) return tx.state === 'done' && can('recording.delete') ? 'delete' : '';
-    const same = tx.state === 'done' && !stale && tx.spoken === chooser.language && tx.model && tx.model.key === chooser.model;
+    const same = tx.state === 'done' && !stale && tx.spoken === chooser.language && tx.model && tx.model.key === chooser.model &&
+      (tx.words || '') === words();
     return same || !chooser.model ? '' : 'make';
   }
 
@@ -62,9 +66,17 @@ export function transcriptPart(ed) {
     const select = h('select', { name: 'transcript-language', onchange: (e) => { lang = e.target.value; model.setLanguage(lang); changed(); } },
       langs.map((l) => h('option', { value: l, selected: l === lang }, languageName(l))));
     chooser = { get language() { return lang; }, get model() { return model.model; } };
+    churchWords = data.words || '';
+    // The recording's names and words, from the church's until changed here; kept with the edit, so Save keeps them.
+    const wordsBox = h('textarea', { name: 'transcript-words', rows: 2, maxlength: 3000, 'aria-label': t('Names and words'),
+      oninput: (e) => { opts.transcriptWords = e.target.value; changed(); ed.saveSoon(); } }, words());
+    ed.redrawWords = () => { wordsBox.value = words(); changed(); };
     chooserEl = h('div', { class: 'transcript-choice', hidden: !on },
       h('div', { class: 'options model-filters' }, h('label', {}, h('span', { class: 'name' }, t('Language of the sermon')), select)),
       model.el,
+      h('label', { class: 'transcript-words' }, h('span', { class: 'name' }, t('Names and words')),
+        h('span', {}, wordsBox,
+          h('span', { class: 'muted' }, t('Names, places and words this sermon uses, spelled as they should be: they help the speech model write them right. It starts with the church\'s, from Settings → Transcripts.')))),
       h('p', { class: 'muted hint' }, t('Save makes it from the files of the cut sermon, after them. It runs on the server and can take longer than the sermon.')));
     drawPill();
     const section = h('section', { class: 'step', 'aria-labelledby': 'step-transcript' },

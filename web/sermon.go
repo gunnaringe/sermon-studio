@@ -33,6 +33,9 @@ type sermonSettings struct {
 	ClipPause *float64 `json:"clipPause,omitempty"`
 	// Formats are the files kept made of it (maker.go); nil = the church's, filled in by Save.
 	Formats *outputFormats `json:"formats,omitempty"`
+	// TranscriptWords are the names and words that start whisper's prompt for its transcript; nil = the
+	// church's, filled in by Save.
+	TranscriptWords *string `json:"transcriptWords,omitempty"`
 }
 
 // soundSettings are the processing of a sermon: channels, noise, levels, loudness and bitrates.
@@ -87,6 +90,7 @@ func validSermon(c *sermonSettings) *sermonSettings {
 	}
 	c.normalize()
 	c.Tags.normalize()
+	c.TranscriptWords = cleanWords(c.TranscriptWords)
 	if c.Validate() != nil {
 		return nil
 	}
@@ -103,6 +107,11 @@ func (c sermonSettings) Validate() error {
 	}
 	if err := c.Tags.check(); err != nil {
 		return err
+	}
+	if c.TranscriptWords != nil {
+		if err := checkWords(*c.TranscriptWords); err != nil {
+			return err
+		}
 	}
 	if c.ClipPause != nil && !(*c.ClipPause >= 0 && *c.ClipPause <= normalizer.MaxClipPause) {
 		return fmt.Errorf("the pause at the intro and outro can be from 0 to %g seconds", normalizer.MaxClipPause)
@@ -175,6 +184,7 @@ func (s *Server) handleSermonPut(w http.ResponseWriter, r *http.Request) {
 	}
 	c.normalize()
 	c.Tags.normalize()
+	c.TranscriptWords = cleanWords(c.TranscriptWords)
 	if err := c.Validate(); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -185,6 +195,9 @@ func (s *Server) handleSermonPut(w http.ResponseWriter, r *http.Request) {
 		}
 		if f.Saved != nil && c.Formats == nil {
 			c.Formats = f.Saved.Formats
+		}
+		if f.Saved != nil && c.TranscriptWords == nil {
+			c.TranscriptWords = f.Saved.TranscriptWords
 		}
 		// The same as the saved version, with what each takes from the church as it would be saved now.
 		if f.Saved != nil && reflect.DeepEqual(s.withDefaults(abs, *f.Saved), s.withDefaults(abs, c)) {

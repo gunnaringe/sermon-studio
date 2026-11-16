@@ -117,6 +117,10 @@ func (s *Server) withDefaults(folder string, c sermonSettings) sermonSettings {
 		f := s.processing().formats()
 		c.Formats = &f
 	}
+	if c.TranscriptWords == nil {
+		w := s.transcriptWords()
+		c.TranscriptWords = &w
+	}
 	return c
 }
 
