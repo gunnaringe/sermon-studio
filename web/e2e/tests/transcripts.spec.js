@@ -250,13 +250,10 @@ test('transcripts: shared for download with the recording, as text and captions'
   const [file] = await Promise.all([down.waitForEvent('download'), down.getByRole('button', { name: /^Download the transcript/ }).click()]);
   expect(file.suggestedFilename()).toBe(date + '.txt');
   expect(fs.readFileSync(await file.path(), 'utf8')).toContain('Grace to you and peace');
-  // Read on the page: open at first, and it can be folded.
-  const read = down.locator('details.transcript');
-  await expect(read).toHaveAttribute('open');
+  // Read on the page, under Transcript.
+  const read = down.locator('section.transcript');
+  await expect(read.getByRole('heading', { name: 'Transcript' })).toBeVisible();
   await expect(read.locator('.transcript-text')).toContainText('Grace to you and peace');
-  await read.getByText('Read the transcript').click();
-  await expect(read.locator('.transcript-text')).toBeHidden();
-  await read.getByText('Read the transcript').click();
   // It follows the player: a sentence pressed plays from there, and is marked while it is heard.
   const cues = read.locator('.transcript-text.follows .cue');
   await expect(cues).toHaveCount(3);

@@ -267,28 +267,24 @@ function showDownload() {
     });
     listen.replaceChildren(button);
   }
-  // Read the transcript: open at first (it can be folded); the text is fetched from an address not counted as a download.
+  // The transcript: its text in a box that scrolls, fetched from an address not counted as a download.
   // With the captions, and a file to play whose sermon the transcript is of (info.follow: where the sermon
   // starts in it, after an intro), the text follows the player, and a sentence pressed plays from there.
-  /** @type {HTMLDetailsElement | string} */
+  /** @type {HTMLElement | string} */
   let read = '';
   if (info.files.some((f) => f.format === 'txt')) {
     const captions = info.files.some((f) => f.format === 'vtt');
     const offset = playable && info.follow ? info.follow[playable.format] : undefined;
     const follows = captions && offset !== undefined;
     const text = h('div', { class: 'transcript-text' + (follows ? ' follows' : '') });
-    const details = /** @type {HTMLDetailsElement} */ (h('details', { class: 'transcript', open: true }, h('summary', {}, t('Read the transcript')), text));
-    read = details;
-    let loaded = false;
+    read = h('section', { class: 'transcript' }, h('h2', {}, t('Transcript')), text);
     const load = async () => {
-      if (!details.open || loaded) return;
-      loaded = true;
       text.replaceChildren(h('p', { class: 'muted' }, t('Loading…')));
       try {
         const r = await call('POST', 'api/share/downloads', { format: captions ? 'vtt' : 'txt', listen: true });
         if (!r.resp.ok) throw new Error(errorText(r.resp, r.data));
         const resp = await fetch(r.data.url);
-        if (!resp.ok) throw new Error(t('Could not get the transcript. Try again.'));
+        if (!resp.ok) throw new Error(t('Could not get the transcript.'));
         const body = await resp.text();
         if (!captions) {
           const paragraphs = body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
@@ -302,12 +298,12 @@ function showDownload() {
         }))));
         if (follows) follow(text, cues, offset, startPlayer, (fn) => (player ? fn(player) : onPlayer.push(fn)), showError);
       } catch (e) {
-        loaded = false; // closing and opening it again tries again
-        text.replaceChildren(h('p', { class: 'error' }, e.message));
+        const again = h('button', { type: 'button' }, t('Try again'));
+        again.addEventListener('click', load);
+        text.replaceChildren(h('p', { class: 'error' }, e.message), h('p', {}, again));
       }
     };
-    details.addEventListener('toggle', load);
-    load(); // open at first, in a box of its own height that scrolls (and follows the player)
+    load();
   }
   // the artist and date, unless the church's name or the title says it already
   const what = [info.artist !== info.church ? info.artist : '', info.date && !(info.title || '').includes(info.date) ? info.date : '']
