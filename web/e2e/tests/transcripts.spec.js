@@ -250,12 +250,13 @@ test('transcripts: shared for download with the recording, as text and captions'
   const [file] = await Promise.all([down.waitForEvent('download'), down.getByRole('button', { name: /^Download the transcript/ }).click()]);
   expect(file.suggestedFilename()).toBe(date + '.txt');
   expect(fs.readFileSync(await file.path(), 'utf8')).toContain('Grace to you and peace');
-  // Read on the page: closed at first, the text there once opened.
+  // Read on the page: open at first, and it can be folded.
   const read = down.locator('details.transcript');
-  await expect(read).not.toHaveAttribute('open');
+  await expect(read).toHaveAttribute('open');
+  await expect(read.locator('.transcript-text')).toContainText('Grace to you and peace');
+  await read.getByText('Read the transcript').click();
   await expect(read.locator('.transcript-text')).toBeHidden();
   await read.getByText('Read the transcript').click();
-  await expect(read.locator('.transcript-text')).toContainText('Grace to you and peace');
   // It follows the player: a sentence pressed plays from there, and is marked while it is heard.
   const cues = read.locator('.transcript-text.follows .cue');
   await expect(cues).toHaveCount(3);
@@ -278,9 +279,32 @@ test('transcripts: shared for download with the recording, as text and captions'
     await route.fulfill({ response: resp, json: { ...body, follow: { opus: 2 } } });
   });
   await down.reload();
-  await down.locator('details.transcript summary').click();
   await down.locator('.transcript-text.follows .cue').nth(2).click();
   await expect.poll(() => down.locator('.listen audio').evaluate((a) => a.currentTime)).toBeGreaterThanOrEqual(18);
   await down.locator('.listen audio').evaluate((a) => { a.pause(); a.currentTime = 10.5; });
   await expect(down.locator('.transcript-text .cue').nth(1)).toHaveClass(/\bnow\b/);
+
+  // A long sermon: the box scrolls to the sentence heard, the page does not move.
+  const long = 'WEBVTT\n' + Array.from({ length: 60 }, (_, i) => {
+    const at = (s) => new Date(s * 1000).toISOString().slice(11, 23);
+    return `\n${at(i * 0.3)} --> ${at(i * 0.3 + 0.25)}\nSentence number ${i + 1}, long enough to fill a line of the box.\n`;
+  }).join('');
+  await down.route(/api\/share\/downloads\/\w+$/, async (route) => {
+    const resp = await route.fetch();
+    const type = resp.headers()['content-type'] || '';
+    await route.fulfill(type.startsWith('text/vtt') ? { response: resp, body: long } : { response: resp });
+  });
+  await down.reload();
+  const box = down.locator('.transcript-text');
+  await expect(box.locator('.cue')).toHaveCount(60);
+  const pageAt = await down.evaluate(() => scrollY);
+  await down.locator('.listen button[name=listen]').click();
+  await down.locator('.listen audio').evaluate((a) => { a.pause(); a.currentTime = 2 + 50 * 0.3 + 0.1; });
+  await expect(box.locator('.cue').nth(50)).toHaveClass(/\bnow\b/);
+  await expect.poll(() => box.evaluate((b) => b.scrollTop)).toBeGreaterThan(200);
+  await expect.poll(() => box.evaluate((b) => { // in view once the smooth scroll is done
+    const c = b.querySelector('.cue.now'), r = c.getBoundingClientRect(), o = b.getBoundingClientRect();
+    return r.top >= o.top && r.bottom <= o.bottom;
+  })).toBe(true);
+  expect(await down.evaluate(() => scrollY)).toBe(pageAt);
 });

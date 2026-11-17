@@ -267,7 +267,7 @@ function showDownload() {
     });
     listen.replaceChildren(button);
   }
-  // Read the transcript: closed at first; opening it fetches the text, from an address not counted as a download.
+  // Read the transcript: open at first (it can be folded); the text is fetched from an address not counted as a download.
   // With the captions, and a file to play whose sermon the transcript is of (info.follow: where the sermon
   // starts in it, after an intro), the text follows the player, and a sentence pressed plays from there.
   /** @type {HTMLDetailsElement | string} */
@@ -277,10 +277,10 @@ function showDownload() {
     const offset = playable && info.follow ? info.follow[playable.format] : undefined;
     const follows = captions && offset !== undefined;
     const text = h('div', { class: 'transcript-text' + (follows ? ' follows' : '') });
-    const details = /** @type {HTMLDetailsElement} */ (h('details', { class: 'transcript' }, h('summary', {}, t('Read the transcript')), text));
+    const details = /** @type {HTMLDetailsElement} */ (h('details', { class: 'transcript', open: true }, h('summary', {}, t('Read the transcript')), text));
     read = details;
     let loaded = false;
-    details.addEventListener('toggle', async () => {
+    const load = async () => {
       if (!details.open || loaded) return;
       loaded = true;
       text.replaceChildren(h('p', { class: 'muted' }, t('Loading…')));
@@ -305,7 +305,9 @@ function showDownload() {
         loaded = false; // closing and opening it again tries again
         text.replaceChildren(h('p', { class: 'error' }, e.message));
       }
-    });
+    };
+    details.addEventListener('toggle', load);
+    load(); // open at first, in a box of its own height that scrolls (and follows the player)
   }
   // the artist and date, unless the church's name or the title says it already
   const what = [info.artist !== info.church ? info.artist : '', info.date && !(info.title || '').includes(info.date) ? info.date : '']
