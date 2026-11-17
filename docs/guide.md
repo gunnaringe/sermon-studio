@@ -295,7 +295,9 @@ The share page shows the sermon's title and a button per file. A press counts on
 it from an address that works for 6 hours without the code, so the browser can download it and continue
 a download that broke; pressing again for the same file, from the same address, in that time counts
 nothing. **▶ Listen** plays the sermon on the page (MP3 when the share gives it, else Opus or FLAC). Listening is
-not counted as a download and is not in the share's log, but it needs a code that can still be used. A share follows its sermon when it is renamed or given another date, and gives the files as they
+not counted as a download and is not in the share's log, but it needs a code that can still be used. With the
+transcript, **Read the transcript** (closed at first) shows its text on the page, counted and logged as little as
+listening. A share follows its sermon when it is renamed or given another date, and gives the files as they
 are now, also after a new Save. While the sermon is in the trash the page says it is no longer available;
 restored, it works again.
 

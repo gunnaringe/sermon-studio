@@ -243,5 +243,11 @@ test('transcripts: shared for download with the recording, as text and captions'
   const [file] = await Promise.all([down.waitForEvent('download'), down.getByRole('button', { name: /^Download the transcript/ }).click()]);
   expect(file.suggestedFilename()).toBe(date + '.txt');
   expect(fs.readFileSync(await file.path(), 'utf8')).toContain('Grace to you and peace');
+  // Read on the page: closed at first, the text there once opened.
+  const read = down.locator('details.transcript');
+  await expect(read).not.toHaveAttribute('open');
+  await expect(read.locator('.transcript-text')).toBeHidden();
+  await read.getByText('Read the transcript').click();
+  await expect(read.locator('.transcript-text')).toContainText('Grace to you and peace');
   await down.screenshot({ path: path.join(shots, 'share-download-transcript.png') });
 });

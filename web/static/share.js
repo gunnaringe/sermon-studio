@@ -246,6 +246,31 @@ function showDownload() {
     });
     listen.replaceChildren(button);
   }
+  // Read the transcript: closed at first; opening it fetches the text, from an address not counted as a download.
+  /** @type {HTMLDetailsElement | string} */
+  let read = '';
+  if (info.files.some((f) => f.format === 'txt')) {
+    const text = h('div', { class: 'transcript-text' });
+    const details = /** @type {HTMLDetailsElement} */ (h('details', { class: 'transcript' }, h('summary', {}, t('Read the transcript')), text));
+    read = details;
+    let loaded = false;
+    details.addEventListener('toggle', async () => {
+      if (!details.open || loaded) return;
+      loaded = true;
+      text.replaceChildren(h('p', { class: 'muted' }, t('Loading…')));
+      try {
+        const r = await call('POST', 'api/share/downloads', { format: 'txt', listen: true });
+        if (!r.resp.ok) throw new Error(errorText(r.resp, r.data));
+        const resp = await fetch(r.data.url);
+        if (!resp.ok) throw new Error(t('Could not get the transcript. Try again.'));
+        const paragraphs = (await resp.text()).split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+        text.replaceChildren(...paragraphs.map((p) => h('p', {}, p)));
+      } catch (e) {
+        loaded = false; // closing and opening it again tries again
+        text.replaceChildren(h('p', { class: 'error' }, e.message));
+      }
+    });
+  }
   // the artist and date, unless the church's name or the title says it already
   const what = [info.artist !== info.church ? info.artist : '', info.date && !(info.title || '').includes(info.date) ? info.date : '']
     .filter(Boolean).join(' · ');
@@ -263,7 +288,8 @@ function showDownload() {
     ...(ended ? [h('p', { class: 'error' }, ended)] : [
       playable ? listen : '',
       h('p', { class: 'downloads' }, buttons.filter((b) => b.classList.contains('primary'))),
-      h('p', { class: 'downloads' }, buttons.filter((b) => !b.classList.contains('primary')))]),
+      h('p', { class: 'downloads' }, buttons.filter((b) => !b.classList.contains('primary'))),
+      read]),
     !ended && preparing.length ? h('p', { class: 'muted preparing' },
       t('Being prepared: {what}. Open this page again in a little while.', { what: preparing.join(', ') })) : '',
     status,

@@ -419,6 +419,29 @@ func TestShareDownloadAllFormatsAndTranscript(t *testing.T) {
 	if n := counted(); n != 0 {
 		t.Errorf("the transcript was counted: %d", n)
 	}
+	// Read on the page: the text inline, not counted, nor in the share's log; the captions are not read there.
+	read := func(format string) (int, string) {
+		b, _ := json.Marshal(map[string]any{"format": format, "listen": true})
+		w := st.call("POST", "/api/share/downloads", code, "2.2.2.2", b)
+		var out struct{ URL string }
+		json.Unmarshal(w.Body.Bytes(), &out)
+		return w.Code, out.URL
+	}
+	c, addr = read("txt")
+	resp = st.fetch(addr, "")
+	got, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if c != http.StatusCreated || string(got) != "Hei.\n" || !strings.HasPrefix(resp.Header.Get("Content-Disposition"), "inline") {
+		t.Errorf("read: %d %q %v", c, got, resp.Header)
+	}
+	for _, s := range decode[struct{ Shares []shareView }](t, do(st.studio, "GET", "/api/shares", "")).Shares {
+		if s.ID == view.ID && (s.Count != 0 || len(s.Log) != 1) {
+			t.Errorf("reading was counted or logged: %+v", s)
+		}
+	}
+	if c, _ := read("vtt"); c != http.StatusBadRequest {
+		t.Errorf("reading the captions: %d", c)
+	}
 	st.download(code, "1.1.1.1", "mp3")
 	if n := counted(); n != 1 {
 		t.Errorf("the MP3 was not counted: %d", n)
@@ -477,7 +500,7 @@ func TestShareListen(t *testing.T) {
 		t.Errorf("in the studio: %+v", s)
 	}
 	if c, _ := listen(code, "1.1.1.1", "txt"); c != http.StatusBadRequest {
-		t.Errorf("listening to the transcript: %d", c)
+		t.Errorf("reading a transcript the share does not give: %d", c)
 	}
 }
 
