@@ -6,6 +6,7 @@ import { alertDialog, confirmDialog } from './dialog.js';
 import { showCode, expiryInput, descriptionInput, recordingShares } from './shares.js';
 import { t, tn, tr } from './i18n.js';
 import { transcriptPanel } from './transcripts.js';
+import { DOWNLOAD_ICON, iconButton, dropMenu } from './menu.js';
 
 const FORMATS = [['flac', 'FLAC'], ['mp3', 'MP3'], ['opus', 'Opus']];
 // SERMON_ONLY ends the format of the files without the intro and outro (flac_sermon ...).
@@ -13,9 +14,6 @@ const SERMON_ONLY = '_sermon';
 const sermonOnly = (info) => info.outputs.filter((o) => o.format.endsWith(SERMON_ONLY));
 const fileURL = (f, download) => forTenant('api/file?' + (download ? 'download=1&' : '') + 'path=' + q(f.path));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// DOWNLOAD_ICON is Feather's download icon (MIT), on a file in the Download menu.
-const DOWNLOAD_ICON = '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'
-  + '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
 // SHARE_ICON is the header's share icon (Feather, MIT), for the buttons that share.
 // EDIT_ICON, COPY_ICON and CHECK_ICON are Feather's edit-2, copy and check (MIT), on the icon buttons.
 const SHARE_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/>'
@@ -24,16 +22,6 @@ const EDIT_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="
 const COPY_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>'
   + '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
-
-// iconButton is a round button with only an icon; label is its name and its tooltip. With text, the main
-// actions' form, the text is shown beside the icon (a touch screen has no tooltip to say what an icon does).
-function iconButton(tag, icon, label, attrs = {}, text = '') {
-  const el = h(tag, { ...(tag === 'button' ? { type: 'button' } : {}), ...attrs,
-    class: 'icon-button' + (text ? ' labelled' : '') + (attrs.class ? ' ' + attrs.class : ''), 'aria-label': label, title: label });
-  el.innerHTML = icon;
-  if (text) el.append(h('span', {}, text));
-  return el;
-}
 
 // keptSeconds is what the saved version lasts: its sections without the cuts.
 function keptSeconds(s) {
@@ -58,7 +46,6 @@ export function sermonDetail(entry, ctx = {}) {
   async function show() {
     const info = await api('GET', 'api/folder?path=' + q(entry.path));
     panel.replaceChildren(...(info.outputs.length ? processed(info) : unprocessed(info)));
-    placeMenu(); // drawn again open, after a format was made
     if (makingNow(info)) followMaking(info);
   }
 
@@ -204,34 +191,6 @@ export function sermonDetail(entry, ctx = {}) {
     return [b, note];
   }
 
-  // The download menu closes on a click outside it, and on Escape. It is placed by the window (the list would cut
-  // it off), under its button, again when the page scrolls. One set of listeners for the panel, whichever menu it shows.
-  /** @type {[string, (e: Event) => void, boolean?][]} */
-  const menuEvents = [['pointerdown', closeMenu], ['keydown', closeMenu], ['scroll', placeMenu, true], ['resize', placeMenu]];
-  for (const [name, fn, capture] of menuEvents) (name === 'resize' ? window : document).addEventListener(name, fn, capture);
-  function gone() {
-    if (panel.isConnected) return false;
-    for (const [name, fn, capture] of menuEvents) (name === 'resize' ? window : document).removeEventListener(name, fn, capture);
-    return true;
-  }
-  function placeMenu() {
-    if (gone()) return;
-    const menu = panel.querySelector('details.download-menu');
-    if (!menu || !menu.open) return;
-    const at = menu.querySelector('summary').getBoundingClientRect();
-    const box = menu.querySelector('.menu-panel');
-    box.style.top = Math.round(at.bottom + 6) + 'px';
-    box.style.left = Math.round(Math.max(8, Math.min(at.left, innerWidth - box.offsetWidth - 8))) + 'px';
-  }
-  function closeMenu(e) {
-    if (gone()) return;
-    const menu = panel.querySelector('details.download-menu');
-    if (!menu || !menu.open) return;
-    if (e.type === 'keydown' ? e.key !== 'Escape' : menu.contains(e.target)) return;
-    menu.open = false;
-    if (e.type === 'keydown') menu.querySelector('summary').focus();
-  }
-
   // The download menu stays open, and on the same version, when the panel is drawn again after a format was made.
   let menuOpen = false;
   let menuVersion = '';
@@ -290,14 +249,12 @@ export function sermonDetail(entry, ctx = {}) {
       } }, label);
     draw();
     (info.redraw ||= []).push(draw); // followMaking draws it again
-    const menu = h('details', { class: 'menu download-menu', open: menuOpen },
+    return dropMenu(/** @type {HTMLDetailsElement} */ (h('details', { class: 'menu download-menu', open: menuOpen },
       iconButton('summary', DOWNLOAD_ICON, t('Download'), { class: 'button primary' }, t('Download')),
       h('div', { class: 'menu-panel' },
         only ? h('span', { class: 'mode', role: 'group', 'aria-label': t('Version') },
           versionButton('', t('With intro and outro')), versionButton(SERMON_ONLY, t('Sermon only'))) : '',
-        list, status));
-    menu.addEventListener('toggle', () => { menuOpen = menu.open; placeMenu(); });
-    return menu;
+        list, status))), (open) => { menuOpen = open; });
   }
 
   // shareButton makes a download share of a saved sermon's files: a code and a link that let someone without a

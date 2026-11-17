@@ -342,12 +342,14 @@ since, and **Download** offers the files **with intro and outro** or the **sermo
 ## Transcripts
 
 With speech models on the server, **Settings → Processing → Transcripts** sets the language of the church's sermons; the
-transcript is then made after the files of each sermon, and the sermon's details on the recordings page show it, with
-**Download text** and **Download captions (WebVTT)**. Read it before you publish it: names and Bible references can come
+transcript is then made after the files of each sermon, and the sermon's details on the recordings page show it. Its
+**Download** opens its files: the **text**, and the **captions** (WebVTT, with the times); the trash icon deletes it
+(after a confirmation). Read it before you publish it: names and Bible references can come
 out wrong. Its text follows the sermon's player above it: the sentence being heard is marked and kept in view, and
 pressing a sentence plays from there, which makes listening along to check it easy (not when the transcript is of
 another cut than the file played). A transcript made from an earlier cut, or with an older model, says so and offers
-**Make again**; it is never made again by itself. Setting up the models: [transcripts](transcripts.md).
+**Make again**; it is never made again by itself, and is not offered when nothing has changed (it would come out the
+same). Another model or language is chosen in the editor. Setting up the models: [transcripts](transcripts.md).
 
 ## Inbox
 
