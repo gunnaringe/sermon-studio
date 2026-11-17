@@ -98,8 +98,11 @@ test('transcripts: the default in the settings, a sermon\'s transcript, made wit
   // Made with the earlier version: said, with Make again, and not made again by itself.
   const head = panel.locator(':scope > details > summary');
   await expect(head).toContainText('Made with nb-whisper-medium from 2024-02-13.');
-  await expect(panel.locator('button[name=make-transcript]')).toHaveText('Make again');
   await head.click();
+  // Make again is the ↻ beside Delete, there because it was made with another model.
+  expect(await panel.locator('.transcript-actions button').evaluateAll((bs) => bs.map((b) => b.getAttribute('name'))))
+    .toEqual(['make-transcript', 'delete-transcript']);
+  await expect(panel.getByRole('button', { name: 'Make the transcript again' })).toBeVisible();
   await expect(panel.locator('.transcript-text p')).toHaveText([
     'Grace to you and peace from God our Father. Today we read from the gospel of Luke, the second chapter.',
     'And there were shepherds in the fields, keeping watch over their flock by night.',
@@ -324,8 +327,8 @@ test('transcripts: on the recordings page the text follows the sermon\'s player'
   await page.goto('c/first-church/');
   await page.locator('.year tr.row', { hasText: date }).click();
   const panel = page.locator('tr.detail-row .transcript');
-  await expect(panel.locator('button[name=make-transcript]')).toHaveText('Make again'); // made with an older model
   await panel.locator(':scope > details > summary').click();
+  await expect(panel.getByRole('button', { name: 'Make the transcript again' })).toBeVisible(); // made with an older model
   const box = panel.locator('.transcript-text.follows');
   await expect(box.locator('.cue')).toHaveCount(3);
   await expect(box.locator('p')).toHaveCount(2);

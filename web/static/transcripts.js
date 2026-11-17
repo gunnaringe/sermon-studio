@@ -7,7 +7,7 @@ import { api, q, h, can, formatDate, formatSize, forTenant, timeLeft, liveBar, b
 import { confirmDialog, choiceDialog } from './dialog.js';
 import { t, tr } from './i18n.js';
 import { showCues, follow } from './follow.js';
-import { DOWNLOAD_ICON, TRASH_ICON, iconButton, dropMenu } from './menu.js';
+import { DOWNLOAD_ICON, TRASH_ICON, REFRESH_ICON, iconButton, dropMenu } from './menu.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const fileURL = (f, download) => forTenant('api/file?' + (download ? 'download=1&' : '') + 'path=' + q(f.path));
@@ -138,9 +138,13 @@ export function transcriptPanel(path, info, opts = {}) {
     }
     polling = false;
   };
-  // Make again in the language it is in (or was being made in), with the model for it.
-  const makeButton = (tx, label) => mayMake && !chosen
-    ? h('button', { type: 'button', name: 'make-transcript', onclick: act('', tx.spoken ? '&language=' + q(tx.spoken) : '') }, label) : '';
+  // Make again in the language it is in (or was being made in), with the model for it. With icon, the round
+  // button beside Delete (label is then its name and tooltip).
+  const makeButton = (tx, label, icon = false) => {
+    if (!mayMake || chosen) return '';
+    const attrs = { name: 'make-transcript', onclick: act('', tx.spoken ? '&language=' + q(tx.spoken) : '') };
+    return icon ? iconButton('button', REFRESH_ICON, label, attrs) : h('button', { type: 'button', ...attrs }, label);
+  };
 
   // progressBar is one being made: what it is doing and about how long it has left, the bar (moving, while it
   // waits), ✕ to stop it, and that nobody needs to wait for it.
@@ -229,15 +233,16 @@ export function transcriptPanel(path, info, opts = {}) {
       if (!await confirmDialog({ title: t('Delete transcript'), body: h('p', {}, t('Delete the transcript of this sermon? It can be made again.')), confirm: t('Delete'), danger: true })) return;
       await act('/remove')();
     };
-    // Make again is offered only beside the notice that something changed (a transcript of the same cut with
-    // the same model would come out the same); in the editor, its model picker makes it with another.
+    // Make again (↻) is offered only when something changed, which the notice in the summary says (a transcript
+    // of the same cut with the same model would come out the same); in the editor, its model picker makes it.
     details.append(
       h('div', { class: 'actions transcript-actions' },
         downloadMenu(tx),
+        notes.length && tx.canMake ? makeButton(tx, t('Make the transcript again'), true) : '',
         mayMake ? iconButton('button', TRASH_ICON, t('Delete transcript'), { name: 'delete-transcript', class: 'delete', onclick: remove }) : ''),
       tx.model && !tx.otherModel ? h('p', { class: 'muted' }, t('Made with {model}.', { model: modelName(tx.model) })) : '',
       text);
-    box.replaceChildren(details, notes.length && tx.canMake && !chosen ? h('p', { class: 'transcript-note' }, makeButton(tx, t('Make again'))) : '');
+    box.replaceChildren(details);
   }
 
   draw(info.transcript);
