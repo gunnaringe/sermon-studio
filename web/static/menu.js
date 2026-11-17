@@ -3,12 +3,14 @@
 import { h } from './util.js';
 
 // DOWNLOAD_ICON is Feather's download icon (MIT), on the Download buttons and on a file in their menus.
-// TRASH_ICON is Feather's trash-2 (MIT), on Delete.
+// TRASH_ICON is Feather's trash-2 (MIT), on Delete; REFRESH_ICON its refresh-cw, on Make again.
 export const DOWNLOAD_ICON = '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'
   + '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
 export const TRASH_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><polyline points="3 6 5 6 21 6"/>'
   + '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>'
   + '<path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+export const REFRESH_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><polyline points="23 4 23 10 17 10"/>'
+  + '<polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 
 // iconButton is a round button with only an icon; label is its name and its tooltip. With text, the main
 // actions' form, the text is shown beside the icon (a touch screen has no tooltip to say what an icon does).
