@@ -6,6 +6,7 @@
 import { api, q, h, can, formatDate, forTenant, timeLeft, liveBar, backgroundNote } from './util.js';
 import { confirmDialog, choiceDialog } from './dialog.js';
 import { t, tr } from './i18n.js';
+import { showCues, follow } from './follow.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const fileURL = (f, download) => forTenant('api/file?' + (download ? 'download=1&' : '') + 'path=' + q(f.path));
@@ -98,7 +99,14 @@ export async function transcriptSettings(box) {
 // own Make (again), in the language the transcript is in, else the church's; in the editor (chosen) the
 // editor's model picker makes it, and the panel tells it the state (onDraw).
 /** @param {string} path @param {any} info @param {{ chosen?: boolean, onDraw?: (tx: any) => void }} [o] */
-export function transcriptPanel(path, info, { chosen = false, onDraw = (_tx) => {} } = {}) {
+// With player (the recording's audio element and the format it plays), the text follows it (follow.js) when the
+// transcript is of that file's cut.
+/**
+ * @param {string} path @param {any} info
+ * @param {{ chosen?: boolean, onDraw?: (tx: any) => void, player?: { el: HTMLAudioElement, format: string } | null }} [opts]
+ */
+export function transcriptPanel(path, info, opts = {}) {
+  const { chosen = false, onDraw = (_tx) => {}, player = null } = opts;
   const box = h('div', { class: 'transcript' });
   const busy = (tx) => tx && (tx.state === 'waiting' || tx.state === 'running');
   const mayMake = can('recording.transcribe');
@@ -184,6 +192,15 @@ export function transcriptPanel(path, info, { chosen = false, onDraw = (_tx) => 
     details.addEventListener('toggle', async () => {
       if (!details.open || text.childElementCount) return;
       try {
+        const offset = player && tx.captions ? tx.follow?.[player.format] : undefined;
+        if (offset !== undefined) {
+          const res = await fetch(fileURL(tx.captions));
+          if (!res.ok) throw new Error(res.statusText);
+          const cues = showCues(text, await res.text());
+          if (!cues.length) text.replaceChildren(h('p', { class: 'muted' }, t('Nothing was heard.')));
+          else follow(text, cues, offset, { startPlayer: async () => player.el, withPlayer: (fn) => fn(player.el), onError: (e) => text.append(h('p', { class: 'error' }, e.message)) });
+          return;
+        }
         const res = await fetch(fileURL(tx.text));
         if (!res.ok) throw new Error(res.statusText);
         const paragraphs = (await res.text()).split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);

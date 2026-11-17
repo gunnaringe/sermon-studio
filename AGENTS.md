@@ -240,7 +240,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   rename, a recording in the trash is not found). `POST api/share/downloads` counts one and hands out a ticket (`GET api/share/downloads/{id}`,
   no code, Range, `ticketFor`); the same file from the same address while its ticket lasts counts nothing. With `listen` (the
   page's player, the sermon's formats only, or `txt`/`vtt` for the page's Transcript, which it fetches: never a bucket link; it follows the player from the
-  captions, shifted by `follow` in `api/share`, `sermonStart`: the intro and `outputMade.Pause`, only when the file's cut is the transcript's) the ticket sends the file inline and counts nothing: not in `Count`, the log,
+  captions (`web/static/follow.js`, shared with the studio's transcript panel, which follows the row's player with
+  `transcript.follow` in the folder info), shifted by `follow` in `api/share`, `sermonStart`: the intro and `outputMade.Pause`, only when the file's cut is the transcript's) the ticket sends the file inline and counts nothing: not in `Count`, the log,
   `Resumable` or the downloads going on; it still needs a code that can be used (`state`). A download share has no limit on its
   downloads (only an expiry, 30 days by default in the dialog); old `maxDownloads` in `shares.json` is ignored.
 - `web/transcribe.go`: transcripts (docs/transcripts.md): a church's language and words (`transcript`, `transcriptWords` in

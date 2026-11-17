@@ -107,6 +107,9 @@ type transcriptInfo struct {
 	// Spoken, else the church's language: the files, and a model for it.
 	HasFiles bool `json:"hasFiles"`
 	CanMake  bool `json:"canMake"`
+	// Follow is, with captions, where the sermon starts in each of the recording's files (sermonStart), for a
+	// player of it that the text follows; none for a file of another cut than the transcript.
+	Follow map[string]float64 `json:"follow,omitempty"`
 }
 
 type modelInfo struct {
@@ -244,6 +247,16 @@ func (s *Server) transcript(p normalizer.Paths, st *folderState) *transcriptInfo
 		info.OtherModel = ok && current.Version() != tf.Model.Version()
 		if rec, ok := st.Outputs[transcriptFormat]; ok && st.Saved != nil {
 			info.EarlierCut = rec.Cut != "" && rec.Cut != savedCut(*st.Saved)
+		}
+		if info.Captions != nil {
+			for _, o := range outputsOf(p) {
+				if at, ok := sermonStart(st, false, o.format); ok && fileExists(o.path) {
+					if info.Follow == nil {
+						info.Follow = map[string]float64{}
+					}
+					info.Follow[o.format] = at
+				}
+			}
 		}
 	}
 	if job, ok := s.cfg.transcriber.status(s.cfg.church, s.relPath(p.Folder)); ok {
