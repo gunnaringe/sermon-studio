@@ -22,7 +22,8 @@ import (
 // address of the file that works for ticketFor, so the browser can download
 // and resume it (Range) without the code, and without counting again.
 // Listening gets a ticket too, for the page's player: the file sent inline,
-// not counted as a download, while the code can still be used. A download
+// not counted as a download, while the code can still be used. Reading the
+// transcript on the page is listening to its text. A download
 // share has no limit on its downloads: its expiry ends it.
 
 const (
@@ -341,7 +342,8 @@ func (a *App) downloadInfo(w http.ResponseWriter, t *tenant, sh *Share) {
 // handleShareDownloadStart counts a download and returns the address to fetch it from:
 // POST api/share/downloads {format} → {url}. Pressing again for the same file, from the same
 // address, while that download can still be resumed counts nothing. With listen, the address is for
-// the page's player (one of the sermon's formats): not counted, nor in the share's log.
+// the page's player (one of the sermon's formats), or for reading the transcript's text on the page: not
+// counted, nor in the share's log.
 func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	t, sh, ip, ok := a.downloadShareFor(w, r)
 	if !ok {
@@ -355,7 +357,7 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if !sh.gives(q.Format) || (q.Listen && !slices.Contains(downloadFormats, q.Format)) {
+	if !sh.gives(q.Format) || (q.Listen && !slices.Contains(downloadFormats, q.Format) && q.Format != "txt") {
 		writeError(w, http.StatusBadRequest, errors.New("this code does not give that format"))
 		return
 	}
@@ -467,8 +469,10 @@ func (a *App) handleShareDownloadFile(w http.ResponseWriter, r *http.Request) {
 	paths, err := normalizer.NewPaths(abs)
 	if err == nil {
 		// Kept only in the bucket: the browser gets it there, by format still (the address names only that file).
-		// A download going on is then not seen (sending, Resumable).
+		// A download going on is then not seen (sending, Resumable). The text read on the page is fetched by
+		// it, which may only reach its own origin: that is sent from here.
 		switch link, ok, lerr := bucketLink(r.Context(), downloadPath(paths, sh, tk.Format), tk.Listen); {
+		case tk.Listen && tk.Format == "txt":
 		case ok:
 			http.Redirect(w, r, link, http.StatusFound)
 			return
