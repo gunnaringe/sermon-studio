@@ -449,7 +449,7 @@ body.card-page .transcript-text { max-height: 60vh; overflow-y: auto; padding: 0
 /* following the player: the sentence heard is marked, a sentence pressed plays from there */
 body.card-page .transcript-text.follows .cue { cursor: pointer; border-radius: 3px; padding: 0.1em 0; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 body.card-page .transcript-text.follows .cue:hover { text-decoration: underline; text-decoration-color: var(--muted); }
-body.card-page .transcript-text .cue.now { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+body.card-page .transcript-text .cue.now { background: rgba(4, 120, 87, 0.2); background: color-mix(in srgb, var(--accent) 20%, transparent); }
 @media (max-width: 640px) {
   body.card-page main.narrow { margin: 1rem auto; padding: 1.2rem 1.1rem; }
 }

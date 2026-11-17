@@ -270,4 +270,17 @@ test('transcripts: shared for download with the recording, as text and captions'
   await expect(cues.nth(1)).toHaveClass(/\bnow\b/);
   await expect(cues.nth(2)).not.toHaveClass(/\bnow\b/);
   await down.screenshot({ path: path.join(shots, 'share-download-transcript.png') });
+
+  // A file with an intro: the sermon starts later in it, and the text is shifted as much.
+  await down.route(/api\/share$/, async (route) => {
+    const resp = await route.fetch();
+    const body = await resp.json();
+    await route.fulfill({ response: resp, json: { ...body, follow: { opus: 2 } } });
+  });
+  await down.reload();
+  await down.locator('details.transcript summary').click();
+  await down.locator('.transcript-text.follows .cue').nth(2).click();
+  await expect.poll(() => down.locator('.listen audio').evaluate((a) => a.currentTime)).toBeGreaterThanOrEqual(18);
+  await down.locator('.listen audio').evaluate((a) => { a.pause(); a.currentTime = 10.5; });
+  await expect(down.locator('.transcript-text .cue').nth(1)).toHaveClass(/\bnow\b/);
 });
