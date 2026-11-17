@@ -23,7 +23,8 @@ import (
 // and resume it (Range) without the code, and without counting again.
 // Listening gets a ticket too, for the page's player: the file sent inline,
 // not counted as a download, while the code can still be used. Reading the
-// transcript on the page is listening to its text. A download
+// transcript on the page is listening to its text and captions (the captions'
+// times let the text follow the player). A download
 // share has no limit on its downloads: its expiry ends it.
 
 const (
@@ -320,6 +321,14 @@ func (a *App) downloadInfo(w http.ResponseWriter, t *tenant, sh *Share) {
 				files = append(files, map[string]any{"format": "txt", "size": tx.Text.Size})
 				if tx.Captions != nil {
 					files = append(files, map[string]any{"format": "vtt", "size": tx.Captions.Size})
+					follow := map[string]float64{}
+					st := readState(abs)
+					for _, f := range sh.formats() {
+						if at, ok := sermonStart(st, sh.SermonOnly, f); ok && !slices.Contains(preparing, f) {
+							follow[f] = at
+						}
+					}
+					info["follow"] = follow
 				}
 			}
 		}
@@ -342,8 +351,8 @@ func (a *App) downloadInfo(w http.ResponseWriter, t *tenant, sh *Share) {
 // handleShareDownloadStart counts a download and returns the address to fetch it from:
 // POST api/share/downloads {format} → {url}. Pressing again for the same file, from the same
 // address, while that download can still be resumed counts nothing. With listen, the address is for
-// the page's player (one of the sermon's formats), or for reading the transcript's text on the page: not
-// counted, nor in the share's log.
+// the page's player (one of the sermon's formats), or for reading the transcript on the page (its text,
+// or its captions, to follow the player): not counted, nor in the share's log.
 func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 	t, sh, ip, ok := a.downloadShareFor(w, r)
 	if !ok {
@@ -357,7 +366,7 @@ func (a *App) handleShareDownloadStart(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if !sh.gives(q.Format) || (q.Listen && !slices.Contains(downloadFormats, q.Format) && q.Format != "txt") {
+	if !sh.gives(q.Format) || (q.Listen && !slices.Contains(downloadFormats, q.Format) && !slices.Contains(transcriptDownloads, q.Format)) {
 		writeError(w, http.StatusBadRequest, errors.New("this code does not give that format"))
 		return
 	}
@@ -472,7 +481,7 @@ func (a *App) handleShareDownloadFile(w http.ResponseWriter, r *http.Request) {
 		// A download going on is then not seen (sending, Resumable). The text read on the page is fetched by
 		// it, which may only reach its own origin: that is sent from here.
 		switch link, ok, lerr := bucketLink(r.Context(), downloadPath(paths, sh, tk.Format), tk.Listen); {
-		case tk.Listen && tk.Format == "txt":
+		case tk.Listen && slices.Contains(transcriptDownloads, tk.Format):
 		case ok:
 			http.Redirect(w, r, link, http.StatusFound)
 			return
@@ -517,4 +526,31 @@ func (a *App) handleShareDownloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": st.Name()}))
 	http.ServeContent(w, r, st.Name(), st.ModTime(), f)
+}
+
+// sermonStart is where the sermon starts in the file of a format (seconds), so the transcript's times (which are
+// the sermon's, without the clips) can follow a player of it: after the intro and the pause, or at 0 for the
+// sermon only and a file without an intro. Not ok when the file and the transcript are of different cuts (the
+// transcript is out of date), or the file has no record.
+func sermonStart(st *folderState, sermonOnly bool, format string) (float64, bool) {
+	key := format
+	if sermonOnly {
+		key += normalizer.SermonOnly
+	}
+	rec, ok := st.Outputs[key]
+	tx, made := st.Outputs[transcriptFormat]
+	if !ok || !made || rec.Cut == "" || rec.Cut != tx.Cut {
+		return 0, false
+	}
+	if sermonOnly || rec.Intro == nil {
+		return 0, true
+	}
+	pause := 0.0
+	switch {
+	case rec.Pause != nil:
+		pause = *rec.Pause
+	case st.Saved != nil && st.Saved.ClipPause != nil: // made before the pause was kept: the saved one
+		pause = *st.Saved.ClipPause
+	}
+	return rec.Intro.Seconds + pause, true
 }
