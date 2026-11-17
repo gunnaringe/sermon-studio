@@ -575,6 +575,8 @@ button.menu-item.busy { opacity: 1; animation: pulse 1.2s ease-in-out infinite; 
 .icon-button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 details.menu > summary.icon-button { gap: 0; }
 details.menu > summary.icon-button.labelled { gap: 0.45rem; }
+/* the transcript's files: their names are words, not formats */
+.transcript-download .menu-item { grid-template-columns: 5.5rem 1fr auto; }
 @keyframes pulse { 0%, 100% { background: var(--line); } 50% { background: color-mix(in srgb, var(--ok) 55%, var(--line)); } }
 @media (prefers-reduced-motion: reduce) { button.menu-item.busy { animation: none; background: color-mix(in srgb, var(--ok) 25%, transparent); } }
 @media (max-width: 640px) {

@@ -3,10 +3,11 @@
 // defaults (Settings → Processing): the language, and the model for each language; modelLine and chooseModel
 // are the choice of a model, there and in the editor (editor/transcript.js). transcriptPanel is a sermon's transcript, in its
 // details on the recordings page and in the editor.
-import { api, q, h, can, formatDate, forTenant, timeLeft, liveBar, backgroundNote } from './util.js';
+import { api, q, h, can, formatDate, formatSize, forTenant, timeLeft, liveBar, backgroundNote } from './util.js';
 import { confirmDialog, choiceDialog } from './dialog.js';
 import { t, tr } from './i18n.js';
 import { showCues, follow } from './follow.js';
+import { DOWNLOAD_ICON, TRASH_ICON, iconButton, dropMenu } from './menu.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const fileURL = (f, download) => forTenant('api/file?' + (download ? 'download=1&' : '') + 'path=' + q(f.path));
@@ -156,6 +157,23 @@ export function transcriptPanel(path, info, opts = {}) {
       backgroundNote());
   }
 
+  // downloadMenu is one Download button that opens the transcript's files: the text, and the captions (WebVTT,
+  // with the times), each with its size.
+  function downloadMenu(tx) {
+    const item = (f, label, what, name) => {
+      if (!f) return '';
+      const go = h('span', { class: 'go icon', 'aria-hidden': 'true' });
+      go.innerHTML = DOWNLOAD_ICON;
+      return h('a', { class: 'menu-item', href: fileURL(f, true), download: '', 'aria-label': name },
+        h('strong', {}, label), h('span', { class: 'muted' }, what + ' · ' + formatSize(f.size)), go);
+    };
+    return dropMenu(/** @type {HTMLDetailsElement} */ (h('details', { class: 'menu download-menu transcript-download' },
+      iconButton('summary', DOWNLOAD_ICON, t('Download transcript'), { class: 'button' }, t('Download')),
+      h('div', { class: 'menu-panel' }, h('div', { class: 'menu-items' },
+        item(tx.text, t('Text'), t('plain text'), t('Download text')),
+        item(tx.captions, t('Captions'), t('WebVTT, with times'), t('Download captions (WebVTT)')))))));
+  }
+
   function draw(tx) {
     current = tx;
     onDraw(tx);
@@ -211,12 +229,12 @@ export function transcriptPanel(path, info, opts = {}) {
       if (!await confirmDialog({ title: t('Delete transcript'), body: h('p', {}, t('Delete the transcript of this sermon? It can be made again.')), confirm: t('Delete'), danger: true })) return;
       await act('/remove')();
     };
+    // Make again is offered only beside the notice that something changed (a transcript of the same cut with
+    // the same model would come out the same); in the editor, its model picker makes it with another.
     details.append(
-      h('p', { class: 'actions transcript-actions' },
-        tx.text ? h('a', { class: 'button', href: fileURL(tx.text, true), download: '' }, t('Download text')) : '',
-        tx.captions ? h('a', { class: 'button', href: fileURL(tx.captions, true), download: '' }, t('Download captions (WebVTT)')) : '',
-        tx.canMake && !notes.length ? makeButton(tx, t('Make again')) : '', // else it is beside the notice
-        mayMake ? h('button', { type: 'button', name: 'delete-transcript', onclick: remove }, t('Delete')) : ''),
+      h('div', { class: 'actions transcript-actions' },
+        downloadMenu(tx),
+        mayMake ? iconButton('button', TRASH_ICON, t('Delete transcript'), { name: 'delete-transcript', class: 'delete', onclick: remove }) : ''),
       tx.model && !tx.otherModel ? h('p', { class: 'muted' }, t('Made with {model}.', { model: modelName(tx.model) })) : '',
       text);
     box.replaceChildren(details, notes.length && tx.canMake && !chosen ? h('p', { class: 'transcript-note' }, makeButton(tx, t('Make again'))) : '');

@@ -96,15 +96,23 @@ test('transcripts: the default in the settings, a sermon\'s transcript, made wit
   await row.click();
   const panel = page.locator('tr.detail-row .transcript');
   // Made with the earlier version: said, with Make again, and not made again by itself.
-  await expect(panel.locator('summary')).toContainText('Made with nb-whisper-medium from 2024-02-13.');
+  const head = panel.locator(':scope > details > summary');
+  await expect(head).toContainText('Made with nb-whisper-medium from 2024-02-13.');
   await expect(panel.locator('button[name=make-transcript]')).toHaveText('Make again');
-  await panel.locator('summary').click();
+  await head.click();
   await expect(panel.locator('.transcript-text p')).toHaveText([
     'Grace to you and peace from God our Father. Today we read from the gospel of Luke, the second chapter.',
     'And there were shepherds in the fields, keeping watch over their flock by night.',
   ]);
+  // Download opens a menu with the text and the captions; Delete is the trash icon.
+  await panel.locator('.transcript-actions').evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await panel.locator('summary[aria-label="Download transcript"]').click();
+  await expect(panel.getByRole('link', { name: 'Download text' })).toHaveAttribute('href', /download=1.*\.txt/);
   await expect(panel.getByRole('link', { name: 'Download captions (WebVTT)' })).toHaveAttribute('href', /download=1.*\.vtt/);
+  await expect(panel.getByRole('button', { name: 'Delete transcript' })).toBeVisible();
   await page.screenshot({ path: path.join(shots, 'transcript-panel.png') });
+  await page.keyboard.press('Escape');
+  await expect(panel.getByRole('link', { name: 'Download text' })).toBeHidden();
   const vtt = await page.request.get('api/file?path=' + encodeURIComponent(folder + '/' + date + '.vtt'));
   expect(vtt.headers()['content-type']).toContain('text/vtt');
 
@@ -208,7 +216,7 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   await expect(rowBar.locator('progress')).toHaveJSProperty('value', 0.9, { timeout: 30_000 });
   // Done: the row shows it, and Share for download offers it, with no reload.
   made = { state: 'done', text: folder + '/' + date + '.txt', captions: folder + '/' + date + '.vtt' };
-  await expect(page.locator('tr.detail-row .transcript details summary')).toContainText('Transcript', { timeout: 30_000 });
+  await expect(page.locator('tr.detail-row .transcript > details > summary')).toContainText('Transcript', { timeout: 30_000 });
   await page.locator('tr.detail-row button[name=share-download]').click();
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Recording and transcript', exact: true })).toBeVisible();
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -316,7 +324,8 @@ test('transcripts: on the recordings page the text follows the sermon\'s player'
   await page.goto('c/first-church/');
   await page.locator('.year tr.row', { hasText: date }).click();
   const panel = page.locator('tr.detail-row .transcript');
-  await panel.locator('summary').click();
+  await expect(panel.locator('button[name=make-transcript]')).toHaveText('Make again'); // made with an older model
+  await panel.locator(':scope > details > summary').click();
   const box = panel.locator('.transcript-text.follows');
   await expect(box.locator('.cue')).toHaveCount(3);
   await expect(box.locator('p')).toHaveCount(2);
@@ -329,4 +338,18 @@ test('transcripts: on the recordings page the text follows the sermon\'s player'
   await expect(box.locator('.cue').nth(1)).toHaveClass(/\bnow\b/);
   await expect(box.locator('.cue').nth(1)).toHaveAttribute('aria-current', 'true');
   await page.locator('tr.detail-row').screenshot({ path: path.join(shots, 'transcript-follow.png') });
+
+  // Nothing changed since it was made (same cut, same model): no Make again, it would come out the same.
+  await page.route('**/api/folder?*', async (route) => {
+    const res = await route.fetch();
+    const info = await res.json();
+    if (info.transcript) Object.assign(info.transcript, { otherModel: false, earlierCut: false });
+    await route.fulfill({ response: res, json: info });
+  });
+  await page.reload();
+  await page.locator('.year tr.row', { hasText: date }).click();
+  await expect(panel.locator(':scope > details > summary')).toHaveText('Transcript');
+  await panel.locator(':scope > details > summary').click();
+  await expect(panel.getByRole('button', { name: 'Delete transcript' })).toBeVisible();
+  await expect(panel.locator('button[name=make-transcript]')).toHaveCount(0);
 });
