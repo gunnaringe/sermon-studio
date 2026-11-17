@@ -94,6 +94,9 @@ type outputMade struct {
 	// Intro and Outro are the clips around the sermon in it (none for the sermon only).
 	Intro *clipRef `json:"intro,omitempty"`
 	Outro *clipRef `json:"outro,omitempty"`
+	// Pause is the silence between the clips and the sermon (seconds), with clips; files made before it was
+	// kept have none (sermonStart then takes the saved sermon's).
+	Pause *float64 `json:"pause,omitempty"`
 }
 
 const stateName = "recording.json"

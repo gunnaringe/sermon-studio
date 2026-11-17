@@ -45,7 +45,8 @@ test.beforeAll(async ({ request }) => {
     language: 'nb', model: model('a'.repeat(64), '2024-02-13T09:00:00Z'), made: '2026-09-13T12:00:00Z', segments,
   }));
   fs.writeFileSync(path.join(dir, date + '.txt'), segments[0].text + ' ' + segments[1].text + '\n\n' + segments[2].text + '\n');
-  fs.writeFileSync(path.join(dir, date + '.vtt'), 'WEBVTT\n\n00:00:03.200 --> 00:00:07.900\n' + segments[0].text + '\n');
+  const vttTime = (s) => new Date(s * 1000).toISOString().slice(11, 23);
+  fs.writeFileSync(path.join(dir, date + '.vtt'), 'WEBVTT\n' + segments.map((g) => `\n${vttTime(g.start)} --> ${vttTime(g.end)}\n${g.text}\n`).join(''));
 });
 
 test.afterAll(async ({ request }) => {
@@ -235,6 +236,12 @@ test('transcripts: shared for download with the recording, as text and captions'
   await made.getByRole('button', { name: 'OK' }).click();
   await expect(detail.locator('.recording-shares')).toContainText('all formats + transcript');
 
+  // The transcript is of the cut the Opus file is of (as when it is made from it), so the page can follow the player.
+  const statePath = path.join(dir, 'recording.json');
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  state.outputs.transcript = { madeAt: '2026-09-13T12:00:00Z', from: state.outputs.opus.from, cut: state.outputs.opus.cut };
+  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+
   // The share page: the files there, and the transcript as text and as captions.
   const down = await context.newPage();
   await down.goto(link);
@@ -249,5 +256,18 @@ test('transcripts: shared for download with the recording, as text and captions'
   await expect(read.locator('.transcript-text')).toBeHidden();
   await read.getByText('Read the transcript').click();
   await expect(read.locator('.transcript-text')).toContainText('Grace to you and peace');
+  // It follows the player: a sentence pressed plays from there, and is marked while it is heard.
+  const cues = read.locator('.transcript-text.follows .cue');
+  await expect(cues).toHaveCount(3);
+  await expect(read.locator('.transcript-text p')).toHaveCount(2); // a new paragraph after the pause
+  await cues.nth(2).click();
+  const player = down.locator('.listen audio');
+  await expect(player).toBeVisible();
+  await expect.poll(() => player.evaluate((a) => a.currentTime)).toBeGreaterThanOrEqual(16);
+  await expect(cues.nth(2)).toHaveClass(/\bnow\b/);
+  await expect(cues.nth(2)).toHaveAttribute('aria-current', 'true');
+  await player.evaluate((a) => { a.pause(); a.currentTime = 9; });
+  await expect(cues.nth(1)).toHaveClass(/\bnow\b/);
+  await expect(cues.nth(2)).not.toHaveClass(/\bnow\b/);
   await down.screenshot({ path: path.join(shots, 'share-download-transcript.png') });
 });

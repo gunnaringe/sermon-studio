@@ -41,6 +41,7 @@ func (st *shareTest) save(dir string) {
 type downloadInfoView struct {
 	Kind, Title, Date, State string
 	Preparing                []string
+	Follow                   map[string]float64
 	Files                    []struct {
 		Format string
 		Size   int64
@@ -439,8 +440,27 @@ func TestShareDownloadAllFormatsAndTranscript(t *testing.T) {
 			t.Errorf("reading was counted or logged: %+v", s)
 		}
 	}
-	if c, _ := read("vtt"); c != http.StatusBadRequest {
-		t.Errorf("reading the captions: %d", c)
+	// The captions too, for following the player; with files and a transcript of the same cut, where the
+	// sermon starts in each.
+	c, addr = read("vtt")
+	resp = st.fetch(addr, "")
+	got, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if c != http.StatusCreated || string(got) != "WEBVTT\n" {
+		t.Errorf("captions: %d %q", c, got)
+	}
+	if f := st.info(code).Follow; len(f) != 0 {
+		t.Errorf("followed without records: %v", f)
+	}
+	pause := 1.5
+	st.app.tenants[0].srv.updateState(dir, func(fs *folderState) error {
+		fs.Outputs["mp3"] = outputMade{Cut: "c1", Intro: &clipRef{ID: "i", Seconds: 10}, Pause: &pause}
+		fs.Outputs["opus"] = outputMade{Cut: "c0"}
+		fs.Outputs[transcriptFormat] = outputMade{Cut: "c1"}
+		return nil
+	})
+	if f := st.info(code).Follow; len(f) != 1 || f["mp3"] != 11.5 {
+		t.Errorf("follow: %v", f)
 	}
 	st.download(code, "1.1.1.1", "mp3")
 	if n := counted(); n != 1 {
@@ -516,5 +536,31 @@ func TestShareDownloadOldPage(t *testing.T) {
 	id := decode[struct{ Shares []shareView }](t, do(st.studio, "GET", "/api/shares", "")).Shares[0].ID
 	if w := do(st.studio, "PUT", "/api/shares/"+id, `{"label":"Old page","formats":["mp3"],"maxDownloads":3}`); w.Code != http.StatusOK {
 		t.Errorf("edit from an old page: %d %s", w.Code, w.Body)
+	}
+}
+
+// Where the sermon starts in a shared file: after the intro and its pause, at 0 without one or for the sermon
+// only, and not at all when the file and the transcript are of different cuts.
+func TestSermonStart(t *testing.T) {
+	two, one := 2.0, 1.0
+	intro := &clipRef{ID: "i", Seconds: 8.5}
+	st := &folderState{Saved: &sermonSettings{ClipPause: &one}, Outputs: map[string]outputMade{
+		transcriptFormat:               {Cut: "c"},
+		"mp3":                          {Cut: "c", Intro: intro, Pause: &two},
+		"opus":                         {Cut: "c", Intro: intro}, // made before the pause was kept: the saved one
+		"flac":                         {Cut: "c"},
+		"mp3" + normalizer.SermonOnly:  {Cut: "c"},
+		"opus" + normalizer.SermonOnly: {Cut: "old"},
+	}}
+	for _, c := range []struct {
+		format     string
+		sermonOnly bool
+		at         float64
+		ok         bool
+	}{{"mp3", false, 10.5, true}, {"opus", false, 9.5, true}, {"flac", false, 0, true},
+		{"mp3", true, 0, true}, {"opus", true, 0, false}, {"flac", true, 0, false}} {
+		if at, ok := sermonStart(st, c.sermonOnly, c.format); at != c.at || ok != c.ok {
+			t.Errorf("%s (sermon only %v): %g %v", c.format, c.sermonOnly, at, ok)
+		}
 	}
 }

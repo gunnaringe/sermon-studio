@@ -239,7 +239,8 @@ need (`grep -n`, offsets). Playwright screenshots land in `web/e2e/screenshots/`
   `sermons.js`). It finds its recording by `id` in `recording.json` (given when the share is made; the path is a hint that follows a
   rename, a recording in the trash is not found). `POST api/share/downloads` counts one and hands out a ticket (`GET api/share/downloads/{id}`,
   no code, Range, `ticketFor`); the same file from the same address while its ticket lasts counts nothing. With `listen` (the
-  page's player, the sermon's formats only, or `txt` for Read the transcript, which the page fetches: never a bucket link) the ticket sends the file inline and counts nothing: not in `Count`, the log,
+  page's player, the sermon's formats only, or `txt`/`vtt` for Read the transcript, which the page fetches: never a bucket link; it follows the player from the
+  captions, shifted by `follow` in `api/share`, `sermonStart`: the intro and `outputMade.Pause`, only when the file's cut is the transcript's) the ticket sends the file inline and counts nothing: not in `Count`, the log,
   `Resumable` or the downloads going on; it still needs a code that can be used (`state`). A download share has no limit on its
   downloads (only an expiry, 30 days by default in the dialog); old `maxDownloads` in `shares.json` is ignored.
 - `web/transcribe.go`: transcripts (docs/transcripts.md): a church's language and words (`transcript`, `transcriptWords` in

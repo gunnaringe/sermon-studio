@@ -683,7 +683,8 @@ func (s *Server) recordOutputs(pl plan, began time.Time) {
 			m := outputMade{MadeAt: st.ModTime().UTC(), From: madeFrom(pl.opt, f, clipsOf(x, pl.Clips)), Cut: cutOf(pl.opt),
 				Stereo: pl.opt.Stereo, Bitrate: bitrateFor(pl.opt, f)}
 			if clipsOf(x, pl.Clips) != "" {
-				m.Intro, m.Outro = pl.Clips.Intro, pl.Clips.Outro
+				pause := pl.Clips.Pause
+				m.Intro, m.Outro, m.Pause = pl.Clips.Intro, pl.Clips.Outro, &pause
 			}
 			made[x.format] = m
 		}
