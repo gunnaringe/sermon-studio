@@ -29,7 +29,7 @@ import (
 const shareChunk = 32 << 20
 
 // sharePage is what the public listener serves of the static files.
-var sharePage = map[string]string{"/": "share.html", "/share.js": "share.js", "/util.js": "util.js", "/style.css": "style.css",
+var sharePage = map[string]string{"/": "share.html", "/share.js": "share.js", "/follow.js": "follow.js", "/util.js": "util.js", "/style.css": "style.css",
 	"/i18n.js": "i18n.js", "/locales.js": "locales.js", "/theme.js": "theme.js",
 	"/icons/logo.svg": "icons/logo.svg", "/icons/favicon-32.png": "icons/favicon-32.png", "/icons/apple-touch-icon.png": "icons/apple-touch-icon.png"}
 

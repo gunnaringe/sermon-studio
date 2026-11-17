@@ -415,16 +415,17 @@ export function sermonDetail(entry, ctx = {}) {
     const best = PLAY_ORDER.map((f) => info.outputs.find((x) => x.format === f)).find(Boolean);
     // What the player plays: the format, and with the intro and outro if the files have them.
     const playing = FORMATS.find(([f]) => f === best.format)[1] + (mw && (mw.intro || mw.outro) ? ' · ' + t('with intro and outro') : '');
+    const audio = /** @type {HTMLAudioElement} */ (h('audio', { class: 'player', controls: true, preload: 'none', src: fileURL(best), 'aria-label': t('The sermon') }));
     return [
       h('div', { class: 'facts-line' }, h('p', { class: 'facts' }, facts.join(' · ')), labelEditor()),
       clipFacts ? h('p', { class: 'facts' + (mw.changed ? ' warn' : '') }, clipFacts) : '',
       h('div', { class: 'player-row' },
-        h('audio', { class: 'player', controls: true, preload: 'none', src: fileURL(best), 'aria-label': t('The sermon') }),
+        audio,
         h('span', { class: 'muted player-what' }, t('Plays: {what}', { what: playing }))),
       h('div', { class: 'actions' }, downloadMenu(info, saved, status), iconButton('a', EDIT_ICON, t('Edit sermon'), { class: 'button', href: editURL }, t('Edit')),
         copyLink(), ctx.shares && info.outputs.length && saved ? shareButton(info) : ''), // only a saved sermon is shared
       // info follows the transcript as it is made, so Share for download offers it once it is there.
-      transcriptPanel(entry.path, info, { onDraw: (tx) => { info.transcript = tx; } }).box,
+      transcriptPanel(entry.path, info, { onDraw: (tx) => { info.transcript = tx; }, player: { el: audio, format: best.format } }).box,
       ctx.shares ? sharesBox : '',
     ];
   }

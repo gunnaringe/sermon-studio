@@ -173,6 +173,11 @@ func TestTranscriptState(t *testing.T) {
 		got.Text == nil || got.Captions == nil {
 		t.Errorf("done: %+v", got)
 	}
+	// With the captions, where the sermon starts in each file there of the transcript's cut, for a player.
+	os.WriteFile(p.Mp3, []byte("ID3"), 0o644)
+	if got := info(); len(got.Follow) != 1 || got.Follow["mp3"] != 0 {
+		t.Errorf("follow: %v", got.Follow)
+	}
 	// A run does not make it again.
 	ts.afterRun(folder, nil)
 	if _, ok := ts.cfg.transcriber.status("", "2026-10-04"); ok {

@@ -215,6 +215,15 @@ test('transcripts: Transcript in the editor, the choice of the model, made by Sa
   await page.unroute(/api\/folder\?/);
 });
 
+// sameCut records the transcript as of the cut the Opus file is of (as when it is made from it), so a page can
+// follow the player with it.
+function sameCut() {
+  const statePath = path.join(dir, 'recording.json');
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  state.outputs.transcript = { madeAt: '2026-09-13T12:00:00Z', from: state.outputs.opus.from, cut: state.outputs.opus.cut };
+  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+}
+
 test('transcripts: shared for download with the recording, as text and captions', async ({ page, context }) => {
   await page.goto(recordingPage(folder));
   const detail = page.locator('tr.detail-row');
@@ -236,11 +245,7 @@ test('transcripts: shared for download with the recording, as text and captions'
   await made.getByRole('button', { name: 'OK' }).click();
   await expect(detail.locator('.recording-shares')).toContainText('all formats + transcript');
 
-  // The transcript is of the cut the Opus file is of (as when it is made from it), so the page can follow the player.
-  const statePath = path.join(dir, 'recording.json');
-  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-  state.outputs.transcript = { madeAt: '2026-09-13T12:00:00Z', from: state.outputs.opus.from, cut: state.outputs.opus.cut };
-  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+  sameCut();
 
   // The share page: the files there, and the transcript as text and as captions.
   const down = await context.newPage();
@@ -304,4 +309,24 @@ test('transcripts: shared for download with the recording, as text and captions'
     return r.top >= o.top && r.bottom <= o.bottom;
   })).toBe(true);
   expect(await down.evaluate(() => scrollY)).toBe(pageAt);
+});
+
+test('transcripts: on the recordings page the text follows the sermon\'s player', async ({ page }) => {
+  sameCut();
+  await page.goto('c/first-church/');
+  await page.locator('.year tr.row', { hasText: date }).click();
+  const panel = page.locator('tr.detail-row .transcript');
+  await panel.locator('summary').click();
+  const box = panel.locator('.transcript-text.follows');
+  await expect(box.locator('.cue')).toHaveCount(3);
+  await expect(box.locator('p')).toHaveCount(2);
+  // A sentence pressed plays the row's player from there, and is marked while it is heard.
+  await box.locator('.cue').nth(2).click();
+  const player = page.locator('tr.detail-row audio.player');
+  await expect.poll(() => player.evaluate((a) => a.currentTime)).toBeGreaterThanOrEqual(16);
+  await expect(box.locator('.cue').nth(2)).toHaveClass(/\bnow\b/);
+  await player.evaluate((a) => { a.pause(); a.currentTime = 9; });
+  await expect(box.locator('.cue').nth(1)).toHaveClass(/\bnow\b/);
+  await expect(box.locator('.cue').nth(1)).toHaveAttribute('aria-current', 'true');
+  await page.locator('tr.detail-row').screenshot({ path: path.join(shots, 'transcript-follow.png') });
 });
