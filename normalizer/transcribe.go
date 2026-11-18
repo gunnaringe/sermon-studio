@@ -254,11 +254,12 @@ func (w Whisper) transcribePart(ctx context.Context, f FFmpeg, in, srt string, s
 }
 
 // promptWords is how many of the last words of a part go on to the next one's prompt. whisper reads about 220
-// tokens of prompt and keeps its end; with a church's words (at most MaxWords characters) before them, both fit.
+// tokens of prompt and keeps its end, so a prompt longer than that loses the church's words first; with at most
+// MaxWords of them before these (Norwegian is about 1.5–2 tokens a word), both fit.
 const promptWords = 30
 
-// MaxWords is how long a church's words may be (Transcription.Words), in characters.
-const MaxWords = 300
+// MaxWords is how many words a church's or a recording's names and words may be (Transcription.Words).
+const MaxWords = 60
 
 // partPrompt is a part's prompt: the church's words, then the last words of the part before.
 func partPrompt(words, before string) string {
