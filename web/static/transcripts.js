@@ -86,10 +86,10 @@ export async function transcriptSettings(box) {
     return h('label', { class: 'transcript-words' },
       h('span', { class: 'name' }, t('Names and words')),
       h('span', {},
-        h('textarea', { name: 'transcript-words', rows: 3, maxlength: 3000,
+        h('textarea', { name: 'transcript-words', rows: 3, maxlength: 1000,
           placeholder: t('Kari Nordmann, Fjellheim church, Habakkuk'),
           onchange: (e) => { data.words = e.target.value; save(); } }, data.words || ''),
-        h('span', { class: 'muted' }, t('What a recording\'s transcript starts with: names, places and words the sermons use, spelled as they should be. Each recording keeps its own, which can be changed in its editor. Keep it short: at most {n} words.', { n: data.maxWords }))));
+        h('span', { class: 'muted' }, t('Names, places and rare words the sermons use, separated by commas and spelled as they should be: the speech model starts each transcript with them, so it writes them right. Only words it gets wrong are needed, not sentences. Each recording keeps its own, which can be changed in its editor. At most {n} words: fewer is better.', { n: data.maxWords }))));
   }
   draw();
 }

@@ -68,7 +68,7 @@ export function transcriptPart(ed) {
     chooser = { get language() { return lang; }, get model() { return model.model; } };
     churchWords = data.words || '';
     // The recording's names and words, from the church's until changed here; kept with the edit, so Save keeps them.
-    const wordsBox = h('textarea', { name: 'transcript-words', rows: 2, maxlength: 3000, 'aria-label': t('Names and words'),
+    const wordsBox = h('textarea', { name: 'transcript-words', rows: 2, maxlength: 1000, 'aria-label': t('Names and words'),
       oninput: (e) => { opts.transcriptWords = e.target.value; changed(); ed.saveSoon(); } }, words());
     ed.redrawWords = () => { wordsBox.value = words(); changed(); };
     chooserEl = h('div', { class: 'transcript-choice', hidden: !on },
@@ -76,7 +76,7 @@ export function transcriptPart(ed) {
       model.el,
       h('label', { class: 'transcript-words' }, h('span', { class: 'name' }, t('Names and words')),
         h('span', {}, wordsBox,
-          h('span', { class: 'muted' }, t('Names, places and words this sermon uses, spelled as they should be: they help the speech model write them right. It starts with the church\'s, from Settings → Transcripts.')))),
+          h('span', { class: 'muted' }, t('Names, places and rare words this sermon uses, separated by commas and spelled as they should be: they help the speech model write them right. It starts with the church\'s, from Settings → Transcripts. At most {n} words.', { n: data.maxWords })))),
       h('p', { class: 'muted hint' }, t('Save makes it from the files of the cut sermon, after them. It runs on the server and can take longer than the sermon.')));
     drawPill();
     const section = h('section', { class: 'step', 'aria-labelledby': 'step-transcript' },
