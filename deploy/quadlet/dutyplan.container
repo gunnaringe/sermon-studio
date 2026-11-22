@@ -29,8 +29,8 @@ Memory=1536m
 PidsLimit=512
 # The planner (OR-Tools) uses what it gets: two cores at most, so the studio's transcription keeps going.
 PodmanArgs=--cpus=2
-# The image has no wget; its Python asks instead.
-HealthCmd=/opt/solver/bin/python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=5)"
+# The image has no wget: the app asks itself (a command with quotes loses them on the way to podman).
+HealthCmd=/usr/local/bin/dutyplan health
 HealthInterval=30s
 HealthStartPeriod=30s
 HealthOnFailure=kill
