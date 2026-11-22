@@ -11,6 +11,8 @@ ingress:
     service: http://127.0.0.1:8081
   - hostname: demo.${DOMAIN}
     service: http://127.0.0.1:8090
+  - hostname: dutyplan.${DOMAIN}
+    service: http://127.0.0.1:8100
   - hostname: "*.${DOMAIN}"
     service: http://127.0.0.1:8080
   - service: http_status:404

@@ -10,7 +10,7 @@
 set -eu
 
 uids=''
-for u in sermon-studio sermon-studio-demo pocket-id; do
+for u in sermon-studio sermon-studio-demo pocket-id dutyplan; do
   if id -u "$u" >/dev/null 2>&1; then uids="$uids${uids:+, }$(id -u "$u")"; fi
 done
 [ -n "$uids" ] || { echo "egress: none of the apps' users exist" >&2; exit 1; }
