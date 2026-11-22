@@ -7,12 +7,13 @@ here=$(cd "$(dirname "$0")" && pwd)
 [ "$(id -u)" = 0 ] || { echo "install.sh: run as root" >&2; exit 1; }
 
 # Each app runs rootless as its own user, its data in /srv/<user>.
-apps=(sermon-studio sermon-studio-demo pocket-id cloudflared)
+apps=(sermon-studio sermon-studio-demo pocket-id dutyplan cloudflared)
 declare -A owner=(
   [sermon-studio.container]=sermon-studio
   [sermon-studio-models.container]=sermon-studio
   [sermon-studio-demo.container]=sermon-studio-demo
   [pocket-id.container]=pocket-id
+  [dutyplan.container]=dutyplan
   [cloudflared.container]=cloudflared
 )
 declare -A restart=() # user → units whose files changed
@@ -49,16 +50,19 @@ done
 install -d -o sermon-studio -g sermon-studio -m 0750 /srv/sermon-studio/data
 install -d -o sermon-studio-demo -g sermon-studio-demo -m 0750 /srv/sermon-studio-demo/seed
 install -d -o pocket-id -g pocket-id -m 0750 /srv/pocket-id/data
+install -d -o dutyplan -g dutyplan -m 0750 /srv/dutyplan/data
 
 step settings
 install -d -m 0755 /etc/sermon-studio /etc/sermon-studio/examples
 install -d -o root -g cloudflared -m 0750 /etc/sermon-studio/cloudflared
 for f in "$here"/env/*.example; do put "$f" "/etc/sermon-studio/examples/$(basename "$f")" 0644 || true; done
 # The settings themselves are made by hand from the examples; here only their owner and mode.
-for app in sermon-studio pocket-id; do
+for app in sermon-studio pocket-id dutyplan; do
   f=/etc/sermon-studio/$app.env
   if [ -e "$f" ]; then chown "root:$app" "$f"; chmod 0640 "$f"; fi
 done
+f=/etc/sermon-studio/dutyplan-client-secret
+if [ -e "$f" ]; then chown root:dutyplan "$f"; chmod 0640 "$f"; fi
 creds=/etc/sermon-studio/cloudflared/credentials.json
 if [ -e "$creds" ]; then chown root:cloudflared "$creds"; chmod 0640 "$creds"; fi
 if [ -e /etc/sermon-studio/cloudflared.env ] && [ -e "$creds" ]; then
@@ -111,6 +115,6 @@ for u in "${apps[@]}"; do
     printf '   %-32s %s\n' "$unit" "$(as "$u" systemctl --user is-active "$unit" || true)"
   done
 done
-for f in sermon-studio.env pocket-id.env cloudflared.env cloudflared/credentials.json; do
+for f in sermon-studio.env pocket-id.env dutyplan.env dutyplan-client-secret cloudflared.env cloudflared/credentials.json; do
   [ -e "/etc/sermon-studio/$f" ] || echo "   not set up yet: /etc/sermon-studio/$f (docs/hosting.md)"
 done

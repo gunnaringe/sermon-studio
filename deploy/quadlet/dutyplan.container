@@ -1,0 +1,46 @@
+# Dutyplan (Tjenesteplan, github.com/gunnaringe/dutyplan) at dutyplan.<domain>: a separate app on the same
+# machine, signing in with the same Pocket ID. Rootless, as the user dutyplan, which can reach nothing of the
+# studio's (docs/hosting.md). Its database is /srv/dutyplan/data/dutyplan.db.
+
+[Unit]
+Description=Dutyplan
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+ConditionPathExists=/etc/sermon-studio/dutyplan.env
+
+[Container]
+ContainerName=dutyplan
+Image=ghcr.io/gunnaringe/dutyplan:main
+AutoUpdate=registry
+EnvironmentFile=/etc/sermon-studio/dutyplan.env
+Environment=DUTYPLAN_OIDC_CLIENT_SECRET_FILE=/run/secrets/oidc-client-secret
+Exec=--addr 0.0.0.0:8080 --db /data/dutyplan.db --workers 2
+Volume=/srv/dutyplan/data:/data
+Volume=/etc/sermon-studio/dutyplan-client-secret:/run/secrets/oidc-client-secret:ro
+PublishPort=127.0.0.1:8100:8080
+# The image runs as 10001: that is the user dutyplan here, so it owns /srv/dutyplan/data.
+UserNS=keep-id:uid=10001,gid=10001
+ReadOnly=true
+Tmpfs=/tmp:rw,size=64m,mode=1777
+DropCapability=all
+NoNewPrivileges=true
+Memory=1536m
+PidsLimit=512
+# The planner (OR-Tools) uses what it gets: two cores at most, so the studio's transcription keeps going.
+PodmanArgs=--cpus=2
+# The image has no wget; its Python asks instead.
+HealthCmd=/opt/solver/bin/python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=5)"
+HealthInterval=30s
+HealthStartPeriod=30s
+HealthOnFailure=kill
+Notify=healthy
+StopTimeout=30
+
+[Service]
+Restart=always
+RestartSec=10s
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

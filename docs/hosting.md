@@ -11,6 +11,7 @@ stay on it, in `/etc/sermon-studio/`.
 | `sermon-studio-models` | sermon-studio | | the speech models, in the same data | |
 | `sermon-studio-demo` | sermon-studio-demo | 8090 | none: a tmpfs, fresh every start | `demo.` |
 | `pocket-id` | pocket-id | 1411 | `/srv/pocket-id/data` | `id.` |
+| `dutyplan` | dutyplan | 8100 | `/srv/dutyplan/data` | `dutyplan.` (another app, [Dutyplan](https://github.com/gunnaringe/dutyplan), with the same login) |
 | `cloudflared` | cloudflared | | | sends each address to its port |
 
 ## What keeps it safe
@@ -67,7 +68,7 @@ ssh <host> sudo install -m 0640 -o root -g cloudflared /dev/stdin \
 ```
 
 Then `cloudflared.env` on the host (`DOMAIN=<domain>`), and in Cloudflare's DNS a proxied CNAME `*` to
-`<tunnel id>.cfargotunnel.com` (it carries `my.`, `id.`, `share.`, `demo.` and every church; the bare domain
+`<tunnel id>.cfargotunnel.com` (it carries `my.`, `id.`, `share.`, `demo.`, `dutyplan.` and every church; the bare domain
 stays free for a website). Run `deploy/deploy.sh <host>` again: it makes cloudflared's config
 ([`deploy/cloudflared.yml.in`](../deploy/cloudflared.yml.in)) and starts it.
 
@@ -111,4 +112,5 @@ and the models.
   come back by themselves);
 - `/srv/pocket-id/data`: the accounts and passkeys (a copy of a running SQLite database: `sqlite3 .backup`),
   and its `ENCRYPTION_KEY`, without which the database cannot be read;
+- `/srv/dutyplan/data`: Dutyplan's SQLite database (with `sqlite3 .backup` too);
 - `/etc/sermon-studio`: the settings and the tunnel's credentials.
